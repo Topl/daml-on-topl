@@ -1,0 +1,9 @@
+logs/
+lib/
+*.log
+target/
+navigator.history
+.navigator.conf
+.daml/
+.vscode/
+
