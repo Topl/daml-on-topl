@@ -1,0 +1,21 @@
+sdk-version: 1.18.1
+name: Topl
+version: 0.1.0
+source: daml
+parties:
+  - Alice
+  - Bob
+  - Carol
+  - Dave
+  - AU9avKWiVVPKyU9LoMqDpduS4knoLDMdPEK54qKDNBpdnAMwQZcS 
+exposed-modules:
+  - Topl
+dependencies:
+  - daml-prim
+  - daml-stdlib
+sandbox-options:
+- --wall-clock-time
+codegen:
+  js:
+    output-directory: ui/daml.js
+    npm-scope: daml.js
