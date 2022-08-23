@@ -1,0 +1,63 @@
+-- Copyright (c) 2022 Topl
+
+module Topl.Onboarding where
+
+    import Topl.Transfer
+
+    type UserInvitationCid = ContractId UserInvitation
+    type UserCid = ContractId User
+
+    template Operator
+        with
+            operator : Party
+        where
+            signatory operator
+
+            nonconsuming choice Operator_InviteUser : UserInvitationCid
+                with
+                    user : Party
+                controller operator
+                do
+                create UserInvitation with ..
+
+
+
+    template UserInvitation
+        with
+            operator : Party
+            user     : Party
+        where
+            signatory operator
+            observer user
+
+            
+            choice UserInvitation_Accept : UserCid
+                controller user
+                    do create User with ..
+
+            choice UserInvitation_Reject : ()
+                controller user
+                    do return ()
+
+            choice UserInvitation_Cancel : ()
+                controller operator
+                do return ()
+    template User
+        with
+            operator : Party
+            user     : Party
+        where
+            signatory operator, user
+
+            nonconsuming choice User_SendPolys : TransferRequestCid
+                with
+                    from                 : [Text]
+                    to                   : [(Text, Int)]
+                    changeAddress        : Text
+                    fee                  : Int
+                controller user
+                    do create TransferRequest with ..
+
+            choice User_Revoke : ()
+                controller operator
+                do return ()
