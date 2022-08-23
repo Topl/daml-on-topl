@@ -1,9 +1,7 @@
-logs/
-lib/
-*.log
+/.daml
+/log
+navigator.log
 target/
-navigator.history
-.navigator.conf
-.daml/
-.vscode/
-
+.bloop/
+.metals/
+keyfile.json

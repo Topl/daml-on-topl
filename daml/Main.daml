@@ -1,0 +1,26 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Main where
+
+import Daml.Script
+import Topl.Onboarding
+-- import Topl.Transfer
+
+initialize : Script [Party]
+initialize = do
+      operator <- allocateParty "Operator"
+      operatorId <- validateUserId "operator"
+      alice <- allocateParty "Alice"
+      aliceId <- validateUserId "alice"
+      operatorCid <- submit operator do
+        createCmd Operator with operator
+      userInvitationCid <- submit operator do
+        exerciseCmd operatorCid  Operator_InviteUser 
+          with user = alice
+      aliceUserCid <- submit alice do
+        exerciseCmd userInvitationCid UserInvitation_Accept
+      createUser (Daml.Script.User aliceId (Some alice)) [CanActAs alice]
+      createUser (Daml.Script.User operatorId (Some operator)) [CanActAs operator]
+      pure [alice]
