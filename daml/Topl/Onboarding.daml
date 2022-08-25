@@ -2,14 +2,25 @@
 
 module Topl.Onboarding where
 
+
+
     import Topl.Transfer
+    import Topl.Asset
+    import Topl.Utils
+    import DA.List
+    -- import DA.Traversable
 
     type UserInvitationCid = ContractId UserInvitation
+    type OrganizationCid = ContractId Organization
+    type AssetCreatorCid = ContractId AssetCreator
+    type MembershipOfferCid = ContractId MembershipOffer
     type UserCid = ContractId User
+
 
     template Operator
         with
             operator : Party
+            address  : Text
         where
             signatory operator
 
@@ -20,7 +31,167 @@ module Topl.Onboarding where
                 do
                 create UserInvitation with ..
 
+            nonconsuming choice Operator_CreateOrganization : OrganizationCid
+                with
+                    orgName         : Text
+                controller operator
+                do
+                    create Organization
+                        with 
+                            wouldBeMembers = []
+                            members = []
+                            assetCodes = []
+                            ..
 
+
+    template AssetCreator
+        with
+            operator     : Party
+            organization : Organization
+            assetCode    : AssetCode
+                where
+                    signatory operator, organization.members
+
+                    key (operator, organization.orgName, assetCode): (Party, Text, AssetCode)
+
+                    maintainer key._1
+
+                    nonconsuming choice MintAsset : MintingRequestCid
+                        with
+                            from                 : [Text]
+                            to                   : [(Text, Int)]
+                            changeAddress        : Text
+                            fee                  : Int
+                                controller organization.members
+                                    do create MintingRequest with ..
+
+
+    template Organization
+        with
+            orgName         : Text
+            address         : Text
+            operator        : Party
+            wouldBeMembers  : [ Party ] 
+            members         : [ Party ]
+            assetCodes      : [ AssetCode ] 
+        where
+            signatory operator, members
+
+            observer wouldBeMembers
+
+            key (operator, orgName) : (Party, Text)
+            maintainer key._1
+            ensure 
+                unique members
+
+            choice Organization_InviteMember : MembershipOfferCid
+                with
+                    invitee : Party
+                controller operator
+                do
+                    assert (invitee `notElem` members)
+                    assert (invitee `notElem` wouldBeMembers)
+
+                    create this with  wouldBeMembers = invitee :: wouldBeMembers
+                    create MembershipOffer with 
+                        operator = operator
+                        members = members
+                        invitee = invitee
+                        orgName = orgName
+
+            choice Organization_AddMember : OrganizationCid
+                with
+                    invitee : Party
+                controller operator
+                do
+                    assert (invitee `elem` wouldBeMembers)
+                    assert (invitee `notElem` members)
+                    -- we remove the invitee from the would be members
+                    let newWoudBeMembers = filter (\x -> invitee /= x) wouldBeMembers
+                    let currentAssets = assetCodes
+                    -- we need to invite all would be members again, since the old invitations will not work
+                    idsAndinvitations <- mapA (\i -> fetchByKey @MembershipOffer (operator, i, orgName)) wouldBeMembers
+                    let existingInvitationIds = map (\x -> x._1) idsAndinvitations
+                    -- we archive the old invitations
+                    archived <- mapA
+                        (\invitationId -> archive invitationId) 
+                        existingInvitationIds                
+                    -- archive existing asset contracts
+                    idAndCreators <- mapA (\assetCode -> fetchByKey @AssetCreator (operator, orgName, assetCode)) assetCodes
+                    let existingAssetCreatorsId = map (\x -> x._1) idAndCreators
+                    archived <- mapA
+                        (\assetCreatorsId -> archive assetCreatorsId) 
+                        existingAssetCreatorsId
+                    -- this recreates all the asset creators
+                    newOrg <- foldr 
+                        (\assetCode updateOp -> 
+                                (updateOp >>= -- this is a haskell flatMap
+                                    (\newOrg -> exercise 
+                                        newOrg Organization_CreateAsset with 
+                                            requestor = invitee
+                                            version = assetCode.version
+                                            issuerAddress = assetCode.issuerAddress
+                                            shortName = assetCode.shortName)))
+                        (create this with  wouldBeMembers = newWoudBeMembers, members = invitee :: members, assetCodes = [])
+                        assetCodes
+                    -- this recreates all new invitations using the new members
+                    -- this is necessary, because all members need to sign to add a member
+                    newInvitations <- mapA
+                        (\wouldBeMember -> exercise newOrg Organization_InviteMember with invitee = wouldBeMember) 
+                        wouldBeMembers    
+                    do
+                        return newOrg
+                    
+
+            choice Organization_CreateAsset : OrganizationCid
+                with
+                    requestor : Party
+                    version : Int
+                    issuerAddress : Text
+                    shortName : Text
+                controller requestor
+                do 
+                    assert (requestor `elem` members)
+                    let asset = AssetCode
+                                    with
+                                        version = version
+                                        issuerAddress = issuerAddress
+                                        shortName = shortName
+                    create this with assetCodes =   asset :: assetCodes
+                    
+
+
+
+    template MembershipOffer
+        with
+            operator        : Party
+            members         : [ Party ]
+            invitee         : Party
+            orgName         : Text
+        where
+            signatory operator, members
+            key (operator, invitee, orgName): (Party, Party, Text)
+
+            maintainer key._1
+
+            observer  invitee
+
+            choice Membershp_Accept : OrganizationCid
+                controller invitee
+                    do 
+                        existingContract <- fetchByKey  @Organization (operator, orgName)
+                        archive existingContract._1
+                        create existingContract._2 with
+                            wouldBeMembers = filter (/= invitee) existingContract._2.wouldBeMembers
+                            members = invitee :: existingContract._2.members
+
+            choice Membership_Reject : ()
+                controller invitee
+                    do return ()
+
+            choice MembershipOffer_Archive : ()
+                controller operator
+                do return ()
 
     template UserInvitation
         with
@@ -42,6 +213,7 @@ module Topl.Onboarding where
             choice UserInvitation_Cancel : ()
                 controller operator
                 do return ()
+
     template User
         with
             operator : Party
@@ -57,6 +229,7 @@ module Topl.Onboarding where
                     fee                  : Int
                 controller user
                     do create TransferRequest with ..
+
 
             choice User_Revoke : ()
                 controller operator

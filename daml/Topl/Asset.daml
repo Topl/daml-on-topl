@@ -2,53 +2,32 @@
 
 module Topl.Asset where
 
-    import Topl.Utils
-    import DA.Assert
+    -- import Topl.Utils
 
     type MintingRequestCid = ContractId MintingRequest
+
+
+
 
     template MintingRequest
         with 
             operator             : Party
-            user                 : Party
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
             fee                  : Int
                 where 
-                    signatory operator, user
-                    choice TransferRequest_Accept : UnsignedTransferCid with 
+                    signatory operator
+                    choice TransferRequest_Accept : MintingRequestCid with 
                             txToSign : Text
                         controller operator
                             do
-                                create UnsignedTransfer with ..
+                                create MintingRequest with ..
                     choice TransferRequest_Reject : ()
                         controller operator
                             do
                                 return ()
                     choice TransferRequest_Archive : ()
-                        controller user
+                        controller operator
                             do
                                 return ()
-
-    template UnsignedTransfer
-        with
-            operator : Party
-            user     : Party
-            from     : [Text]
-            to       : [(Text, Int)]
-            txToSign : Text
-        where
-            signatory operator, user
-
-            choice UnsignedTransfer_Sign : SignedTransferCid
-                    with
-                        signedTx : Text
-                    controller user
-                        do 
-                            create SignedTransfer with sendStatus = Pending, ..
-
-            choice UnsignedTransfer_Archive : ()
-                    controller operator
-                    do
-                        return ()

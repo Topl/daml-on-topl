@@ -9,7 +9,7 @@ module Tests.Transfer where
       operator <- allocateParty "Operator"
       alice <- allocateParty "Alice"
       operatorCid <- submit operator do
-        createCmd Operator with operator
+        createCmd Operator with operator = operator, address = "XXXX"
       userInvitationCid <- submit operator do
         exerciseCmd operatorCid  Operator_InviteUser 
           with user = alice
