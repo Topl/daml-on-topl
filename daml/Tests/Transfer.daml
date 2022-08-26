@@ -21,4 +21,3 @@ module Tests.Transfer where
           to = [("YYYYY", 20)]
           changeAddress = "XXXXX"
           fee = 100
-      
