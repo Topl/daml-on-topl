@@ -9,6 +9,7 @@ module Topl.Organization where
     type AssetCreatorCid = ContractId AssetCreator
     type MembershipOfferCid = ContractId MembershipOffer
     type MembershipAcceptanceCid = ContractId MembershipAcceptance
+    type AssetIouCid = ContractId AssetIou
 
     -- this contract allows members of an organization to mint a given asset code
     template AssetCreator
@@ -76,6 +77,16 @@ module Topl.Organization where
                     create MembershipOffer with 
                         organization = this
                         ..
+            choice Organization_AddSignedAssetTransfer: AssetIouCid with
+                    signedAssetTransfer: SignedAssetMinting
+                controller operator
+                do
+                    create  AssetIou with
+                        organization    = this
+                        assetCode       = signedAssetTransfer.assetCode
+                        commitRoot      = signedAssetTransfer.commitRoot
+                        ..
+
 
             choice Organization_Update : OrganizationCid
                 controller operator
@@ -183,7 +194,8 @@ module Topl.Organization where
                 controller operator
                 do return ()
 
-    -- This represents the fact that the operator owes the organization some asset
+            
+  -- This represents the fact that the operator owes the organization some asset
     template AssetIou
         with
             operator        : Party
@@ -195,7 +207,7 @@ module Topl.Organization where
 
                     choice AssetIou_UpdateAsset: ()
                         with 
-                            requestor : Party
+                            requestor       : Party
                             newCommitRoot : Optional Text
                             newMetadata   : Optional Text
 
@@ -205,9 +217,9 @@ module Topl.Organization where
 
                     choice AssetIou_Transfer: ()
                         with 
-                            requestor    : Party
-                            newOwnerOrg  : Organization
+                            requestor       : Party
                         controller requestor
                         do
                             assert (requestor `elem` organization.members)
+                            return ()
 

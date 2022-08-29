@@ -5,7 +5,7 @@ module Tests.Transfer where
     import Topl.Onboarding
 
     
-    transfer_test = script do
+    poly_transfer_test = script do
       operator <- allocateParty "Operator"
       alice <- allocateParty "Alice"
       operatorCid <- submit operator do

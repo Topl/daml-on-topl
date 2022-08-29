@@ -1,0 +1,63 @@
+module Tests.Asset where
+    import Daml.Script
+    import Tests.Organization
+    import Topl.Organization
+    import Topl.Asset
+    import DA.Optional
+    import DA.List
+    import Topl.Utils
+
+    org_create_asset_creator_test = script do
+        -- we can reuse previous tests, this one creates two users in an organization
+        (operator, alice, bob) <- org_add_two_member_test
+        someOrg <- queryContractKey @Organization operator (operator, "Topl")
+        let orgId = (fromSome someOrg)._1
+        let org = (fromSome someOrg)._2
+        org <- submit alice do 
+            exerciseCmd orgId Organization_CreateAsset with
+                requestor = alice
+                version = 1
+                issuerAddress = org.address
+                shortName = "Wheat"
+        return (operator, alice, bob, org)
+        -- now we create an asset creator
+
+    asset_creator_mint_asset = script do
+        (operator, alice, bob, org) <- org_create_asset_creator_test
+        someOrg <- queryContractKey @Organization operator (operator, "Topl")
+        let orgId = (fromSome someOrg)._1
+        let org = (fromSome someOrg)._2
+        someAssetCreator <- queryContractKey @AssetCreator operator (operator, "Topl", head org.assetCodes)
+        let assetCreatorCid = (fromSome someAssetCreator)._1
+        assetMintingRequestCid <- submit alice do 
+            exerciseCmd assetCreatorCid MintAsset with
+                requestor = alice
+                quantity = 10
+                commitRoot = "XXXX"
+                metadata = "YYYY"
+                someFee = None
+        unsignedAssetMintingCid <- submit operator do
+            exerciseCmd assetMintingRequestCid MintingRequest_Accept with
+                txToSign = "ZZZZ"
+        signedAssetMintingCreated <- submit operator do
+            exerciseCmd unsignedAssetMintingCid UnsignedMinting_Sign with
+                signedMintTx = "WWWWW"
+        t <- getTime
+        signedAssetMintingSentCid <- submit operator do
+            exerciseCmd signedAssetMintingCreated SignedAssetMinting_Sent 
+                with
+                    newSendStatus = Sent with
+                                        when = t
+                                        from = "XXXX"
+                                        txHash = None
+        signedAssetMintingCid <- submit operator do 
+            exerciseCmd signedAssetMintingSentCid SignedAssetMinting_Confirm with
+                txId = "XXXXX"
+                depth = 1
+        signedAssetMinting <- queryContractId operator signedAssetMintingCid
+        assetIou <- submit operator do
+            exerciseCmd orgId Organization_AddSignedAssetTransfer with
+                signedAssetTransfer = fromSome signedAssetMinting
+        signedAssetMintingCid <- submit operator do 
+            exerciseCmd signedAssetMintingCid SignedAssetMinting_Archive
+        return (operator, alice, bob, assetIou) 

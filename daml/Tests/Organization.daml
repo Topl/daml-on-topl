@@ -53,6 +53,8 @@ module Tests.Organization where
         assert (alice `notElem` (fromSome someOrgData).wouldBeMembers)
         assert (bob `elem` (fromSome someOrgData).members)
         assert (bob `notElem` (fromSome someOrgData).wouldBeMembers)
+        do
+            return (operator, alice, bob)
     
     -- add more than one: we add two members to the org, the membership invitation needs to be recreated
     org_add_two_member_concurrently_test = script do
