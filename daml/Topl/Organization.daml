@@ -8,6 +8,7 @@ module Topl.Organization where
     type OrganizationCid = ContractId Organization
     type AssetCreatorCid = ContractId AssetCreator
     type MembershipOfferCid = ContractId MembershipOffer
+    type MembershipAcceptanceCid = ContractId MembershipAcceptance
 
     -- this contract allows members of an organization to mint a given asset code
     template AssetCreator
@@ -73,13 +74,12 @@ module Topl.Organization where
 
                     create this with  wouldBeMembers = invitee :: wouldBeMembers
                     create MembershipOffer with 
+                        organization = this
                         ..
 
-            choice Organization_UpdateEnvironment : OrganizationCid
+            choice Organization_Update : OrganizationCid
                 controller operator
                 do
-                    -- assert (invitee `elem` wouldBeMembers)
-                    -- assert (invitee `notElem` members)
                     -- we remove the invitee from the would be members
                     let currentAssets = assetCodes
                     -- we need to invite all would be members again, since the old invitations will not work
@@ -105,7 +105,7 @@ module Topl.Organization where
                                             version = assetCode.version
                                             issuerAddress = assetCode.issuerAddress
                                             shortName = assetCode.shortName)))
-                        (create this with wouldBeMembers = [],  assetCodes = [])
+                        (create this with wouldBeMembers = [], members = members,  assetCodes = [])
                         assetCodes
                     -- this recreates all new invitations using the new members
                     -- this is necessary, because all members need to sign to add a member, an organization
@@ -137,28 +137,42 @@ module Topl.Organization where
                         assetCode = asset
                     create this with assetCodes =   asset :: assetCodes
 
+    template MembershipAcceptance
+        with
+            operator        : Party
+            invitee         : Party
+            organization    : Organization
+        where
+            signatory operator, invitee, organization.members
+
+            choice AddUserToOrganization: OrganizationCid
+                controller operator
+                    do
+                        existingContract <- fetchByKey  @Organization (operator,  organization.orgName)
+                        archive existingContract._1
+                        newContract <- create existingContract._2
+                            with 
+                                wouldBeMembers = filter (/= invitee) existingContract._2.wouldBeMembers
+                                members = invitee :: existingContract._2.members
+                        exercise newContract Organization_Update
+
     template MembershipOffer
         with
             operator        : Party
-            members         : [ Party ]
+            organization    : Organization
             invitee         : Party
-            orgName         : Text
         where
-            signatory operator, members
-            key (operator, invitee, orgName): (Party, Party, Text)
+            signatory operator, organization.members
+            key (operator, invitee, organization.orgName): (Party, Party, Text)
 
             maintainer key._1
 
             observer  invitee
 
-            choice Membershp_Accept : OrganizationCid
+            choice Membershp_Accept : MembershipAcceptanceCid
                 controller invitee
                     do 
-                        existingContract <- fetchByKey  @Organization (operator, orgName)
-                        archive existingContract._1
-                        create existingContract._2 with
-                            wouldBeMembers = filter (/= invitee) existingContract._2.wouldBeMembers
-                            members = invitee :: existingContract._2.members
+                        create MembershipAcceptance with ..
                         
 
             choice Membership_Reject : ()
