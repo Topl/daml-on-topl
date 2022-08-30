@@ -84,11 +84,12 @@ module Topl.Organization where
                         organization = this
                         ..
             nonconsuming choice Organization_AddSignedAssetMinting: AssetIouCid with
-                    signedAssetMinting: SignedAssetMinting
                     signedAssetMintingCid : SignedAssetMintingCid
                 controller operator
                 do
+                    signedAssetMinting <- fetch @SignedAssetMinting signedAssetMintingCid
                     archive signedAssetMintingCid
+
                     create  AssetIou with
                         organization    = this
                         assetCode       = signedAssetMinting.assetCode
@@ -98,10 +99,10 @@ module Topl.Organization where
                         ..
 
             nonconsuming choice Organization_AddSignedAssetTransfer: AssetIouCid with
-                    signedAssetTransfer: SignedAssetTransfer
                     signedAssetTransferCid : SignedAssetTransferCid
                 controller operator
                 do
+                    signedAssetTransfer <- fetch @SignedAssetTransfer signedAssetTransferCid
                     archive signedAssetTransferCid
                     create  AssetIou with
                         organization    = this

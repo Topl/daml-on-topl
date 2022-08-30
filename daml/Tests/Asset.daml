@@ -58,7 +58,6 @@ module Tests.Asset where
         signedAssetMinting <- queryContractId operator signedAssetMintingCid
         assetIou <- submit operator do
             exerciseCmd orgId Organization_AddSignedAssetMinting with
-                signedAssetMinting = fromSome signedAssetMinting
                 signedAssetMintingCid = signedAssetMintingCid
         someAssetIou <- queryContractId @AssetIou operator assetIou
         (fromSome someAssetIou).someMetadata === (Some "YYYY")
@@ -97,7 +96,6 @@ module Tests.Asset where
         let org = (fromSome someOrg)._2
         assetIou <- submit operator do
             exerciseCmd orgId Organization_AddSignedAssetTransfer with
-                signedAssetTransfer = fromSome someSignedAssetTransferCid
                 signedAssetTransferCid = signedAssetTransferCid
         someAssetIou <- queryContractId @AssetIou operator assetIou
         (fromSome someAssetIou).someMetadata === (Some "VVVVV")
