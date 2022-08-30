@@ -84,21 +84,25 @@ module Topl.Organization where
                         organization = this
                         ..
             nonconsuming choice Organization_AddSignedAssetMinting: AssetIouCid with
-                    signedAssetTransfer: SignedAssetMinting
+                    signedAssetMinting: SignedAssetMinting
+                    signedAssetMintingCid : SignedAssetMintingCid
                 controller operator
                 do
+                    archive signedAssetMintingCid
                     create  AssetIou with
                         organization    = this
-                        assetCode       = signedAssetTransfer.assetCode
-                        quantity        = signedAssetTransfer.quantity
-                        someMetadata    = signedAssetTransfer.someMetadata
-                        someCommitRoot  = signedAssetTransfer.someCommitRoot
+                        assetCode       = signedAssetMinting.assetCode
+                        quantity        = signedAssetMinting.quantity
+                        someMetadata    = signedAssetMinting.someMetadata
+                        someCommitRoot  = signedAssetMinting.someCommitRoot
                         ..
 
             nonconsuming choice Organization_AddSignedAssetTransfer: AssetIouCid with
                     signedAssetTransfer: SignedAssetTransfer
+                    signedAssetTransferCid : SignedAssetTransferCid
                 controller operator
                 do
+                    archive signedAssetTransferCid
                     create  AssetIou with
                         organization    = this
                         assetCode       = signedAssetTransfer.assetCode

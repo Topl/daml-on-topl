@@ -9,8 +9,8 @@ module Topl.Asset where
     isSent New = False 
     isSent Pending = False 
     isSent (Sent {} ) = True 
-    isSent (FailedToSend _ ) = False 
-    isSent (Confirmed _ _) = False 
+    isSent (FailedToSend {} ) = False 
+    isSent (Confirmed {}) = False 
 
     type AssetMintingRequestCid = ContractId AssetMintingRequest
     type UnsignedAssetMintingCid = ContractId UnsignedAssetMinting
@@ -113,6 +113,7 @@ module Topl.Asset where
                         controller operator
                         do 
                             sendStatus === Pending
+                            assert (isSent newSendStatus)
                             create this with sendStatus = newSendStatus
                     choice SignedAssetMinting_Reject : ()
                         controller operator

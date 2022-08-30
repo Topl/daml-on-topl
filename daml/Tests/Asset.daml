@@ -5,6 +5,7 @@ module Tests.Asset where
     import Topl.Asset
     import DA.Optional
     import DA.List
+    import DA.Assert
     import Topl.Utils
 
     org_create_asset_creator_test = script do
@@ -57,10 +58,12 @@ module Tests.Asset where
         signedAssetMinting <- queryContractId operator signedAssetMintingCid
         assetIou <- submit operator do
             exerciseCmd orgId Organization_AddSignedAssetMinting with
-                signedAssetTransfer = fromSome signedAssetMinting
-        signedAssetMintingCid <- submit operator do 
-            exerciseCmd signedAssetMintingCid SignedAssetMinting_Archive
-        return (operator, alice, bob, assetIou) 
+                signedAssetMinting = fromSome signedAssetMinting
+                signedAssetMintingCid = signedAssetMintingCid
+        someAssetIou <- queryContractId @AssetIou operator assetIou
+        (fromSome someAssetIou).someMetadata === (Some "YYYY")
+        (fromSome someAssetIou).someCommitRoot === (Some "XXXX")
+        return (operator, alice, bob, assetIou)
 
     asset_creator_transfer_asset = script do
         (operator, alice, bob, assetIou)  <- asset_creator_mint_asset
@@ -95,6 +98,25 @@ module Tests.Asset where
         assetIou <- submit operator do
             exerciseCmd orgId Organization_AddSignedAssetTransfer with
                 signedAssetTransfer = fromSome someSignedAssetTransferCid
-        end <- submit operator do 
-            exerciseCmd signedAssetTransferCid SignedAssetTransfer_Archive
+                signedAssetTransferCid = signedAssetTransferCid
+        someAssetIou <- queryContractId @AssetIou operator assetIou
+        (fromSome someAssetIou).someMetadata === (Some "VVVVV")
+        (fromSome someAssetIou).someCommitRoot === (Some "WWWW")
         return (operator, alice, bob, assetIou) 
+
+    operator_cannot_transfer_asset = script do
+        (operator, alice, bob, assetIou)  <- asset_creator_mint_asset
+        submitMustFail operator do
+            exerciseCmd assetIou AssetIou_UpdateAsset with
+                requestor = operator
+                newCommitRoot = Some "WWWW"
+                newMetadata = Some "VVVVV"
+                someFee = None
+    operator_cannot_impersonate_member_transfer_asset = script do
+        (operator, alice, bob, assetIou)  <- asset_creator_mint_asset
+        submitMustFail operator do
+            exerciseCmd assetIou AssetIou_UpdateAsset with
+                requestor = alice
+                newCommitRoot = Some "WWWW"
+                newMetadata = Some "VVVVV"
+                someFee = None
