@@ -33,8 +33,8 @@ module Tests.Asset where
             exerciseCmd assetCreatorCid MintAsset with
                 requestor = alice
                 quantity = 10
-                commitRoot = "XXXX"
-                metadata = "YYYY"
+                someCommitRoot = Some "XXXX"
+                someMetadata = Some "YYYY"
                 someFee = None
         unsignedAssetMintingCid <- submit operator do
             exerciseCmd assetMintingRequestCid MintingRequest_Accept with
@@ -56,8 +56,45 @@ module Tests.Asset where
                 depth = 1
         signedAssetMinting <- queryContractId operator signedAssetMintingCid
         assetIou <- submit operator do
-            exerciseCmd orgId Organization_AddSignedAssetTransfer with
+            exerciseCmd orgId Organization_AddSignedAssetMinting with
                 signedAssetTransfer = fromSome signedAssetMinting
         signedAssetMintingCid <- submit operator do 
             exerciseCmd signedAssetMintingCid SignedAssetMinting_Archive
+        return (operator, alice, bob, assetIou) 
+
+    asset_creator_transfer_asset = script do
+        (operator, alice, bob, assetIou)  <- asset_creator_mint_asset
+        assetTransferRequestCid <- submit alice do
+            exerciseCmd assetIou AssetIou_UpdateAsset with
+                requestor = alice
+                newCommitRoot = Some "WWWW"
+                newMetadata = Some "VVVVV"
+                someFee = None
+        unsignedAssetTransferCid <- submit operator do
+            exerciseCmd assetTransferRequestCid AssetTransferRequest_Accept with
+                txToSign = "ZZZZ"
+        signedAssetTransferCreated <- submit operator do
+            exerciseCmd unsignedAssetTransferCid UnsignedAssetTransfer_Sign with
+                signedTx = "WWWWW"
+        t <- getTime
+        signedAssetTransferSentCid <- submit operator do
+            exerciseCmd signedAssetTransferCreated SignedAssetTransfer_Sent 
+                with
+                    newSendStatus = Sent with
+                                        when = t
+                                        from = "XXXX"
+                                        txHash = None
+        signedAssetTransferCid <- submit operator do 
+            exerciseCmd signedAssetTransferSentCid SignedAssetTransfer_Confirm with
+                txId = "XXXXX"
+                depth = 1
+        someSignedAssetTransferCid <- queryContractId operator signedAssetTransferCid
+        someOrg <- queryContractKey @Organization operator (operator, "Topl")
+        let orgId = (fromSome someOrg)._1
+        let org = (fromSome someOrg)._2
+        assetIou <- submit operator do
+            exerciseCmd orgId Organization_AddSignedAssetTransfer with
+                signedAssetTransfer = fromSome someSignedAssetTransferCid
+        end <- submit operator do 
+            exerciseCmd signedAssetTransferCid SignedAssetTransfer_Archive
         return (operator, alice, bob, assetIou) 

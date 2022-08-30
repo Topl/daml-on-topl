@@ -5,6 +5,12 @@ module Topl.Organization where
     import DA.Optional
     import DA.List
 
+    orElse: Optional a -> Optional a -> Optional a
+    orElse None (Some b) = Some b
+    orElse None None = None
+    orElse (Some a) None = Some a
+    orElse (Some a) (Some b) = Some a
+
     type OrganizationCid = ContractId Organization
     type AssetCreatorCid = ContractId AssetCreator
     type MembershipOfferCid = ContractId MembershipOffer
@@ -28,8 +34,8 @@ module Topl.Organization where
                         with
                             requestor            : Party
                             quantity             : Int
-                            commitRoot           : Text
-                            metadata             : Text
+                            someCommitRoot       : Optional Text
+                            someMetadata             : Optional Text
                             someFee              : Optional Int
                                 controller requestor
                                     do 
@@ -77,14 +83,28 @@ module Topl.Organization where
                     create MembershipOffer with 
                         organization = this
                         ..
-            choice Organization_AddSignedAssetTransfer: AssetIouCid with
+            nonconsuming choice Organization_AddSignedAssetMinting: AssetIouCid with
                     signedAssetTransfer: SignedAssetMinting
                 controller operator
                 do
                     create  AssetIou with
                         organization    = this
                         assetCode       = signedAssetTransfer.assetCode
-                        commitRoot      = signedAssetTransfer.commitRoot
+                        quantity        = signedAssetTransfer.quantity
+                        someMetadata    = signedAssetTransfer.someMetadata
+                        someCommitRoot  = signedAssetTransfer.someCommitRoot
+                        ..
+
+            nonconsuming choice Organization_AddSignedAssetTransfer: AssetIouCid with
+                    signedAssetTransfer: SignedAssetTransfer
+                controller operator
+                do
+                    create  AssetIou with
+                        organization    = this
+                        assetCode       = signedAssetTransfer.assetCode
+                        quantity        = signedAssetTransfer.quantity
+                        someMetadata    = signedAssetTransfer.someMetadata
+                        someCommitRoot  = signedAssetTransfer.someCommitRoot
                         ..
 
 
@@ -200,26 +220,27 @@ module Topl.Organization where
         with
             operator        : Party
             organization    : Organization
+            quantity        : Int
+            someMetadata    : Optional Text
             assetCode       : AssetCode
-            commitRoot      : Text
+            someCommitRoot      : Optional Text
                 where
                     signatory operator, organization.members
 
-                    choice AssetIou_UpdateAsset: ()
+                    choice AssetIou_UpdateAsset: AssetTransferRequestCid
                         with 
                             requestor       : Party
-                            newCommitRoot : Optional Text
-                            newMetadata   : Optional Text
-
+                            newCommitRoot   : Optional Text
+                            newMetadata     : Optional Text
+                            someFee         : Optional Int
                         controller requestor
                         do
                             assert (requestor `elem` organization.members)
-
-                    choice AssetIou_Transfer: ()
-                        with 
-                            requestor       : Party
-                        controller requestor
-                        do
-                            assert (requestor `elem` organization.members)
-                            return ()
-
+                            create AssetTransferRequest with 
+                                from           = [ organization.address ]
+                                to             = [ (organization.address, quantity)]
+                                changeAddress  = organization.address
+                                someCommitRoot =  orElse newCommitRoot someCommitRoot 
+                                someMetadata   = orElse newMetadata someMetadata 
+                                fee            = fromOptional 100 someFee -- we set a default fee
+                                ..

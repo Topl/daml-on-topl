@@ -31,8 +31,8 @@ module Topl.Asset where
             changeAddress        : Text
             assetCode            : AssetCode
             quantity             : Int
-            commitRoot           : Text
-            metadata             : Text
+            someCommitRoot       : Optional Text
+            someMetadata         : Optional Text
             fee                  : Int
                 where 
                     signatory operator, requestor
@@ -62,8 +62,8 @@ module Topl.Asset where
             changeAddress        : Text
             assetCode            : AssetCode
             quantity             : Int
-            commitRoot           : Text
-            metadata             : Text
+            someCommitRoot       : Optional Text
+            someMetadata         : Optional Text
             fee                  : Int
             mintTxToSign         : Text
                 where 
@@ -94,8 +94,8 @@ module Topl.Asset where
             changeAddress        : Text
             assetCode            : AssetCode
             quantity             : Int
-            commitRoot           : Text
-            metadata             : Text
+            someCommitRoot       : Optional Text
+            someMetadata         : Optional Text
             fee                  : Int
             mintTxToSign         : Text
             signedMintTx         : Text
@@ -128,8 +128,6 @@ module Topl.Asset where
                                 create this with
                                     sendStatus = Confirmed 
                                         with ..
-                                -- create AssetIouCreated with 
-                                --     ..
                     choice SignedAssetMinting_Archive : ()
                         controller operator
                             do
@@ -147,8 +145,8 @@ module Topl.Asset where
             changeAddress        : Text
             assetCode            : AssetCode
             quantity             : Int
-            commitRoot           : Text
-            metadata             : Text
+            someCommitRoot       : Optional Text
+            someMetadata         : Optional Text
             fee                  : Int
                 where 
                     signatory operator, requestor
@@ -178,8 +176,8 @@ module Topl.Asset where
             changeAddress        : Text
             assetCode            : AssetCode
             quantity             : Int
-            commitRoot           : Text
-            metadata             : Text
+            someCommitRoot       : Optional Text
+            someMetadata         : Optional Text
             fee                  : Int
             txToSign             : Text
                 where 
@@ -212,8 +210,8 @@ module Topl.Asset where
             changeAddress        : Text
             assetCode            : AssetCode
             quantity             : Int
-            commitRoot           : Text
-            metadata             : Text
+            someCommitRoot       : Optional Text
+            someMetadata         : Optional Text
             fee                  : Int
             txToSign             : Text
             signedTx             : Text
@@ -229,6 +227,16 @@ module Topl.Asset where
                         controller operator
                         do 
                             return ()
+                    choice SignedAssetTransfer_Confirm : SignedAssetTransferCid
+                        with
+                            txId : Text
+                            depth : Int
+                        controller operator
+                            do
+                                assert (isSent sendStatus)
+                                create this with
+                                    sendStatus = Confirmed 
+                                        with ..
                     choice SignedAssetTransfer_Sent : SignedAssetTransferCid
                         with    newSendStatus : SendStatus
                         controller operator
