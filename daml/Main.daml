@@ -6,7 +6,8 @@ module Main where
 
 import Daml.Script
 import Topl.Onboarding
--- import Topl.Transfer
+import Topl.Organization
+import DA.Optional
 
 initialize : Script [Party]
 initialize = do
@@ -27,13 +28,18 @@ initialize = do
         exerciseCmd orgCid Organization_InviteMember
           with 
             invitee = alice
-      orgCid <- submit alice do
+      membershipAcceptance <- submit alice do
         exerciseCmd membershipOfferCid Membershp_Accept
+      submit operator do
+          exerciseCmd membershipAcceptance AddUserToOrganization
+      someOrg <- queryContractKey @Organization operator (operator, "Topl")
       membershipOfferCid <- submit operator do
-        exerciseCmd orgCid Organization_InviteMember
+        exerciseCmd (fromSome someOrg)._1 Organization_InviteMember
           with invitee = bob
-      orgCid <- submit bob do
+      membershipAcceptance <- submit bob do
         exerciseCmd membershipOfferCid Membershp_Accept
+      submit operator do
+          exerciseCmd membershipAcceptance AddUserToOrganization
       userInvitationCid <- submit operator do
         exerciseCmd operatorCid  Operator_InviteUser 
           with user = alice
