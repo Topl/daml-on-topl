@@ -4,6 +4,7 @@ module Topl.Organization where
     import Topl.Asset
     import DA.Optional
     import DA.List
+    import DA.Text
 
     orElse: Optional a -> Optional a -> Optional a
     orElse None (Some b) = Some b
@@ -29,13 +30,17 @@ module Topl.Organization where
                     key (operator, organization.orgName, assetCode): (Party, Text, AssetCode)
 
                     maintainer key._1
-
+                    ensure
+                        assetCode.version == 1 && -- we only support v1 for the moment
+                        DA.Text.length assetCode.shortName <= 8 &&
+                        -- here we make sure that the short name only includes Latin1-encoded characters
+                        foldl (\x y -> x && y) True (map (<256) (toCodePoints assetCode.shortName)) 
                     nonconsuming choice MintAsset : AssetMintingRequestCid
                         with
                             requestor            : Party
                             quantity             : Int
                             someCommitRoot       : Optional Text
-                            someMetadata             : Optional Text
+                            someMetadata         : Optional Text
                             someFee              : Optional Int
                                 controller requestor
                                     do 
@@ -44,6 +49,7 @@ module Topl.Organization where
                                         -- thus guaranteeing that I cannot request a Minting request
                                         -- on behalf of someone else
                                         create AssetMintingRequest with 
+                                            someOrgName   = Some organization.orgName
                                             from          = [ organization.address ]
                                             to            = [ (organization.address, quantity)]
                                             changeAddress = organization.address
@@ -88,6 +94,10 @@ module Topl.Organization where
                 controller operator
                 do
                     signedAssetMinting <- fetch @SignedAssetMinting signedAssetMintingCid
+                    -- we make sure that the asset minting was requested by a member of the organization
+                    assert (signedAssetMinting.requestor `elem` members)
+                    -- we check that the org name for this minting is the same as the current org
+                    assert (optional True  ( == this.orgName) signedAssetMinting.someOrgName)
                     archive signedAssetMintingCid
 
                     create  AssetIou with
@@ -103,6 +113,10 @@ module Topl.Organization where
                 controller operator
                 do
                     signedAssetTransfer <- fetch @SignedAssetTransfer signedAssetTransferCid
+                    -- we make sure that the asset minting was requested by a member of the organization
+                    assert (signedAssetTransfer.requestor `elem` members)
+                    -- we check that the org name for this minting is the same as the current org
+                    assert (optional True ( == this.orgName) signedAssetTransfer.someOrgName)
                     archive signedAssetTransferCid
                     create  AssetIou with
                         organization    = this
@@ -244,6 +258,7 @@ module Topl.Organization where
                             create AssetTransferRequest with 
                                 from           = [ organization.address ]
                                 to             = [ (organization.address, quantity)]
+                                someOrgName    = Some organization.orgName
                                 changeAddress  = organization.address
                                 someCommitRoot =  orElse newCommitRoot someCommitRoot 
                                 someMetadata   = orElse newMetadata someMetadata 
