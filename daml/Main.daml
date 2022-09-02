@@ -6,7 +6,8 @@ module Main where
 
 import Daml.Script
 import Topl.Onboarding
--- import Topl.Transfer
+import Topl.Organization
+import DA.Optional
 
 initialize : Script [Party]
 initialize = do
@@ -14,8 +15,31 @@ initialize = do
       operatorId <- validateUserId "operator"
       alice <- allocateParty "Alice"
       aliceId <- validateUserId "alice"
+      bob <- allocateParty "Bob"
+      bobId <- validateUserId "bob"
+      eve <- allocateParty "Eve"
+      eveId <- validateUserId "eve"
       operatorCid <- submit operator do
-        createCmd Operator with operator
+        createCmd Operator with operator = operator, address = ""
+      orgCid <- submit operator do
+        exerciseCmd operatorCid Operator_CreateOrganization
+          with orgName = "Topl"
+      membershipOfferCid <- submit operator do
+        exerciseCmd orgCid Organization_InviteMember
+          with 
+            invitee = alice
+      membershipAcceptance <- submit alice do
+        exerciseCmd membershipOfferCid Membershp_Accept
+      submit operator do
+          exerciseCmd membershipAcceptance AddUserToOrganization
+      someOrg <- queryContractKey @Organization operator (operator, "Topl")
+      membershipOfferCid <- submit operator do
+        exerciseCmd (fromSome someOrg)._1 Organization_InviteMember
+          with invitee = bob
+      membershipAcceptance <- submit bob do
+        exerciseCmd membershipOfferCid Membershp_Accept
+      submit operator do
+          exerciseCmd membershipAcceptance AddUserToOrganization
       userInvitationCid <- submit operator do
         exerciseCmd operatorCid  Operator_InviteUser 
           with user = alice
@@ -23,4 +47,6 @@ initialize = do
         exerciseCmd userInvitationCid UserInvitation_Accept
       createUser (Daml.Script.User aliceId (Some alice)) [CanActAs alice]
       createUser (Daml.Script.User operatorId (Some operator)) [CanActAs operator]
+      createUser (Daml.Script.User bobId (Some bob)) [CanActAs bob]
+      createUser (Daml.Script.User eveId (Some eve)) [CanActAs eve]
       pure [alice]

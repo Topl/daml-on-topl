@@ -8,6 +8,9 @@ data SendStatus = New
                     txHash : Optional Text
                 | FailedToSend with
                     reason : Text
+                | Confirmed with
+                  txId  : Text
+                  depth : Int
   deriving (Eq, Show)
 
 
@@ -15,3 +18,5 @@ data AssetCode =  AssetCode with
     version : Int
     issuerAddress : Text
     shortName : Text
+  deriving (Eq, Show)
+

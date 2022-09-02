@@ -1,0 +1,266 @@
+module Topl.Organization where
+
+    import Topl.Utils
+    import Topl.Asset
+    import DA.Optional
+    import DA.List
+    import DA.Text
+
+    orElse: Optional a -> Optional a -> Optional a
+    orElse None (Some b) = Some b
+    orElse None None = None
+    orElse (Some a) None = Some a
+    orElse (Some a) (Some b) = Some a
+
+    type OrganizationCid = ContractId Organization
+    type AssetCreatorCid = ContractId AssetCreator
+    type MembershipOfferCid = ContractId MembershipOffer
+    type MembershipAcceptanceCid = ContractId MembershipAcceptance
+    type AssetIouCid = ContractId AssetIou
+
+    -- this contract allows members of an organization to mint a given asset code
+    template AssetCreator
+        with
+            operator     : Party
+            organization : Organization
+            assetCode    : AssetCode
+                where
+                    signatory operator, organization.members
+
+                    key (operator, organization.orgName, assetCode): (Party, Text, AssetCode)
+
+                    maintainer key._1
+                    ensure
+                        assetCode.version == 1 && -- we only support v1 for the moment
+                        DA.Text.length assetCode.shortName <= 8 &&
+                        -- here we make sure that the short name only includes Latin1-encoded characters
+                        foldl (\x y -> x && y) True (map (<256) (toCodePoints assetCode.shortName)) 
+                    nonconsuming choice MintAsset : AssetMintingRequestCid
+                        with
+                            requestor            : Party
+                            quantity             : Int
+                            someCommitRoot       : Optional Text
+                            someMetadata         : Optional Text
+                            someFee              : Optional Int
+                                controller requestor
+                                    do 
+                                        assert (requestor `elem` organization.members)
+                                        -- the creation of the AssetMintingRequest requires the signature of the requestor
+                                        -- thus guaranteeing that I cannot request a Minting request
+                                        -- on behalf of someone else
+                                        create AssetMintingRequest with 
+                                            someOrgName   = Some organization.orgName
+                                            from          = [ organization.address ]
+                                            to            = [ (organization.address, quantity)]
+                                            changeAddress = organization.address
+                                            fee           = fromOptional 100 someFee -- we set a default fee
+                                            ..
+
+
+
+    template Organization
+        with
+            orgName         : Text
+            address         : Text
+            operator        : Party
+            wouldBeMembers  : [ Party ] 
+            members         : [ Party ]
+            assetCodes      : [ AssetCode ] 
+        where
+            signatory operator, members
+
+            observer wouldBeMembers
+
+            key (operator, orgName) : (Party, Text)
+            maintainer key._1
+            ensure 
+                (unique members) && 
+                (unique wouldBeMembers)
+
+            choice Organization_InviteMember : MembershipOfferCid
+                with
+                    invitee : Party
+                controller operator
+                do
+                    assertMsg "Invitee already a member of organization" (invitee `notElem` members)
+                    assertMsg "Invitee was already invited to the organization" (invitee `notElem` wouldBeMembers)
+
+                    create this with  wouldBeMembers = invitee :: wouldBeMembers
+                    create MembershipOffer with 
+                        organization = this
+                        ..
+            nonconsuming choice Organization_AddSignedAssetMinting: AssetIouCid with
+                    signedAssetMintingCid : SignedAssetMintingCid
+                controller operator
+                do
+                    signedAssetMinting <- fetch @SignedAssetMinting signedAssetMintingCid
+                    -- we make sure that the asset minting was requested by a member of the organization
+                    assert (signedAssetMinting.requestor `elem` members)
+                    -- we check that the org name for this minting is the same as the current org
+                    assert (optional True  ( == this.orgName) signedAssetMinting.someOrgName)
+                    archive signedAssetMintingCid
+
+                    create  AssetIou with
+                        organization    = this
+                        assetCode       = signedAssetMinting.assetCode
+                        quantity        = signedAssetMinting.quantity
+                        someMetadata    = signedAssetMinting.someMetadata
+                        someCommitRoot  = signedAssetMinting.someCommitRoot
+                        ..
+
+            nonconsuming choice Organization_AddSignedAssetTransfer: AssetIouCid with
+                    signedAssetTransferCid : SignedAssetTransferCid
+                controller operator
+                do
+                    signedAssetTransfer <- fetch @SignedAssetTransfer signedAssetTransferCid
+                    -- we make sure that the asset minting was requested by a member of the organization
+                    assert (signedAssetTransfer.requestor `elem` members)
+                    -- we check that the org name for this minting is the same as the current org
+                    assert (optional True ( == this.orgName) signedAssetTransfer.someOrgName)
+                    archive signedAssetTransferCid
+                    create  AssetIou with
+                        organization    = this
+                        assetCode       = signedAssetTransfer.assetCode
+                        quantity        = signedAssetTransfer.quantity
+                        someMetadata    = signedAssetTransfer.someMetadata
+                        someCommitRoot  = signedAssetTransfer.someCommitRoot
+                        ..
+
+
+            choice Organization_Update : OrganizationCid
+                controller operator
+                do
+                    -- we remove the invitee from the would be members
+                    let currentAssets = assetCodes
+                    -- we need to invite all would be members again, since the old invitations will not work
+                    idsAndinvitations <- mapA (\i -> fetchByKey @MembershipOffer (operator, i, orgName)) wouldBeMembers
+                    let existingInvitationIds = map (\x -> x._1) idsAndinvitations
+                    -- we archive the old invitations
+                    archived <- mapA
+                        (\invitationId -> archive invitationId) 
+                        existingInvitationIds                
+                    -- archive existing asset contracts
+                    idAndCreators <- mapA (\assetCode -> fetchByKey @AssetCreator (operator, orgName, assetCode)) assetCodes
+                    let existingAssetCreatorsId = map (\x -> x._1) idAndCreators
+                    archived <- mapA
+                        (\assetCreatorsId -> archive assetCreatorsId) 
+                        existingAssetCreatorsId
+                    -- this recreates all the asset creators
+                    newOrg <- foldr 
+                        (\assetCode updateOp -> 
+                                (updateOp >>= -- this is a haskell flatMap
+                                    (\newOrg -> exercise 
+                                        newOrg Organization_CreateAsset with 
+                                            requestor = head members
+                                            version = assetCode.version
+                                            issuerAddress = assetCode.issuerAddress
+                                            shortName = assetCode.shortName)))
+                        (create this with wouldBeMembers = [], members = members,  assetCodes = [])
+                        assetCodes
+                    -- this recreates all new invitations using the new members
+                    -- this is necessary, because all members need to sign to add a member, an organization
+                    -- is a contract among all members
+                    newInvitations <- mapA
+                        (\wouldBeMember -> exercise newOrg Organization_InviteMember with invitee = wouldBeMember) 
+                        wouldBeMembers    
+                    do
+                        return newOrg
+                    
+
+            choice Organization_CreateAsset : OrganizationCid
+                with
+                    requestor : Party
+                    version : Int
+                    issuerAddress : Text
+                    shortName : Text
+                controller requestor
+                do 
+                    assert (requestor `elem` members)
+                    let asset = AssetCode
+                                    with
+                                        version = version
+                                        issuerAddress = issuerAddress
+                                        shortName = shortName
+                    create AssetCreator with
+                        operator = operator
+                        organization = this
+                        assetCode = asset
+                    create this with assetCodes =   asset :: assetCodes
+
+    template MembershipAcceptance
+        with
+            operator        : Party
+            invitee         : Party
+            organization    : Organization
+        where
+            signatory operator, invitee, organization.members
+
+            choice AddUserToOrganization: OrganizationCid
+                controller operator
+                    do
+                        existingContract <- fetchByKey  @Organization (operator,  organization.orgName)
+                        archive existingContract._1
+                        newContract <- create existingContract._2
+                            with 
+                                wouldBeMembers = filter (/= invitee) existingContract._2.wouldBeMembers
+                                members = invitee :: existingContract._2.members
+                        exercise newContract Organization_Update
+
+    template MembershipOffer
+        with
+            operator        : Party
+            organization    : Organization
+            invitee         : Party
+        where
+            signatory operator, organization.members
+            key (operator, invitee, organization.orgName): (Party, Party, Text)
+
+            maintainer key._1
+
+            observer  invitee
+
+            choice Membershp_Accept : MembershipAcceptanceCid
+                controller invitee
+                    do 
+                        create MembershipAcceptance with ..
+                        
+
+            choice Membership_Reject : ()
+                controller invitee
+                    do return ()
+
+            choice MembershipOffer_Archive : ()
+                controller operator
+                do return ()
+
+            
+  -- This represents the fact that the operator owes the organization some asset
+    template AssetIou
+        with
+            operator        : Party
+            organization    : Organization
+            quantity        : Int
+            someMetadata    : Optional Text
+            assetCode       : AssetCode
+            someCommitRoot      : Optional Text
+                where
+                    signatory operator, organization.members
+
+                    choice AssetIou_UpdateAsset: AssetTransferRequestCid
+                        with 
+                            requestor       : Party
+                            newCommitRoot   : Optional Text
+                            newMetadata     : Optional Text
+                            someFee         : Optional Int
+                        controller requestor
+                        do
+                            assert (requestor `elem` organization.members)
+                            create AssetTransferRequest with 
+                                from           = [ organization.address ]
+                                to             = [ (organization.address, quantity)]
+                                someOrgName    = Some organization.orgName
+                                changeAddress  = organization.address
+                                someCommitRoot =  orElse newCommitRoot someCommitRoot 
+                                someMetadata   = orElse newMetadata someMetadata 
+                                fee            = fromOptional 100 someFee -- we set a default fee
+                                ..

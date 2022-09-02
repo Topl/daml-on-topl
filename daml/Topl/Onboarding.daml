@@ -2,14 +2,19 @@
 
 module Topl.Onboarding where
 
+
+
+    import Topl.Organization
     import Topl.Transfer
 
     type UserInvitationCid = ContractId UserInvitation
     type UserCid = ContractId User
 
+
     template Operator
         with
             operator : Party
+            address  : Text
         where
             signatory operator
 
@@ -19,6 +24,18 @@ module Topl.Onboarding where
                 controller operator
                 do
                 create UserInvitation with ..
+
+            nonconsuming choice Operator_CreateOrganization : OrganizationCid
+                with
+                    orgName         : Text
+                controller operator
+                do
+                    create Organization
+                        with 
+                            wouldBeMembers = []
+                            members = []
+                            assetCodes = []
+                            ..
 
 
 
@@ -42,6 +59,7 @@ module Topl.Onboarding where
             choice UserInvitation_Cancel : ()
                 controller operator
                 do return ()
+
     template User
         with
             operator : Party
@@ -57,6 +75,7 @@ module Topl.Onboarding where
                     fee                  : Int
                 controller user
                     do create TransferRequest with ..
+
 
             choice User_Revoke : ()
                 controller operator
