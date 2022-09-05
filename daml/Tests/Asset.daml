@@ -18,7 +18,6 @@ module Tests.Asset where
             exerciseCmd orgId Organization_CreateAsset with
                 requestor = alice
                 version = 1
-                issuerAddress = org.address
                 shortName = "Wheat"
         return (operator, alice, bob, org)
         -- now we create an asset creator

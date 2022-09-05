@@ -1,12 +1,12 @@
-package co.topl.daml.processors
+package co.topl.daml
 
+import com.daml.ledger.javaapi.data.Command
+import com.daml.ledger.javaapi.data.CreatedEvent
 import com.daml.ledger.javaapi.data.Transaction
-import io.reactivex.Single
 import com.google.protobuf.Empty
+import io.reactivex.Single
 
 import java.util.stream
-import com.daml.ledger.javaapi.data.CreatedEvent
-import com.daml.ledger.javaapi.data.Command
 import scala.concurrent.ExecutionContext
 
 abstract class AbstractProcessor(damlAppContext: DamlAppContext, toplContext: ToplContext) {

@@ -12,14 +12,14 @@ import com.daml.ledger.javaapi.data.NoFilter;
 import com.daml.ledger.javaapi.data.Transaction;
 import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.UserManagementClient;
-import co.topl.daml.processors.UnsignedTransferProcessor;
+import co.topl.daml.polys.processors.UnsignedTransferProcessor;
 import akka.actor.ActorSystem;
 import co.topl.client.Provider;
 import akka.http.javadsl.model.Uri;
 
 import io.reactivex.Flowable;
-import co.topl.daml.processors.DamlAppContext;
-import co.topl.daml.processors.ToplContext;
+import co.topl.daml.DamlAppContext;
+import co.topl.daml.ToplContext;
 
 public class AliceMain {
 

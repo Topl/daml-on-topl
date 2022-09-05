@@ -1,4 +1,4 @@
-package co.topl.daml
+package co.topl
 
 import cats.data.EitherT
 import scala.concurrent.Future
@@ -14,7 +14,7 @@ import com.daml.ledger.rxjava.LedgerClient
 import java.util.UUID
 import io.reactivex.subjects.SingleSubject
 
-package object processors {
+package object daml {
 
   type RpcErrorOr[T] = EitherT[Future, RpcClientFailure, T]
 
@@ -49,4 +49,9 @@ package object processors {
         )
     } else return SingleSubject.create()
   }
+
+  def utf8StringToLatin1ByteArray(str: String) = str.zipWithIndex
+    .map(e => str.codePointAt(e._2).toByte)
+    .toArray
+
 }

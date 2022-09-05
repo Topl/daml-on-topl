@@ -122,6 +122,11 @@ module Topl.Asset where
                         controller operator
                             do
                                 return ()
+                    choice SignedAssetMinting_Fail : SignedAssetMintingCid
+                            with    reason : Text
+                        controller operator
+                        do 
+                            create this with sendStatus = FailedToSend with ..
                     choice SignedAssetMinting_Confirm : SignedAssetMintingCid
                         with
                             txId : Text

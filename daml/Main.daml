@@ -20,7 +20,7 @@ initialize = do
       eve <- allocateParty "Eve"
       eveId <- validateUserId "eve"
       operatorCid <- submit operator do
-        createCmd Operator with operator = operator, address = ""
+        createCmd Operator with operator = operator, address = "AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64"
       orgCid <- submit operator do
         exerciseCmd operatorCid Operator_CreateOrganization
           with orgName = "Topl"
