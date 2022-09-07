@@ -16,9 +16,8 @@ import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
 import co.topl.daml.api.model.topl.asset.UnsignedAssetMinting
 import co.topl.daml.api.model.topl.transfer.UnsignedTransfer
+
 import co.topl.daml.processEventAux
-import co.topl.modifier.transaction.PolyTransfer
-import co.topl.modifier.transaction.serialization.PolyTransferSerializer
 import co.topl.utils.StringDataTypes
 import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent

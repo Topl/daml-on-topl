@@ -16,6 +16,7 @@ import co.topl.client.Brambl
 import co.topl.daml.AbstractProcessor
 import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
+import co.topl.daml.api.model.topl.asset.SignedAssetMinting
 import co.topl.daml.api.model.topl.transfer.SignedTransfer
 import co.topl.daml.api.model.topl.transfer.UnsignedTransfer
 import co.topl.daml.api.model.topl.utils.SendStatus
@@ -23,8 +24,6 @@ import co.topl.daml.api.model.topl.utils.sendstatus.FailedToSend
 import co.topl.daml.api.model.topl.utils.sendstatus.Pending
 import co.topl.daml.api.model.topl.utils.sendstatus.Sent
 import co.topl.daml.processEventAux
-import co.topl.modifier.transaction.PolyTransfer
-import co.topl.modifier.transaction.serialization.PolyTransferSerializer
 import co.topl.rpc.ToplRpc
 import co.topl.rpc.implicits.client._
 import co.topl.utils.StringDataTypes
@@ -44,7 +43,6 @@ import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.io.Source
 import co.topl.modifier.transaction.serialization.AssetTransferSerializer
-import co.topl.daml.api.model.topl.asset.SignedAssetMinting
 
 class SignedMintingRequestProcessor(
   damlAppContext: DamlAppContext,
@@ -90,7 +88,7 @@ class SignedMintingRequestProcessor(
         failure => {
           logger.info("Failed to broadcast transaction to server.")
           logger.debug("Error: {}", failure)
-          // FIXME error handling
+          // FIXME: error handling
           stream.Stream.of(
             signedMintingRequestContract
               .exerciseSignedAssetMinting_Fail("Failed broadcast to server")
