@@ -106,6 +106,7 @@ module Topl.Organization where
                         quantity        = signedAssetMinting.quantity
                         someMetadata    = signedAssetMinting.someMetadata
                         someCommitRoot  = signedAssetMinting.someCommitRoot
+                        boxNonce        = signedAssetMinting.boxNonce
                         ..
 
             nonconsuming choice Organization_AddSignedAssetTransfer: AssetIouCid with
@@ -124,6 +125,7 @@ module Topl.Organization where
                         quantity        = signedAssetTransfer.quantity
                         someMetadata    = signedAssetTransfer.someMetadata
                         someCommitRoot  = signedAssetTransfer.someCommitRoot
+                        boxNonce        = signedAssetTransfer.boxNonce
                         ..
 
 
@@ -239,7 +241,8 @@ module Topl.Organization where
             quantity        : Int
             someMetadata    : Optional Text
             assetCode       : AssetCode
-            someCommitRoot      : Optional Text
+            someCommitRoot  : Optional Text
+            boxNonce        : Int
                 where
                     signatory operator, organization.members
 

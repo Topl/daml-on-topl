@@ -15,6 +15,9 @@ import com.daml.ledger.rxjava.UserManagementClient;
 import co.topl.daml.assets.processors.AssetMintingRequestProcessor;
 import co.topl.daml.assets.processors.UnsignedMintingRequestProcessor;
 import co.topl.daml.assets.processors.SignedMintingRequestProcessor;
+import co.topl.daml.assets.processors.AssetTransferRequestProcessor;
+import co.topl.daml.assets.processors.UnsignedAssetTransferRequestProcessor;
+import co.topl.daml.assets.processors.SignedAssetTransferRequestProcessor;
 import akka.actor.ActorSystem;
 import co.topl.client.Provider;
 import akka.http.javadsl.model.Uri;
@@ -65,5 +68,15 @@ public class AssetOperatorMain {
 		SignedMintingRequestProcessor signedMintingRequestProcessor = new SignedMintingRequestProcessor(damlAppContext,
 				toplContext);
 		transactions.forEach(signedMintingRequestProcessor::processTransaction);
+
+		AssetTransferRequestProcessor assetTransferRequestProcessor = new AssetTransferRequestProcessor(damlAppContext,
+				toplContext);
+		transactions.forEach(assetTransferRequestProcessor::processTransaction);
+		UnsignedAssetTransferRequestProcessor unsignedTransferRequestProcessor = new UnsignedAssetTransferRequestProcessor(
+				damlAppContext, toplContext, keyfile, password);
+		transactions.forEach(unsignedTransferRequestProcessor::processTransaction);
+		SignedAssetTransferRequestProcessor signedTransferRequestProcessor = new SignedAssetTransferRequestProcessor(
+				damlAppContext, toplContext);
+		transactions.forEach(signedTransferRequestProcessor::processTransaction);
 	}
 }

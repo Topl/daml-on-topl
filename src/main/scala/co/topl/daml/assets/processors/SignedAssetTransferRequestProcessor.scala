@@ -18,7 +18,8 @@ import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
 import co.topl.daml.api.model.da.types
 import co.topl.daml.api.model.topl.asset.SignedAssetMinting
-import co.topl.daml.api.model.topl.asset.SignedAssetMinting_Confirm
+import co.topl.daml.api.model.topl.asset.SignedAssetTransfer
+import co.topl.daml.api.model.topl.asset.SignedAssetTransfer_Confirm
 import co.topl.daml.api.model.topl.organization.Organization
 import co.topl.daml.api.model.topl.transfer.SignedTransfer
 import co.topl.daml.api.model.topl.transfer.UnsignedTransfer
@@ -32,12 +33,8 @@ import co.topl.modifier.transaction.serialization.AssetTransferSerializer
 import co.topl.rpc.ToplRpc
 import co.topl.rpc.implicits.client._
 import co.topl.utils.StringDataTypes
-import com.daml.ledger.api.v1.CommandsOuterClass
-import com.daml.ledger.api.v1.TransactionFilterOuterClass
-import com.daml.ledger.api.v1.ValueOuterClass.Identifier
 import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
-import com.daml.ledger.javaapi.data.TransactionFilter
 import io.circe.DecodingFailure
 import io.circe.parser.parse
 import io.circe.syntax._
@@ -52,7 +49,7 @@ import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.io.Source
 
-class SignedMintingRequestProcessor(
+class SignedAssetTransferRequestProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext
 ) extends AbstractProcessor(damlAppContext, toplContext) {
@@ -60,20 +57,20 @@ class SignedMintingRequestProcessor(
   implicit val networkPrefix = toplContext.provider.networkPrefix
   implicit val jsonDecoder = co.topl.modifier.transaction.Transaction.jsonDecoder
 
-  val logger = LoggerFactory.getLogger(classOf[SignedMintingRequestProcessor])
+  val logger = LoggerFactory.getLogger(classOf[SignedAssetTransferRequestProcessor])
   import toplContext.provider._
 
   private def lift[E, A](a: Either[E, A]) = EitherT[Future, E, A](Future(a))
 
   private def handlePending(
-    signedMintingRequest:         SignedAssetMinting,
-    signedMintingRequestContract: SignedAssetMinting.ContractId
+    signedTransferRequest:         SignedAssetTransfer,
+    signedTransferRequestContract: SignedAssetTransfer.ContractId
   ): stream.Stream[Command] = {
     val result = for {
       transactionAsBytes <-
         lift(
           ByteVector
-            .fromBase58(signedMintingRequest.signedMintTx)
+            .fromBase58(signedTransferRequest.signedTx)
             .map(_.toArray)
             .toRight(RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid signed tx from base 58", Nil))))
         )
@@ -98,8 +95,8 @@ class SignedMintingRequestProcessor(
           logger.debug("Error: {}", failure)
           // FIXME: error handling
           stream.Stream.of(
-            signedMintingRequestContract
-              .exerciseSignedAssetMinting_Fail("Failed broadcast to server")
+            signedTransferRequestContract
+              .exerciseSignedAssetTransfer_Fail("Failed broadcast to server")
           )
         },
         success => {
@@ -109,10 +106,8 @@ class SignedMintingRequestProcessor(
             success.asJson
           )
           stream.Stream.of(
-            signedMintingRequestContract
-              .exerciseSignedAssetMinting_Sent(
-                new Sent(Instant.now(), damlAppContext.appId, Optional.of(success.id.toString()))
-              )
+            signedTransferRequestContract
+              .exerciseSignedAssetTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, Optional.empty()))
           )
         }
       )
@@ -121,44 +116,44 @@ class SignedMintingRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): stream.Stream[Command] = processEventAux(SignedAssetMinting.TEMPLATE_ID, event) {
-    val signedMintingRequestContract =
-      SignedAssetMinting.Contract.fromCreatedEvent(event).id
-    val signedMintingRequest =
-      SignedAssetMinting.fromValue(
+  ): stream.Stream[Command] = processEventAux(SignedAssetTransfer.TEMPLATE_ID, event) {
+    val signedTransferRequestContract =
+      SignedAssetTransfer.Contract.fromCreatedEvent(event).id
+    val signedTransferRequest =
+      SignedAssetTransfer.fromValue(
         event.getArguments()
       )
-    if (signedMintingRequest.sendStatus.isInstanceOf[Pending]) {
-      handlePending(signedMintingRequest, signedMintingRequestContract)
-    } else if (signedMintingRequest.sendStatus.isInstanceOf[FailedToSend]) {
+    if (signedTransferRequest.sendStatus.isInstanceOf[Pending]) {
+      handlePending(signedTransferRequest, signedTransferRequestContract)
+    } else if (signedTransferRequest.sendStatus.isInstanceOf[FailedToSend]) {
       logger.error("Failed to send contract.")
       stream.Stream.of(
-        signedMintingRequestContract
-          .exerciseSignedAssetMinting_Archive()
+        signedTransferRequestContract
+          .exerciseSignedAssetTransfer_Archive()
       )
-    } else if (signedMintingRequest.sendStatus.isInstanceOf[Sent]) {
+    } else if (signedTransferRequest.sendStatus.isInstanceOf[Sent]) {
       logger.info("Successfully sent.")
       stream.Stream.of(
-        signedMintingRequestContract
-          .exerciseSignedAssetMinting_Confirm(
-            new SignedAssetMinting_Confirm(
-              (signedMintingRequest.sendStatus.asInstanceOf[Sent]).txHash.orElseGet(() => ""),
+        signedTransferRequestContract
+          .exerciseSignedAssetTransfer_Confirm(
+            new SignedAssetTransfer_Confirm(
+              (signedTransferRequest.sendStatus.asInstanceOf[Sent]).txHash.orElseGet(() => ""),
               1
             )
           )
       )
-    } else if (signedMintingRequest.sendStatus.isInstanceOf[Confirmed]) {
+    } else if (signedTransferRequest.sendStatus.isInstanceOf[Confirmed]) {
       logger.info("Successfully confirmed.")
 
       stream.Stream.of(
         Organization
-          .byKey(new types.Tuple2(signedMintingRequest.operator, signedMintingRequest.someOrgName.get()))
-          .exerciseOrganization_AddSignedAssetMinting(signedMintingRequestContract)
+          .byKey(new types.Tuple2(signedTransferRequest.operator, signedTransferRequest.someOrgName.get()))
+          .exerciseOrganization_AddSignedAssetTransfer(signedTransferRequestContract)
       )
     } else {
       stream.Stream.of(
-        signedMintingRequestContract
-          .exerciseSignedAssetMinting_Archive()
+        signedTransferRequestContract
+          .exerciseSignedAssetTransfer_Archive()
       )
     }
   }

@@ -40,6 +40,7 @@ module Topl.Asset where
 
                     choice MintingRequest_Accept : UnsignedAssetMintingCid with 
                             txToSign : Text
+                            boxNonce : Int
                         controller operator
                             do
                                 create UnsignedAssetMinting with 
@@ -66,6 +67,7 @@ module Topl.Asset where
             quantity             : Int
             someCommitRoot       : Optional Text
             someMetadata         : Optional Text
+            boxNonce             : Int
             fee                  : Int
             mintTxToSign         : Text
                 where 
@@ -99,6 +101,7 @@ module Topl.Asset where
             quantity             : Int
             someCommitRoot       : Optional Text
             someMetadata         : Optional Text
+            boxNonce             : Int
             fee                  : Int
             mintTxToSign         : Text
             signedMintTx         : Text
@@ -155,15 +158,18 @@ module Topl.Asset where
             quantity             : Int
             someCommitRoot       : Optional Text
             someMetadata         : Optional Text
+            boxNonce             : Int
             fee                  : Int
                 where 
                     signatory operator, requestor
                     choice AssetTransferRequest_Accept : UnsignedAssetTransferRequestCid with 
                             txToSign : Text
+                            newBoxNonce : Int
                         controller operator
                             do
                                 create UnsignedAssetTransferRequest with 
                                     txToSign = txToSign
+                                    boxNonce = newBoxNonce
                                     ..
                     choice AssetTransferRequest_Reject : ()
                         controller operator
@@ -187,6 +193,7 @@ module Topl.Asset where
             quantity             : Int
             someCommitRoot       : Optional Text
             someMetadata         : Optional Text
+            boxNonce             : Int
             fee                  : Int
             txToSign             : Text
                 where 
@@ -222,6 +229,7 @@ module Topl.Asset where
             quantity             : Int
             someCommitRoot       : Optional Text
             someMetadata         : Optional Text
+            boxNonce             : Int
             fee                  : Int
             txToSign             : Text
             signedTx             : Text

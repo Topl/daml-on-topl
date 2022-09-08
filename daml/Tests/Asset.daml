@@ -39,6 +39,7 @@ module Tests.Asset where
         unsignedAssetMintingCid <- submit operator do
             exerciseCmd assetMintingRequestCid MintingRequest_Accept with
                 txToSign = "ZZZZ"
+                boxNonce = 123
         signedAssetMintingCreated <- submit operator do
             exerciseCmd unsignedAssetMintingCid UnsignedMinting_Sign with
                 signedMintTx = "WWWWW"
@@ -74,6 +75,7 @@ module Tests.Asset where
         unsignedAssetTransferCid <- submit operator do
             exerciseCmd assetTransferRequestCid AssetTransferRequest_Accept with
                 txToSign = "ZZZZ"
+                newBoxNonce = 1234
         signedAssetTransferCreated <- submit operator do
             exerciseCmd unsignedAssetTransferCid UnsignedAssetTransfer_Sign with
                 signedTx = "WWWWW"

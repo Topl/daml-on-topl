@@ -9,7 +9,6 @@ import co.topl.attestation._
 import co.topl.daml.AbstractProcessor
 import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
-import co.topl.daml.api.model.topl.asset.AssetMintingRequest
 import co.topl.daml.processEventAux
 import co.topl.daml.utf8StringToLatin1ByteArray
 import co.topl.modifier.box.AssetCode
@@ -37,27 +36,28 @@ import scala.concurrent.Await
 import ToplRpc.Transaction.RawAssetTransfer
 import co.topl.modifier.transaction.serialization.AssetTransferSerializer
 import co.topl.modifier.box.SimpleValue
+import co.topl.daml.api.model.topl.asset.AssetTransferRequest
 
-class AssetMintingRequestProcessor(
+class AssetTransferRequestProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext
 ) extends AbstractProcessor(damlAppContext, toplContext) {
 
-  val logger = LoggerFactory.getLogger(classOf[AssetMintingRequestProcessor])
+  val logger = LoggerFactory.getLogger(classOf[AssetTransferRequestProcessor])
 
   import toplContext.provider._
 
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): stream.Stream[Command] = processEventAux(AssetMintingRequest.TEMPLATE_ID, event) {
-    val mintingRequestContract =
-      AssetMintingRequest.Contract.fromCreatedEvent(event).id
-    val assetMintingRequest =
-      AssetMintingRequest.fromValue(
+  ): stream.Stream[Command] = processEventAux(AssetTransferRequest.TEMPLATE_ID, event) {
+    val transferRequestContract =
+      AssetTransferRequest.Contract.fromCreatedEvent(event).id
+    val assetTransferRequest =
+      AssetTransferRequest.fromValue(
         event.getArguments()
       )
-    val address = assetMintingRequest.from.asScala.toSeq
+    val address = assetTransferRequest.from.asScala.toSeq
       .map(Base58Data.unsafe)
       .map(_.decodeAddress.getOrThrow())
     val params =
@@ -66,6 +66,7 @@ class AssetMintingRequestProcessor(
           address.toList
         )
     val balances = ToplRpc.NodeView.Balances.rpc(params)
+
     import scala.concurrent.duration._
     import scala.language.postfixOps
     Await.result(
@@ -74,37 +75,37 @@ class AssetMintingRequestProcessor(
           logger.info("Failed to obtain raw transaction from server.")
           logger.debug("Error: {}", failure)
           stream.Stream.of(
-            mintingRequestContract
-              .exerciseTransferRequest_Reject()
+            transferRequestContract
+              .exerciseAssetTransferRequest_Reject()
           )
         },
         balance => {
           val to =
             (
-              Base58Data.unsafe(assetMintingRequest.to.get(0)._1).decodeAddress.getOrThrow(),
+              Base58Data.unsafe(assetTransferRequest.to.get(0)._1).decodeAddress.getOrThrow(),
               SimpleValue(
-                balance.values.map(_.Boxes.PolyBox.head.value.quantity).head - Int128(assetMintingRequest.fee)
+                balance.values.map(_.Boxes.PolyBox.head.value.quantity).head - Int128(assetTransferRequest.fee)
               )
-            ) :: assetMintingRequest.to.asScala.toSeq
+            ) :: assetTransferRequest.to.asScala.toSeq
               .map(x =>
                 (
                   Base58Data.unsafe(x._1).decodeAddress.getOrThrow(),
                   AssetValue(
                     Int128(x._2.intValue()),
                     AssetCode(
-                      assetMintingRequest.assetCode.version.toByte,
+                      assetTransferRequest.assetCode.version.toByte,
                       Base58Data
-                        .unsafe(assetMintingRequest.from.get(0))
+                        .unsafe(assetTransferRequest.from.get(0))
                         .decodeAddress
                         .getOrThrow(),
                       Latin1Data.fromData(
-                        utf8StringToLatin1ByteArray(assetMintingRequest.assetCode.shortName)
+                        utf8StringToLatin1ByteArray(assetTransferRequest.assetCode.shortName)
                       )
                     ),
-                    assetMintingRequest.someCommitRoot
+                    assetTransferRequest.someCommitRoot
                       .map(x => SecurityRoot.fromBase58(Base58Data.unsafe(x)))
                       .orElse(SecurityRoot.empty),
-                    assetMintingRequest.someMetadata
+                    assetTransferRequest.someMetadata
                       .map(x =>
                         Option(
                           Latin1Data.fromData(
@@ -119,34 +120,44 @@ class AssetMintingRequestProcessor(
               .toList
 
           val assetTransfer = AssetTransfer(
-            balance.values.toList.flatMap(_.Boxes.PolyBox).map(x => (address.head, x.nonce)).toIndexedSeq,
+            balance.values.toList
+              .flatMap(_.Boxes.PolyBox)
+              .map(x => (address.head, x.nonce))
+              .toIndexedSeq
+              .++(
+                balance.values.toList
+                  .flatMap(_.Boxes.AssetBox)
+                  .filter(_.nonce == assetTransferRequest.boxNonce)
+                  .map(x => (address.head, x.nonce))
+                  .toIndexedSeq
+              ),
             to.toIndexedSeq,
             ListMap(),
             Int128(
-              assetMintingRequest.fee
+              assetTransferRequest.fee
             ),
             System.currentTimeMillis(),
             None,
-            true
+            false
           )
-          val mintingRequest = AssetTransferSerializer.toBytes(
+          val transferRequest = AssetTransferSerializer.toBytes(
             assetTransfer
           )
           val encodedTx =
             ByteVector(
-              mintingRequest
+              transferRequest
             ).toBase58
-          logger.info("Successfully generated raw transaction for contract {}.", mintingRequestContract.contractId)
+          logger.info("Successfully generated raw transaction for contract {}.", transferRequestContract.contractId)
           import io.circe.syntax._
-          logger.info("The returned json: {}", mintingRequest.asJson)
+          logger.info("The returned json: {}", transferRequest.asJson)
           logger.debug(
             "Encoded transaction: {}",
             encodedTx
           )
 
           stream.Stream.of(
-            mintingRequestContract
-              .exerciseMintingRequest_Accept(
+            transferRequestContract
+              .exerciseAssetTransferRequest_Accept(
                 encodedTx,
                 assetTransfer.newBoxes.toList.reverse.head.nonce
               )
