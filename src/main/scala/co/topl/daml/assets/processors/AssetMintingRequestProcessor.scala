@@ -47,6 +47,7 @@ class AssetMintingRequestProcessor(
 
   import toplContext.provider._
 
+  // FIXME: improve readbility by breaking into smaller methods
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
