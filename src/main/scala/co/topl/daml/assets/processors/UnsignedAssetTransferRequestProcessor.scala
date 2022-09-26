@@ -1,29 +1,39 @@
-package co.topl.daml.processors
+package co.topl.daml.assets.processors
 
-import java.util.stream
+import cats.data.EitherT
+import co.topl.akkahttprpc.InvalidParametersError
+import co.topl.akkahttprpc.RpcClientFailure
+import co.topl.akkahttprpc.RpcErrorFailure
+import co.topl.attestation.Address
+import co.topl.attestation.AddressCodec.implicits._
+import co.topl.attestation.keyManagement.KeyRing
+import co.topl.attestation.keyManagement.KeyfileCurve25519
+import co.topl.attestation.keyManagement.KeyfileCurve25519Companion
+import co.topl.attestation.keyManagement.PrivateKeyCurve25519
+import co.topl.client.Brambl
+import co.topl.daml.AbstractProcessor
+import co.topl.daml.DamlAppContext
+import co.topl.daml.ToplContext
+import co.topl.daml.api.model.topl.asset.UnsignedAssetMinting
+import co.topl.daml.api.model.topl.transfer.UnsignedTransfer
+
+import co.topl.daml.processEventAux
+import co.topl.utils.StringDataTypes
 import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
-import co.topl.daml.api.model.topl.transfer.UnsignedTransfer
-import co.topl.attestation.keyManagement.{KeyRing, KeyfileCurve25519, KeyfileCurve25519Companion, PrivateKeyCurve25519}
-import co.topl.client.Brambl
-import co.topl.akkahttprpc.RpcClientFailure
-import co.topl.attestation.Address
-import io.circe.parser.parse
-import scala.io.Source
-import java.io.File
-import cats.data.EitherT
-import co.topl.utils.StringDataTypes
-import co.topl.attestation.AddressCodec.implicits._
-import scodec.bits._
-import co.topl.akkahttprpc.RpcErrorFailure
-import co.topl.akkahttprpc.InvalidParametersError
 import io.circe.DecodingFailure
-import scala.concurrent.Future
-import co.topl.modifier.transaction.PolyTransfer
-import co.topl.modifier.transaction.serialization.PolyTransferSerializer
+import io.circe.parser.parse
 import org.slf4j.LoggerFactory
+import scodec.bits._
 
-class UnsignedTransferProcessor(
+import java.io.File
+import java.util.stream
+import scala.concurrent.Future
+import scala.io.Source
+import co.topl.modifier.transaction.serialization.AssetTransferSerializer
+import co.topl.daml.api.model.topl.asset.UnsignedAssetTransferRequest
+
+class UnsignedAssetTransferRequestProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext,
   fileName:       String,
@@ -32,7 +42,7 @@ class UnsignedTransferProcessor(
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
 
-  val logger = LoggerFactory.getLogger(classOf[UnsignedTransferProcessor])
+  val logger = LoggerFactory.getLogger(classOf[UnsignedAssetTransferRequestProcessor])
 
   val keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519] =
     KeyRing.empty[PrivateKeyCurve25519, KeyfileCurve25519]()(
@@ -44,11 +54,11 @@ class UnsignedTransferProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): stream.Stream[Command] = processEventAux(UnsignedTransfer.TEMPLATE_ID, event) {
+  ): stream.Stream[Command] = processEventAux(UnsignedAssetTransferRequest.TEMPLATE_ID, event) {
     val unsidgnedTransferRequestContract =
-      UnsignedTransfer.Contract.fromCreatedEvent(event).id
+      UnsignedAssetTransferRequest.Contract.fromCreatedEvent(event).id
     val unsidgnedTransferRequest =
-      UnsignedTransfer.fromValue(
+      UnsignedAssetTransferRequest.fromValue(
         event.getArguments()
       )
     val keyfile = Source.fromFile(new File(fileName)).getLines().mkString("").mkString
@@ -59,7 +69,7 @@ class UnsignedTransferProcessor(
         .fromBase58(unsidgnedTransferRequest.txToSign)
         .map(_.toArray)
         .toRight(RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid contract", Nil))))
-      rawTx <- PolyTransferSerializer.parseBytes(msg2Sign).toEither
+      rawTx <- AssetTransferSerializer.parseBytes(msg2Sign).toEither
       signedTx <- Right {
         val signFunc = (addr: Address) => keyRing.generateAttestation(addr)(rawTx.messageToSign)
         logger.debug("listOfAddresses = {}", keyRing.addresses)
@@ -72,11 +82,11 @@ class UnsignedTransferProcessor(
         logger.debug("Error: {}", failure)
         stream.Stream.of(
           unsidgnedTransferRequestContract
-            .exerciseUnsignedTransfer_Archive()
+            .exerciseUnsignedAssetTransfer_Archive()
         )
       },
       signedTx => {
-        val signedTxString = ByteVector(PolyTransferSerializer.toBytes(signedTx)).toBase58
+        val signedTxString = ByteVector(AssetTransferSerializer.toBytes(signedTx)).toBase58
         logger.info("Successfully signed transaction for contract {}.", unsidgnedTransferRequestContract.contractId)
         logger.debug("signedTx = {}", signedTx)
         logger.debug(
@@ -85,7 +95,7 @@ class UnsignedTransferProcessor(
         )
         stream.Stream.of(
           unsidgnedTransferRequestContract
-            .exerciseUnsignedTransfer_Sign(signedTxString)
+            .exerciseUnsignedAssetTransfer_Sign(signedTxString)
         )
       }
     )

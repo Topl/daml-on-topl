@@ -106,6 +106,7 @@ module Topl.Organization where
                         quantity        = signedAssetMinting.quantity
                         someMetadata    = signedAssetMinting.someMetadata
                         someCommitRoot  = signedAssetMinting.someCommitRoot
+                        boxNonce        = signedAssetMinting.boxNonce
                         ..
 
             nonconsuming choice Organization_AddSignedAssetTransfer: AssetIouCid with
@@ -124,6 +125,7 @@ module Topl.Organization where
                         quantity        = signedAssetTransfer.quantity
                         someMetadata    = signedAssetTransfer.someMetadata
                         someCommitRoot  = signedAssetTransfer.someCommitRoot
+                        boxNonce        = signedAssetTransfer.boxNonce
                         ..
 
 
@@ -153,7 +155,6 @@ module Topl.Organization where
                                         newOrg Organization_CreateAsset with 
                                             requestor = head members
                                             version = assetCode.version
-                                            issuerAddress = assetCode.issuerAddress
                                             shortName = assetCode.shortName)))
                         (create this with wouldBeMembers = [], members = members,  assetCodes = [])
                         assetCodes
@@ -171,7 +172,6 @@ module Topl.Organization where
                 with
                     requestor : Party
                     version : Int
-                    issuerAddress : Text
                     shortName : Text
                 controller requestor
                 do 
@@ -179,7 +179,6 @@ module Topl.Organization where
                     let asset = AssetCode
                                     with
                                         version = version
-                                        issuerAddress = issuerAddress
                                         shortName = shortName
                     create AssetCreator with
                         operator = operator
@@ -242,7 +241,8 @@ module Topl.Organization where
             quantity        : Int
             someMetadata    : Optional Text
             assetCode       : AssetCode
-            someCommitRoot      : Optional Text
+            someCommitRoot  : Optional Text
+            boxNonce        : Int
                 where
                     signatory operator, organization.members
 

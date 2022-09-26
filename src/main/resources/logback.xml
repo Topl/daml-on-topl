@@ -12,6 +12,6 @@
         <appender-ref ref="STDOUT"/>
     </root>
 
-    <logger level="DEBUG" name="co.topl.daml.processors" />
+    <logger level="DEBUG" name="co.topl.daml.assets.processors" />
 
 </configuration>

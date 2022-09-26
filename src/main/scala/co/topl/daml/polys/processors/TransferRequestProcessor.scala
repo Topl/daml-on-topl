@@ -1,4 +1,4 @@
-package co.topl.daml.processors
+package co.topl.daml.polys.processors
 
 import com.daml.ledger.rxjava.DamlLedgerClient
 import io.reactivex.Single
@@ -40,13 +40,17 @@ import io.reactivex.subjects.SingleSubject
 import com.google.protobuf.Empty
 import org.slf4j.LoggerFactory
 import co.topl.modifier.transaction.serialization.PolyTransferSerializer
+import co.topl.daml.DamlAppContext
+import co.topl.daml.ToplContext
+import co.topl.daml.AbstractProcessor
+import co.topl.daml.processEventAux
 
-class TransferProcessor(
+class TransferRequestProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext
 ) extends AbstractProcessor(damlAppContext, toplContext) {
 
-  val logger = LoggerFactory.getLogger(classOf[TransferProcessor])
+  val logger = LoggerFactory.getLogger(classOf[TransferRequestProcessor])
 
   import toplContext.provider._
 

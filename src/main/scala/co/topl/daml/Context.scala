@@ -1,4 +1,4 @@
-package co.topl.daml.processors
+package co.topl.daml
 
 import co.topl.client.Provider
 import com.daml.ledger.rxjava.DamlLedgerClient

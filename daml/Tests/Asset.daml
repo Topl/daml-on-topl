@@ -18,7 +18,6 @@ module Tests.Asset where
             exerciseCmd orgId Organization_CreateAsset with
                 requestor = alice
                 version = 1
-                issuerAddress = org.address
                 shortName = "Wheat"
         return (operator, alice, bob, org)
         -- now we create an asset creator
@@ -40,6 +39,7 @@ module Tests.Asset where
         unsignedAssetMintingCid <- submit operator do
             exerciseCmd assetMintingRequestCid MintingRequest_Accept with
                 txToSign = "ZZZZ"
+                boxNonce = 123
         signedAssetMintingCreated <- submit operator do
             exerciseCmd unsignedAssetMintingCid UnsignedMinting_Sign with
                 signedMintTx = "WWWWW"
@@ -75,6 +75,7 @@ module Tests.Asset where
         unsignedAssetTransferCid <- submit operator do
             exerciseCmd assetTransferRequestCid AssetTransferRequest_Accept with
                 txToSign = "ZZZZ"
+                newBoxNonce = 1234
         signedAssetTransferCreated <- submit operator do
             exerciseCmd unsignedAssetTransferCid UnsignedAssetTransfer_Sign with
                 signedTx = "WWWWW"
