@@ -27,6 +27,7 @@ module Topl.Onboarding where
 
             nonconsuming choice Operator_CreateOrganization : OrganizationCid
                 with
+                    orgId           : Text
                     orgName         : Text
                 controller operator
                 do
@@ -34,7 +35,7 @@ module Topl.Onboarding where
                         with 
                             wouldBeMembers = []
                             members = []
-                            assetCodes = []
+                            assetCodesAndIous = []
                             ..
 
 

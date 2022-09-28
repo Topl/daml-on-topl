@@ -11,7 +11,7 @@ module Tests.Asset where
     org_create_asset_creator_test = script do
         -- we can reuse previous tests, this one creates two users in an organization
         (operator, alice, bob) <- org_add_two_member_test
-        someOrg <- queryContractKey @Organization operator (operator, "Topl")
+        someOrg <- queryContractKey @Organization operator (operator, "1")
         let orgId = (fromSome someOrg)._1
         let org = (fromSome someOrg)._2
         org <- submit alice do 
@@ -24,10 +24,10 @@ module Tests.Asset where
 
     asset_creator_mint_asset = script do
         (operator, alice, bob, org) <- org_create_asset_creator_test
-        someOrg <- queryContractKey @Organization operator (operator, "Topl")
+        someOrg <- queryContractKey @Organization operator (operator, "1")
         let orgId = (fromSome someOrg)._1
         let org = (fromSome someOrg)._2
-        someAssetCreator <- queryContractKey @AssetCreator operator (operator, "Topl", head org.assetCodes)
+        someAssetCreator <- queryContractKey @AssetCreator operator (operator, "1", (head org.assetCodesAndIous)._1)
         let assetCreatorCid = (fromSome someAssetCreator)._1
         assetMintingRequestCid <- submit alice do 
             exerciseCmd assetCreatorCid MintAsset with
@@ -58,11 +58,37 @@ module Tests.Asset where
         signedAssetMinting <- queryContractId operator signedAssetMintingCid
         assetIou <- submit operator do
             exerciseCmd orgId Organization_AddSignedAssetMinting with
+                iouIdentifier         = "1"
                 signedAssetMintingCid = signedAssetMintingCid
         someAssetIou <- queryContractId @AssetIou operator assetIou
         (fromSome someAssetIou).someMetadata === (Some "YYYY")
         (fromSome someAssetIou).someCommitRoot === (Some "XXXX")
         return (operator, alice, bob, assetIou)
+
+    asset_creator_add_member_after_iou = script do
+        (operator, alice, bob, assetIou)  <- asset_creator_mint_asset
+        someOrg <- queryContractKey @Organization operator (operator, "1")
+        let orgId = (fromSome someOrg)._1
+        let org = (fromSome someOrg)._2
+        eve <- allocateParty "Eve" 
+        membershiptOffer <- submit operator do
+            exerciseCmd orgId Organization_InviteMember with invitee = eve
+        membershipAcceptance <- submit eve do 
+            exerciseCmd membershiptOffer Membershp_Accept
+        submit operator do
+            exerciseCmd membershipAcceptance AddUserToOrganization
+        someAssetIou <- queryContractKey @AssetIou operator (operator, "1", (head org.assetCodesAndIous)._1, "1")
+        submit eve do
+            exerciseCmd (fromSome someAssetIou)._1 AssetIou_UpdateAsset with
+                requestor = eve
+                newCommitRoot = Some "WWWW"
+                newMetadata = Some "VVVVV"
+                someFee = None
+        someOrg <- queryContractKey @Organization operator (operator, "1")
+        let orgId = (fromSome someOrg)._1
+        let org = (fromSome someOrg)._2
+        assert (eve `elem` org.members)
+        return (operator, alice, bob, assetIou) 
 
     asset_creator_transfer_asset = script do
         (operator, alice, bob, assetIou)  <- asset_creator_mint_asset
@@ -92,11 +118,12 @@ module Tests.Asset where
                 txId = "XXXXX"
                 depth = 1
         someSignedAssetTransferCid <- queryContractId operator signedAssetTransferCid
-        someOrg <- queryContractKey @Organization operator (operator, "Topl")
+        someOrg <- queryContractKey @Organization operator (operator, "1")
         let orgId = (fromSome someOrg)._1
         let org = (fromSome someOrg)._2
         assetIou <- submit operator do
             exerciseCmd orgId Organization_AddSignedAssetTransfer with
+                iouIdentifier         = "1"
                 signedAssetTransferCid = signedAssetTransferCid
         someAssetIou <- queryContractId @AssetIou operator assetIou
         (fromSome someAssetIou).someMetadata === (Some "VVVVV")

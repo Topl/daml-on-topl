@@ -49,9 +49,14 @@ import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.io.Source
 
+// Possible designs:
+// - One-off processor
+// - Reusable processor
+
 class SignedAssetTransferRequestProcessor(
   damlAppContext: DamlAppContext,
-  toplContext:    ToplContext
+  toplContext:    ToplContext,
+  idGenerator:    java.util.function.Supplier[String]
 ) extends AbstractProcessor(damlAppContext, toplContext) {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
@@ -147,8 +152,8 @@ class SignedAssetTransferRequestProcessor(
 
       stream.Stream.of(
         Organization
-          .byKey(new types.Tuple2(signedTransferRequest.operator, signedTransferRequest.someOrgName.get()))
-          .exerciseOrganization_AddSignedAssetTransfer(signedTransferRequestContract)
+          .byKey(new types.Tuple2(signedTransferRequest.operator, signedTransferRequest.someOrgId.get()))
+          .exerciseOrganization_AddSignedAssetTransfer(idGenerator.get(), signedTransferRequestContract)
       )
     } else {
       stream.Stream.of(
