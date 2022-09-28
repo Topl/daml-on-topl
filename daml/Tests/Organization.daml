@@ -14,14 +14,16 @@ module Tests.Organization where
         operatorCid <- submit operator do
             createCmd Operator with operator = operator, address = "XXXX"
         org <- submit operator do
-            exerciseCmd operatorCid Operator_CreateOrganization with orgName = "Topl"
+            exerciseCmd operatorCid Operator_CreateOrganization with
+                                                                    orgId   = "1" 
+                                                                    orgName = "Topl"
         membershiptOffer <- submit operator do
             exerciseCmd org Organization_InviteMember with invitee = alice
         membershipAcceptance <- submit alice do
             exerciseCmd membershiptOffer Membershp_Accept
         submit operator do
             exerciseCmd membershipAcceptance AddUserToOrganization
-        someOrgData <-  queryContractKey @Organization alice (operator, "Topl")
+        someOrgData <-  queryContractKey @Organization alice (operator, "1")
         assertMsg "alice is not in members" (alice `elem` (fromSomeNote "No org data" someOrgData)._2.members)
         assertMsg "alice is in wouldBeMembers" (alice `notElem` (fromSomeNote "No org data for would be members" someOrgData)._2.wouldBeMembers)
 
@@ -34,14 +36,16 @@ module Tests.Organization where
         operatorCid <- submit operator do
             createCmd Operator with operator = operator, address = "XXXX"
         org <- submit operator do
-            exerciseCmd operatorCid Operator_CreateOrganization with orgName = "Topl"
+            exerciseCmd operatorCid Operator_CreateOrganization with
+                                                                    orgId   = "1" 
+                                                                    orgName = "Topl"
         membershiptOffer <- submit operator do
             exerciseCmd org Organization_InviteMember with invitee = alice
         membershipAcceptance <- submit alice do
             exerciseCmd membershiptOffer Membershp_Accept
         org <- submit operator do
             exerciseCmd membershipAcceptance AddUserToOrganization
-        someOrg <- queryContractKey @Organization operator (operator, "Topl")
+        someOrg <- queryContractKey @Organization operator (operator, "1")
         membershiptOffer <- submit operator do
             exerciseCmd (fromSome someOrg)._1 Organization_InviteMember with invitee = bob
         membershipAcceptance <- submit bob do
@@ -64,10 +68,12 @@ module Tests.Organization where
         operatorCid <- submit operator do
             createCmd Operator with operator = operator, address = "XXXX"
         org <- submit operator do
-            exerciseCmd operatorCid Operator_CreateOrganization with orgName = "Topl"
+            exerciseCmd operatorCid Operator_CreateOrganization with 
+                                                                orgId   = "1"
+                                                                orgName = "Topl"
         membershiptOfferAlice <- submit operator do
             exerciseCmd org Organization_InviteMember with invitee = alice
-        newOrg <- queryContractKey @Organization operator (operator, "Topl")
+        newOrg <- queryContractKey @Organization operator (operator, "1")
         membershiptOfferBob <- submit operator do
             exerciseCmd (fromSome newOrg)._1 Organization_InviteMember with invitee = bob
         membershipAcceptance <- submit alice do
@@ -76,7 +82,7 @@ module Tests.Organization where
         -- we need this step because if this is performed by a user, it will fail. Indeed, each user does not have the right to see the membership invitation
         submit operator do
             exerciseCmd membershipAcceptance AddUserToOrganization
-        someMembershipOfferForBob <-  queryContractKey @MembershipOffer operator (operator, bob, "Topl")
+        someMembershipOfferForBob <-  queryContractKey @MembershipOffer operator (operator, bob, "1")
         membershipAcceptance <- submit bob do
             exerciseCmd (fromSomeNote "No offer found for Bob" someMembershipOfferForBob)._1 Membershp_Accept
         org <- submit operator do

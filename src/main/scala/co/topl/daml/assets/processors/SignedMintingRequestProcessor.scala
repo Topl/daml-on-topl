@@ -54,7 +54,8 @@ import scala.io.Source
 
 class SignedMintingRequestProcessor(
   damlAppContext: DamlAppContext,
-  toplContext:    ToplContext
+  toplContext:    ToplContext,
+  idGenerator:    java.util.function.Supplier[String]
 ) extends AbstractProcessor(damlAppContext, toplContext) {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
@@ -152,8 +153,8 @@ class SignedMintingRequestProcessor(
 
       stream.Stream.of(
         Organization
-          .byKey(new types.Tuple2(signedMintingRequest.operator, signedMintingRequest.someOrgName.get()))
-          .exerciseOrganization_AddSignedAssetMinting(signedMintingRequestContract)
+          .byKey(new types.Tuple2(signedMintingRequest.operator, signedMintingRequest.someOrgId.get()))
+          .exerciseOrganization_AddSignedAssetMinting(idGenerator.get(), signedMintingRequestContract)
       )
     } else {
       stream.Stream.of(

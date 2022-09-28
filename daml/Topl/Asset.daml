@@ -26,7 +26,7 @@ module Topl.Asset where
         with 
             operator             : Party
             requestor            : Party
-            someOrgName          : Optional Text
+            someOrgId            : Optional Text
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
@@ -59,7 +59,7 @@ module Topl.Asset where
         with 
             operator             : Party
             requestor            : Party
-            someOrgName          : Optional Text
+            someOrgId            : Optional Text
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
@@ -93,7 +93,7 @@ module Topl.Asset where
         with 
             operator             : Party
             requestor            : Party
-            someOrgName          : Optional Text
+            someOrgId            : Optional Text
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
@@ -150,7 +150,7 @@ module Topl.Asset where
         with 
             operator             : Party
             requestor            : Party
-            someOrgName          : Optional Text
+            someOrgId            : Optional Text
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
@@ -185,7 +185,7 @@ module Topl.Asset where
         with 
             operator             : Party
             requestor            : Party
-            someOrgName          : Optional Text
+            someOrgId            : Optional Text
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
@@ -221,7 +221,7 @@ module Topl.Asset where
         with 
             operator             : Party
             requestor            : Party
-            someOrgName          : Optional Text
+            someOrgId          : Optional Text
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text

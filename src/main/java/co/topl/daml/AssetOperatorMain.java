@@ -21,6 +21,7 @@ import co.topl.daml.assets.processors.SignedAssetTransferRequestProcessor;
 import akka.actor.ActorSystem;
 import co.topl.client.Provider;
 import akka.http.javadsl.model.Uri;
+import java.util.function.Supplier;
 
 import io.reactivex.Flowable;
 import co.topl.daml.DamlAppContext;
@@ -68,8 +69,16 @@ public class AssetOperatorMain {
 		UnsignedMintingRequestProcessor unsignedMintingRequestProcessor = new UnsignedMintingRequestProcessor(
 				damlAppContext, toplContext, keyfile, password);
 		transactions.forEach(unsignedMintingRequestProcessor::processTransaction);
+		Supplier<String> supplier = new Supplier<String>() {
+
+			int i = 0;
+
+			public String get() {
+				return Integer.valueOf(i++).toString();
+			}
+		};
 		SignedMintingRequestProcessor signedMintingRequestProcessor = new SignedMintingRequestProcessor(damlAppContext,
-				toplContext);
+				toplContext, supplier);
 		transactions.forEach(signedMintingRequestProcessor::processTransaction);
 
 		AssetTransferRequestProcessor assetTransferRequestProcessor = new AssetTransferRequestProcessor(damlAppContext,
@@ -79,7 +88,7 @@ public class AssetOperatorMain {
 				damlAppContext, toplContext, keyfile, password);
 		transactions.forEach(unsignedTransferRequestProcessor::processTransaction);
 		SignedAssetTransferRequestProcessor signedTransferRequestProcessor = new SignedAssetTransferRequestProcessor(
-				damlAppContext, toplContext);
+				damlAppContext, toplContext, supplier);
 		transactions.forEach(signedTransferRequestProcessor::processTransaction);
 	}
 }
