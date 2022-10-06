@@ -52,140 +52,123 @@ class AssetTransferRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(AssetTransferRequest.TEMPLATE_ID, event) {
-    val transferRequestContract =
-      AssetTransferRequest.Contract.fromCreatedEvent(event).id
-    val assetTransferRequest =
-      AssetTransferRequest.fromValue(
-        event.getArguments()
-      )
-    val mustContinue = callback.apply(assetTransferRequest, transferRequestContract)
-    if (mustContinue) {
-      val address = assetTransferRequest.from.asScala.toSeq
-        .map(Base58Data.unsafe)
-        .map(_.decodeAddress.getOrThrow())
-      val params =
-        ToplRpc.NodeView.Balances
-          .Params(
-            address.toList
-          )
-      val balances = ToplRpc.NodeView.Balances.rpc(params)
+  ): (Boolean, stream.Stream[Command]) = processEventAux(
+    AssetTransferRequest.TEMPLATE_ID,
+    e => AssetTransferRequest.fromValue(e.getArguments()),
+    e => AssetTransferRequest.Contract.fromCreatedEvent(e).id,
+    callback.apply,
+    event
+  ) { (assetTransferRequest, transferRequestContract) =>
+    val address = assetTransferRequest.from.asScala.toSeq
+      .map(Base58Data.unsafe)
+      .map(_.decodeAddress.getOrThrow())
+    val params =
+      ToplRpc.NodeView.Balances
+        .Params(
+          address.toList
+        )
+    val balances = ToplRpc.NodeView.Balances.rpc(params)
 
-      import scala.concurrent.duration._
-      import scala.language.postfixOps
-      Await.result(
-        balances.fold(
-          failure => {
-            logger.info("Failed to obtain raw transaction from server.")
-            logger.debug("Error: {}", failure)
+    import scala.concurrent.duration._
+    import scala.language.postfixOps
+    Await.result(
+      balances.fold(
+        failure => {
+          logger.info("Failed to obtain raw transaction from server.")
+          logger.debug("Error: {}", failure)
+
+          stream.Stream.of(
+            transferRequestContract
+              .exerciseAssetTransferRequest_Reject()
+          )
+        },
+        balance => {
+          val to =
             (
-              mustContinue,
-              stream.Stream.of(
-                transferRequestContract
-                  .exerciseAssetTransferRequest_Reject()
+              Base58Data.unsafe(assetTransferRequest.to.get(0)._1).decodeAddress.getOrThrow(),
+              SimpleValue(
+                balance.values.map(_.Boxes.PolyBox.head.value.quantity).head - Int128(assetTransferRequest.fee)
               )
-            )
-          },
-          balance => {
-            val to =
-              (
-                Base58Data.unsafe(assetTransferRequest.to.get(0)._1).decodeAddress.getOrThrow(),
-                SimpleValue(
-                  balance.values.map(_.Boxes.PolyBox.head.value.quantity).head - Int128(assetTransferRequest.fee)
-                )
-              ) :: assetTransferRequest.to.asScala.toSeq
-                .map(x =>
-                  (
-                    Base58Data.unsafe(x._1).decodeAddress.getOrThrow(),
-                    AssetValue(
-                      Int128(x._2.intValue()),
-                      AssetCode(
-                        assetTransferRequest.assetCode.version.toByte,
-                        Base58Data
-                          .unsafe(assetTransferRequest.from.get(0))
-                          .decodeAddress
-                          .getOrThrow(),
-                        Latin1Data.fromData(
-                          utf8StringToLatin1ByteArray(assetTransferRequest.assetCode.shortName)
-                        )
-                      ),
-                      assetTransferRequest.someCommitRoot
-                        .map(x => SecurityRoot.fromBase58(Base58Data.unsafe(x)))
-                        .orElse(SecurityRoot.empty),
-                      assetTransferRequest.someMetadata
-                        .map(x =>
-                          Option(
-                            Latin1Data.fromData(
-                              utf8StringToLatin1ByteArray(x)
-                            )
+            ) :: assetTransferRequest.to.asScala.toSeq
+              .map(x =>
+                (
+                  Base58Data.unsafe(x._1).decodeAddress.getOrThrow(),
+                  AssetValue(
+                    Int128(x._2.intValue()),
+                    AssetCode(
+                      assetTransferRequest.assetCode.version.toByte,
+                      Base58Data
+                        .unsafe(assetTransferRequest.from.get(0))
+                        .decodeAddress
+                        .getOrThrow(),
+                      Latin1Data.fromData(
+                        utf8StringToLatin1ByteArray(assetTransferRequest.assetCode.shortName)
+                      )
+                    ),
+                    assetTransferRequest.someCommitRoot
+                      .map(x => SecurityRoot.fromBase58(Base58Data.unsafe(x)))
+                      .orElse(SecurityRoot.empty),
+                    assetTransferRequest.someMetadata
+                      .map(x =>
+                        Option(
+                          Latin1Data.fromData(
+                            utf8StringToLatin1ByteArray(x)
                           )
                         )
-                        .orElse(None)
-                    )
+                      )
+                      .orElse(None)
                   )
                 )
-                .toList
-
-            val assetTransfer = AssetTransfer(
-              balance.values.toList
-                .flatMap(_.Boxes.PolyBox)
-                .map(x => (address.head, x.nonce))
-                .toIndexedSeq
-                .++(
-                  balance.values.toList
-                    .flatMap(_.Boxes.AssetBox)
-                    .filter(_.nonce == assetTransferRequest.boxNonce)
-                    .map(x => (address.head, x.nonce))
-                    .toIndexedSeq
-                ),
-              to.toIndexedSeq,
-              ListMap(),
-              Int128(
-                assetTransferRequest.fee
-              ),
-              System.currentTimeMillis(),
-              None,
-              false
-            )
-            val transferRequest = AssetTransferSerializer.toBytes(
-              assetTransfer
-            )
-            val encodedTx =
-              ByteVector(
-                transferRequest
-              ).toBase58
-            logger.info("Successfully generated raw transaction for contract {}.", transferRequestContract.contractId)
-            import io.circe.syntax._
-            logger.info("The returned json: {}", transferRequest.asJson)
-            logger.debug(
-              "Encoded transaction: {}",
-              encodedTx
-            )
-
-            (
-              mustContinue,
-              stream.Stream.of(
-                transferRequestContract
-                  .exerciseAssetTransferRequest_Accept(
-                    encodedTx,
-                    assetTransfer.newBoxes.toList.reverse.head.nonce
-                  )
               )
-            )
-          }
-        ),
-        timeoutMillis millis
-      )
+              .toList
 
-    } else {
-      (
-        mustContinue,
-        stream.Stream.of(
-          transferRequestContract
-            .exerciseAssetTransferRequest_Archive()
-        )
-      )
-    }
+          val assetTransfer = AssetTransfer(
+            balance.values.toList
+              .flatMap(_.Boxes.PolyBox)
+              .map(x => (address.head, x.nonce))
+              .toIndexedSeq
+              .++(
+                balance.values.toList
+                  .flatMap(_.Boxes.AssetBox)
+                  .filter(_.nonce == assetTransferRequest.boxNonce)
+                  .map(x => (address.head, x.nonce))
+                  .toIndexedSeq
+              ),
+            to.toIndexedSeq,
+            ListMap(),
+            Int128(
+              assetTransferRequest.fee
+            ),
+            System.currentTimeMillis(),
+            None,
+            false
+          )
+          val transferRequest = AssetTransferSerializer.toBytes(
+            assetTransfer
+          )
+          val encodedTx =
+            ByteVector(
+              transferRequest
+            ).toBase58
+          logger.info("Successfully generated raw transaction for contract {}.", transferRequestContract.contractId)
+          import io.circe.syntax._
+          logger.info("The returned json: {}", transferRequest.asJson)
+          logger.debug(
+            "Encoded transaction: {}",
+            encodedTx
+          )
+
+          stream.Stream.of(
+            transferRequestContract
+              .exerciseAssetTransferRequest_Accept(
+                encodedTx,
+                assetTransfer.newBoxes.toList.reverse.head.nonce
+              )
+          )
+        }
+      ),
+      timeoutMillis millis
+    )
   }
 
 }

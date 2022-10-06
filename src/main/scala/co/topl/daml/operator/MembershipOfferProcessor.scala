@@ -20,25 +20,17 @@ class MembershipOfferProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(MembershipOffer.TEMPLATE_ID, event) {
-    val membershipOfferContract =
-      MembershipOffer.Contract.fromCreatedEvent(event).id
-    val membershipOffer =
-      MembershipOffer.fromValue(
-        event.getArguments()
-      )
-    val mustContinue = callback.apply(membershipOffer, membershipOfferContract)
-    if (mustContinue) {
-      (
-        mustContinue,
-        stream.Stream.of(
-          membershipOfferContract
-            .exerciseMembershp_Accept()
-        )
-      )
-    } else {
-      (mustContinue, stream.Stream.empty())
-    }
+  ): (Boolean, stream.Stream[Command]) = processEventAux(
+    MembershipOffer.TEMPLATE_ID,
+    e => MembershipOffer.fromValue(e.getArguments()),
+    e => MembershipOffer.Contract.fromCreatedEvent(e).id,
+    callback.apply,
+    event
+  ) { (membershipOffer, membershipOfferContract) =>
+    stream.Stream.of(
+      membershipOfferContract
+        .exerciseMembershp_Accept()
+    )
   }
 
 }

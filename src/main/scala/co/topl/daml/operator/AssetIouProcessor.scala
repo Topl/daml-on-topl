@@ -20,7 +20,13 @@ class AssetIouProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(AssetIou.TEMPLATE_ID, event) {
+  ): (Boolean, stream.Stream[Command]) = processEventAux(
+    AssetIou.TEMPLATE_ID,
+    e => AssetIou.fromValue(e.getArguments()),
+    e => AssetIou.Contract.fromCreatedEvent(e).id,
+    callback.apply,
+    event
+  ) { (assetIou, assetIouContract) =>
     val assetIouContract =
       AssetIou.Contract.fromCreatedEvent(event).id
     val assetIou =
@@ -28,7 +34,7 @@ class AssetIouProcessor(
         event.getArguments()
       )
     val mustContinue = callback.apply(assetIou, assetIouContract)
-    (mustContinue, stream.Stream.empty())
+    stream.Stream.empty()
   }
 
 }

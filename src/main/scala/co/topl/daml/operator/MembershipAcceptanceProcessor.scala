@@ -19,26 +19,18 @@ class MembershipAcceptanceProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(MembershipAcceptance.TEMPLATE_ID, event) {
-    val membershipAcceptanceContract =
-      MembershipAcceptance.Contract.fromCreatedEvent(event).id
+  ): (Boolean, stream.Stream[Command]) = processEventAux(
+    MembershipAcceptance.TEMPLATE_ID,
+    e => MembershipAcceptance.fromValue(e.getArguments()),
+    e => MembershipAcceptance.Contract.fromCreatedEvent(e).id,
+    callback.apply,
+    event
+  ) { (membershipAcceptance, membershipAcceptanceContract) =>
+    stream.Stream.of(
+      membershipAcceptanceContract
+        .exerciseAddUserToOrganization()
+    )
 
-    val membershipAcceptance =
-      MembershipAcceptance.fromValue(
-        event.getArguments()
-      )
-    val mustContinue = callback.apply(membershipAcceptance, membershipAcceptanceContract)
-    if (mustContinue) {
-      (
-        mustContinue,
-        stream.Stream.of(
-          membershipAcceptanceContract
-            .exerciseAddUserToOrganization()
-        )
-      )
-    } else {
-      (mustContinue, stream.Stream.empty())
-    }
   }
 
 }

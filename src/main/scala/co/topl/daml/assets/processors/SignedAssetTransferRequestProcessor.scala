@@ -123,60 +123,50 @@ class SignedAssetTransferRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(SignedAssetTransfer.TEMPLATE_ID, event) {
-    val signedTransferRequestContract =
-      SignedAssetTransfer.Contract.fromCreatedEvent(event).id
-    val signedTransferRequest =
-      SignedAssetTransfer.fromValue(
-        event.getArguments()
+  ): (Boolean, stream.Stream[Command]) = processEventAux(
+    SignedAssetTransfer.TEMPLATE_ID,
+    e => SignedAssetTransfer.fromValue(e.getArguments()),
+    e => SignedAssetTransfer.Contract.fromCreatedEvent(e).id,
+    callback.apply,
+    event
+  ) { (signedTransferRequest, signedTransferRequestContract) =>
+    if (signedTransferRequest.sendStatus.isInstanceOf[Pending]) {
+      handlePending(signedTransferRequest, signedTransferRequestContract)
+    } else if (signedTransferRequest.sendStatus.isInstanceOf[FailedToSend]) {
+      logger.error("Failed to send contract.")
+
+      stream.Stream.of(
+        signedTransferRequestContract
+          .exerciseSignedAssetTransfer_Archive()
       )
-    val mustContinue = callback.apply(signedTransferRequest, signedTransferRequestContract)
-    if (mustContinue) {
-      if (signedTransferRequest.sendStatus.isInstanceOf[Pending]) {
-        (mustContinue, handlePending(signedTransferRequest, signedTransferRequestContract))
-      } else if (signedTransferRequest.sendStatus.isInstanceOf[FailedToSend]) {
-        logger.error("Failed to send contract.")
-        (
-          mustContinue,
-          stream.Stream.of(
-            signedTransferRequestContract
-              .exerciseSignedAssetTransfer_Archive()
+    } else if (signedTransferRequest.sendStatus.isInstanceOf[Sent]) {
+      logger.info("Successfully sent.")
+
+      stream.Stream.of(
+        signedTransferRequestContract
+          .exerciseSignedAssetTransfer_Confirm(
+            new SignedAssetTransfer_Confirm(
+              (signedTransferRequest.sendStatus.asInstanceOf[Sent]).txHash.orElseGet(() => ""),
+              1
+            )
           )
-        )
-      } else if (signedTransferRequest.sendStatus.isInstanceOf[Sent]) {
-        logger.info("Successfully sent.")
-        (
-          mustContinue,
-          stream.Stream.of(
-            signedTransferRequestContract
-              .exerciseSignedAssetTransfer_Confirm(
-                new SignedAssetTransfer_Confirm(
-                  (signedTransferRequest.sendStatus.asInstanceOf[Sent]).txHash.orElseGet(() => ""),
-                  1
-                )
-              )
-          )
-        )
-      } else {
-        (
-          mustContinue,
-          stream.Stream.of(
-            signedTransferRequestContract
-              .exerciseSignedAssetTransfer_Archive()
-          )
-        )
-      }
-    } else {
+      )
+    } else if (signedTransferRequest.sendStatus.isInstanceOf[Confirmed]) {
       logger.info("Successfully confirmed.")
-      (
-        mustContinue,
-        stream.Stream.of(
-          Organization
-            .byKey(new types.Tuple2(signedTransferRequest.operator, signedTransferRequest.someOrgId.get()))
-            .exerciseOrganization_AddSignedAssetTransfer(idGenerator.get(), signedTransferRequestContract)
-        )
+
+      stream.Stream.of(
+        Organization
+          .byKey(new types.Tuple2(signedTransferRequest.operator, signedTransferRequest.someOrgId.get()))
+          .exerciseOrganization_AddSignedAssetTransfer(idGenerator.get(), signedTransferRequestContract)
+      )
+    } else {
+
+      stream.Stream.of(
+        signedTransferRequestContract
+          .exerciseSignedAssetTransfer_Archive()
       )
     }
+
   }
 
 }

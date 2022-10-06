@@ -113,46 +113,33 @@ class SignedTransferProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(SignedTransfer.TEMPLATE_ID, event) {
-    val signedTransferContract =
-      SignedTransfer.Contract.fromCreatedEvent(event).id
-    val signedTransfer =
-      SignedTransfer.fromValue(
-        event.getArguments()
+  ): (Boolean, stream.Stream[Command]) = processEventAux(
+    SignedTransfer.TEMPLATE_ID,
+    e => SignedTransfer.fromValue(e.getArguments()),
+    e => SignedTransfer.Contract.fromCreatedEvent(e).id,
+    callback.apply,
+    event
+  ) { (contract, contractId) =>
+    if (contract.sendStatus.isInstanceOf[Pending]) {
+      handlePending(contract, contractId)
+    } else if (contract.sendStatus.isInstanceOf[FailedToSend]) {
+      logger.error("Failed to send contract.")
+      stream.Stream.of(
+        contractId
+          .exerciseSignedTransfer_Archive()
       )
-    val mustContinue = callback.apply(signedTransfer, signedTransferContract)
-    if (mustContinue) {
-      if (signedTransfer.sendStatus.isInstanceOf[Pending]) {
-        (mustContinue, handlePending(signedTransfer, signedTransferContract))
-      } else if (signedTransfer.sendStatus.isInstanceOf[FailedToSend]) {
-        logger.error("Failed to send contract.")
-        (
-          mustContinue,
-          stream.Stream.of(
-            signedTransferContract
-              .exerciseSignedTransfer_Archive()
-          )
-        )
-      } else if (signedTransfer.sendStatus.isInstanceOf[Sent]) {
-        logger.info("Successfully sent.")
-        (
-          mustContinue,
-          stream.Stream.of(
-            signedTransferContract
-              .exerciseSignedTransfer_Archive()
-          )
-        )
-      } else {
-        (
-          mustContinue,
-          stream.Stream.of(
-            signedTransferContract
-              .exerciseSignedTransfer_Archive()
-          )
-        )
-      }
+
+    } else if (contract.sendStatus.isInstanceOf[Sent]) {
+      logger.info("Successfully sent.")
+      stream.Stream.of(
+        contractId
+          .exerciseSignedTransfer_Archive()
+      )
     } else {
-      (mustContinue, stream.Stream.empty())
+      stream.Stream.of(
+        contractId
+          .exerciseSignedTransfer_Archive()
+      )
     }
   }
 

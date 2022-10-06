@@ -20,12 +20,21 @@ package object daml {
 
   type RpcErrorOr[T] = EitherT[Future, RpcClientFailure, T]
 
-  def processEventAux(templateIdentifier: Identifier, event: CreatedEvent)(
-    processor:                            => (Boolean, stream.Stream[Command])
+  def processEventAux[T, C](
+    templateIdentifier: Identifier,
+    extractContract:    CreatedEvent => T,
+    extractContractId:  CreatedEvent => C,
+    callback:           (T, C) => Boolean,
+    event:              CreatedEvent
+  )(
+    processor: (T, C) => stream.Stream[Command]
   ): (Boolean, stream.Stream[Command]) =
-    if (event.getTemplateId() == templateIdentifier)
-      processor
-    else (true, stream.Stream.empty())
+    if (event.getTemplateId() == templateIdentifier) {
+      val contractId = extractContractId(event)
+      val contract = extractContract(event)
+      val mustContinue = callback.apply(contract, contractId)
+      (mustContinue, processor(contract, contractId))
+    } else (true, stream.Stream.empty())
 
   def processTransactionAux(
     tx: Transaction
@@ -37,7 +46,6 @@ package object daml {
       .stream()
       .filter(e => e.isInstanceOf[CreatedEvent])
       .map(e => e.asInstanceOf[CreatedEvent])
-      // .flatMap(e => processEvent(tx.getWorkflowId(), e)._2)
       .reduce(
         (true, stream.Stream.empty[Command]()),
         (a: (Boolean, stream.Stream[Command]), b: CreatedEvent) => {
@@ -51,10 +59,8 @@ package object daml {
           ((bool0 && bool1), stream.Stream.concat(str0, str1))
         }
       )
-    // .collect(stream.Collectors.toList())
     val (mustContinue, exerciseCommandsStream) = mustContinueAndexerciseCommands
     val exerciseCommands = exerciseCommandsStream.collect(stream.Collectors.toList())
-    // val mustContinue = true
     if (!exerciseCommands.isEmpty()) {
       damlAppContext.client
         .getCommandClient()
