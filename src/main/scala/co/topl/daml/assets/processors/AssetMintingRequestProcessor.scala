@@ -40,8 +40,10 @@ import co.topl.modifier.box.SimpleValue
 
 class AssetMintingRequestProcessor(
   damlAppContext: DamlAppContext,
-  toplContext:    ToplContext
-) extends AbstractProcessor(damlAppContext, toplContext) {
+  toplContext:    ToplContext,
+  timeoutMillis:  Int,
+  callback:       java.util.function.BiFunction[AssetMintingRequest, AssetMintingRequest.ContractId, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback) {
 
   val logger = LoggerFactory.getLogger(classOf[AssetMintingRequestProcessor])
 
@@ -51,7 +53,7 @@ class AssetMintingRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): stream.Stream[Command] = processEventAux(AssetMintingRequest.TEMPLATE_ID, event) {
+  ): (Boolean, stream.Stream[Command]) = processEventAux(AssetMintingRequest.TEMPLATE_ID, event) {
     val mintingRequestContract =
       AssetMintingRequest.Contract.fromCreatedEvent(event).id
     val assetMintingRequest =
@@ -67,95 +69,113 @@ class AssetMintingRequestProcessor(
           address.toList
         )
     val balances = ToplRpc.NodeView.Balances.rpc(params)
-    import scala.concurrent.duration._
-    import scala.language.postfixOps
-    Await.result(
-      balances.fold(
-        failure => {
-          logger.info("Failed to obtain raw transaction from server.")
-          logger.debug("Error: {}", failure)
-          stream.Stream.of(
-            mintingRequestContract
-              .exerciseTransferRequest_Reject()
-          )
-        },
-        balance => {
-          val to =
+    val mustContinue = callback(assetMintingRequest, mintingRequestContract)
+    if (mustContinue) {
+      import scala.concurrent.duration._
+      import scala.language.postfixOps
+      Await.result(
+        balances.fold(
+          failure => {
+            logger.info("Failed to obtain raw transaction from server.")
+            logger.debug("Error: {}", failure)
             (
-              Base58Data.unsafe(assetMintingRequest.to.get(0)._1).decodeAddress.getOrThrow(),
-              SimpleValue(
-                balance.values.map(_.Boxes.PolyBox.head.value.quantity).head - Int128(assetMintingRequest.fee)
+              mustContinue,
+              stream.Stream.of(
+                mintingRequestContract
+                  .exerciseTransferRequest_Reject()
               )
-            ) :: assetMintingRequest.to.asScala.toSeq
-              .map(x =>
-                (
-                  Base58Data.unsafe(x._1).decodeAddress.getOrThrow(),
-                  AssetValue(
-                    Int128(x._2.intValue()),
-                    AssetCode(
-                      assetMintingRequest.assetCode.version.toByte,
-                      Base58Data
-                        .unsafe(assetMintingRequest.from.get(0))
-                        .decodeAddress
-                        .getOrThrow(),
-                      Latin1Data.fromData(
-                        utf8StringToLatin1ByteArray(assetMintingRequest.assetCode.shortName)
-                      )
-                    ),
-                    assetMintingRequest.someCommitRoot
-                      .map(x => SecurityRoot.fromBase58(Base58Data.unsafe(x)))
-                      .orElse(SecurityRoot.empty),
-                    assetMintingRequest.someMetadata
-                      .map(x =>
-                        Option(
-                          Latin1Data.fromData(
-                            utf8StringToLatin1ByteArray(x)
+            )
+          },
+          balance => {
+            val to =
+              (
+                Base58Data.unsafe(assetMintingRequest.to.get(0)._1).decodeAddress.getOrThrow(),
+                SimpleValue(
+                  balance.values.map(_.Boxes.PolyBox.head.value.quantity).head - Int128(assetMintingRequest.fee)
+                )
+              ) :: assetMintingRequest.to.asScala.toSeq
+                .map(x =>
+                  (
+                    Base58Data.unsafe(x._1).decodeAddress.getOrThrow(),
+                    AssetValue(
+                      Int128(x._2.intValue()),
+                      AssetCode(
+                        assetMintingRequest.assetCode.version.toByte,
+                        Base58Data
+                          .unsafe(assetMintingRequest.from.get(0))
+                          .decodeAddress
+                          .getOrThrow(),
+                        Latin1Data.fromData(
+                          utf8StringToLatin1ByteArray(assetMintingRequest.assetCode.shortName)
+                        )
+                      ),
+                      assetMintingRequest.someCommitRoot
+                        .map(x => SecurityRoot.fromBase58(Base58Data.unsafe(x)))
+                        .orElse(SecurityRoot.empty),
+                      assetMintingRequest.someMetadata
+                        .map(x =>
+                          Option(
+                            Latin1Data.fromData(
+                              utf8StringToLatin1ByteArray(x)
+                            )
                           )
                         )
-                      )
-                      .orElse(None)
+                        .orElse(None)
+                    )
                   )
                 )
-              )
-              .toList
+                .toList
 
-          val assetTransfer = AssetTransfer(
-            balance.values.toList.flatMap(_.Boxes.PolyBox).map(x => (address.head, x.nonce)).toIndexedSeq,
-            to.toIndexedSeq,
-            ListMap(),
-            Int128(
-              assetMintingRequest.fee
-            ),
-            System.currentTimeMillis(),
-            None,
-            true
-          )
-          val mintingRequest = AssetTransferSerializer.toBytes(
-            assetTransfer
-          )
-          val encodedTx =
-            ByteVector(
-              mintingRequest
-            ).toBase58
-          logger.info("Successfully generated raw transaction for contract {}.", mintingRequestContract.contractId)
-          import io.circe.syntax._
-          logger.info("The returned json: {}", mintingRequest.asJson)
-          logger.debug(
-            "Encoded transaction: {}",
-            encodedTx
-          )
+            val assetTransfer = AssetTransfer(
+              balance.values.toList.flatMap(_.Boxes.PolyBox).map(x => (address.head, x.nonce)).toIndexedSeq,
+              to.toIndexedSeq,
+              ListMap(),
+              Int128(
+                assetMintingRequest.fee
+              ),
+              System.currentTimeMillis(),
+              None,
+              true
+            )
+            val mintingRequest = AssetTransferSerializer.toBytes(
+              assetTransfer
+            )
+            val encodedTx =
+              ByteVector(
+                mintingRequest
+              ).toBase58
+            logger.info("Successfully generated raw transaction for contract {}.", mintingRequestContract.contractId)
+            import io.circe.syntax._
+            logger.info("The returned json: {}", mintingRequest.asJson)
+            logger.debug(
+              "Encoded transaction: {}",
+              encodedTx
+            )
 
-          stream.Stream.of(
-            mintingRequestContract
-              .exerciseMintingRequest_Accept(
-                encodedTx,
-                assetTransfer.newBoxes.toList.reverse.head.nonce
+            (
+              mustContinue,
+              stream.Stream.of(
+                mintingRequestContract
+                  .exerciseMintingRequest_Accept(
+                    encodedTx,
+                    assetTransfer.newBoxes.toList.reverse.head.nonce
+                  )
               )
-          )
-        }
-      ),
-      3 second
-    )
+            )
+          }
+        ),
+        timeoutMillis millis
+      )
+    } else {
+      (
+        mustContinue,
+        stream.Stream.of(
+          mintingRequestContract
+            .exerciseTransferRequest_Archive()
+        )
+      )
+    }
+
   }
 
 }

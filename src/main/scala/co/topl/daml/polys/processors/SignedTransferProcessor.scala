@@ -46,8 +46,10 @@ import scala.io.Source
 
 class SignedTransferProcessor(
   damlAppContext: DamlAppContext,
-  toplContext:    ToplContext
-) extends AbstractProcessor(damlAppContext, toplContext) {
+  toplContext:    ToplContext,
+  timeoutMillis:  Int,
+  callback:       java.util.function.BiFunction[SignedTransfer, SignedTransfer.ContractId, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback) {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
   implicit val jsonDecoder = co.topl.modifier.transaction.Transaction.jsonDecoder
@@ -83,7 +85,7 @@ class SignedTransferProcessor(
     import scala.concurrent.duration._
     import scala.language.postfixOps
     Await
-      .result(result.value, 3 second)
+      .result(result.value, timeoutMillis millis)
       .fold(
         failure => {
           logger.info("Failed to broadcast transaction to server.")
@@ -111,32 +113,46 @@ class SignedTransferProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): stream.Stream[Command] = processEventAux(SignedTransfer.TEMPLATE_ID, event) {
+  ): (Boolean, stream.Stream[Command]) = processEventAux(SignedTransfer.TEMPLATE_ID, event) {
     val signedTransferContract =
       SignedTransfer.Contract.fromCreatedEvent(event).id
     val signedTransfer =
       SignedTransfer.fromValue(
         event.getArguments()
       )
-    if (signedTransfer.sendStatus.isInstanceOf[Pending]) {
-      handlePending(signedTransfer, signedTransferContract)
-    } else if (signedTransfer.sendStatus.isInstanceOf[FailedToSend]) {
-      logger.error("Failed to send contract.")
-      stream.Stream.of(
-        signedTransferContract
-          .exerciseSignedTransfer_Archive()
-      )
-    } else if (signedTransfer.sendStatus.isInstanceOf[Sent]) {
-      logger.info("Successfully sent.")
-      stream.Stream.of(
-        signedTransferContract
-          .exerciseSignedTransfer_Archive()
-      )
+    val mustContinue = callback.apply(signedTransfer, signedTransferContract)
+    if (mustContinue) {
+      if (signedTransfer.sendStatus.isInstanceOf[Pending]) {
+        (mustContinue, handlePending(signedTransfer, signedTransferContract))
+      } else if (signedTransfer.sendStatus.isInstanceOf[FailedToSend]) {
+        logger.error("Failed to send contract.")
+        (
+          mustContinue,
+          stream.Stream.of(
+            signedTransferContract
+              .exerciseSignedTransfer_Archive()
+          )
+        )
+      } else if (signedTransfer.sendStatus.isInstanceOf[Sent]) {
+        logger.info("Successfully sent.")
+        (
+          mustContinue,
+          stream.Stream.of(
+            signedTransferContract
+              .exerciseSignedTransfer_Archive()
+          )
+        )
+      } else {
+        (
+          mustContinue,
+          stream.Stream.of(
+            signedTransferContract
+              .exerciseSignedTransfer_Archive()
+          )
+        )
+      }
     } else {
-      stream.Stream.of(
-        signedTransferContract
-          .exerciseSignedTransfer_Archive()
-      )
+      (mustContinue, stream.Stream.empty())
     }
   }
 

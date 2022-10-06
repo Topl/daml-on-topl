@@ -56,7 +56,7 @@ public class AliceMain {
 		ToplContext toplContext = new ToplContext(ActorSystem.create(),
 				new Provider.ValhallaTestNet(uri.asScala(), apiKey));
 		UnsignedTransferProcessor unsignedTransferProcessor = new UnsignedTransferProcessor(damlAppContext, toplContext,
-				keyfile, password);
+				keyfile, password, 3000, (x, y) -> true);
 		transactions.forEach(unsignedTransferProcessor::processTransaction);
 	}
 }

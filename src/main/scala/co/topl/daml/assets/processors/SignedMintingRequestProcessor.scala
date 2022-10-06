@@ -55,8 +55,10 @@ import scala.io.Source
 class SignedMintingRequestProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext,
-  idGenerator:    java.util.function.Supplier[String]
-) extends AbstractProcessor(damlAppContext, toplContext) {
+  timeoutMillis:  Int,
+  idGenerator:    java.util.function.Supplier[String],
+  callback:       java.util.function.BiFunction[SignedAssetMinting, SignedAssetMinting.ContractId, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback) {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
   implicit val jsonDecoder = co.topl.modifier.transaction.Transaction.jsonDecoder
@@ -70,6 +72,7 @@ class SignedMintingRequestProcessor(
     signedMintingRequest:         SignedAssetMinting,
     signedMintingRequestContract: SignedAssetMinting.ContractId
   ): stream.Stream[Command] = {
+
     val result = for {
       transactionAsBytes <-
         lift(
@@ -92,7 +95,7 @@ class SignedMintingRequestProcessor(
     import scala.concurrent.duration._
     import scala.language.postfixOps
     Await
-      .result(result.value, 3 second)
+      .result(result.value, timeoutMillis millis)
       .fold(
         failure => {
           logger.info("Failed to broadcast transaction to server.")
@@ -122,44 +125,58 @@ class SignedMintingRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): stream.Stream[Command] = processEventAux(SignedAssetMinting.TEMPLATE_ID, event) {
+  ): (Boolean, stream.Stream[Command]) = processEventAux(SignedAssetMinting.TEMPLATE_ID, event) {
     val signedMintingRequestContract =
       SignedAssetMinting.Contract.fromCreatedEvent(event).id
     val signedMintingRequest =
       SignedAssetMinting.fromValue(
         event.getArguments()
       )
-    if (signedMintingRequest.sendStatus.isInstanceOf[Pending]) {
-      handlePending(signedMintingRequest, signedMintingRequestContract)
-    } else if (signedMintingRequest.sendStatus.isInstanceOf[FailedToSend]) {
-      logger.error("Failed to send contract.")
-      stream.Stream.of(
-        signedMintingRequestContract
-          .exerciseSignedAssetMinting_Archive()
-      )
-    } else if (signedMintingRequest.sendStatus.isInstanceOf[Sent]) {
-      logger.info("Successfully sent.")
-      stream.Stream.of(
-        signedMintingRequestContract
-          .exerciseSignedAssetMinting_Confirm(
-            new SignedAssetMinting_Confirm(
-              (signedMintingRequest.sendStatus.asInstanceOf[Sent]).txHash.orElseGet(() => ""),
-              1
-            )
+    val mustContinue = callback.apply(signedMintingRequest, signedMintingRequestContract)
+    if (mustContinue) {
+      if (signedMintingRequest.sendStatus.isInstanceOf[Pending]) {
+        (mustContinue, handlePending(signedMintingRequest, signedMintingRequestContract))
+      } else if (signedMintingRequest.sendStatus.isInstanceOf[FailedToSend]) {
+        logger.error("Failed to send contract.")
+        (
+          mustContinue,
+          stream.Stream.of(
+            signedMintingRequestContract
+              .exerciseSignedAssetMinting_Archive()
           )
-      )
-    } else if (signedMintingRequest.sendStatus.isInstanceOf[Confirmed]) {
-      logger.info("Successfully confirmed.")
-
-      stream.Stream.of(
-        Organization
-          .byKey(new types.Tuple2(signedMintingRequest.operator, signedMintingRequest.someOrgId.get()))
-          .exerciseOrganization_AddSignedAssetMinting(idGenerator.get(), signedMintingRequestContract)
-      )
+        )
+      } else if (signedMintingRequest.sendStatus.isInstanceOf[Sent]) {
+        logger.info("Successfully sent.")
+        (
+          mustContinue,
+          stream.Stream.of(
+            signedMintingRequestContract
+              .exerciseSignedAssetMinting_Confirm(
+                new SignedAssetMinting_Confirm(
+                  (signedMintingRequest.sendStatus.asInstanceOf[Sent]).txHash.orElseGet(() => ""),
+                  1
+                )
+              )
+          )
+        )
+      } else {
+        (
+          mustContinue,
+          stream.Stream.of(
+            signedMintingRequestContract
+              .exerciseSignedAssetMinting_Archive()
+          )
+        )
+      }
     } else {
-      stream.Stream.of(
-        signedMintingRequestContract
-          .exerciseSignedAssetMinting_Archive()
+      logger.info("Successfully confirmed.")
+      (
+        mustContinue,
+        stream.Stream.of(
+          Organization
+            .byKey(new types.Tuple2(signedMintingRequest.operator, signedMintingRequest.someOrgId.get()))
+            .exerciseOrganization_AddSignedAssetMinting(idGenerator.get(), signedMintingRequestContract)
+        )
       )
     }
   }

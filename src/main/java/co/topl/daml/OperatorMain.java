@@ -55,12 +55,14 @@ public class OperatorMain {
 		DamlAppContext damlAppContext = new DamlAppContext(APP_ID, operatorParty, client);
 		ToplContext toplContext = new ToplContext(ActorSystem.create(),
 				new Provider.ValhallaTestNet(uri.asScala(), apiKey));
-		TransferRequestProcessor transferProcessor = new TransferRequestProcessor(damlAppContext, toplContext);
+		TransferRequestProcessor transferProcessor = new TransferRequestProcessor(damlAppContext, toplContext, 3000,
+				(x, y) -> true);
 		transactions.forEach(transferProcessor::processTransaction);
-		SignedTransferProcessor signedTransferProcessor = new SignedTransferProcessor(damlAppContext, toplContext);
+		SignedTransferProcessor signedTransferProcessor = new SignedTransferProcessor(damlAppContext, toplContext, 3000,
+				(x, y) -> true);
 		transactions.forEach(signedTransferProcessor::processTransaction);
 		AssetMintingRequestProcessor assetMintingRequestProcessor = new AssetMintingRequestProcessor(damlAppContext,
-				toplContext);
+				toplContext, 3000, (x, y) -> true);
 		transactions.forEach(assetMintingRequestProcessor::processTransaction);
 	}
 }

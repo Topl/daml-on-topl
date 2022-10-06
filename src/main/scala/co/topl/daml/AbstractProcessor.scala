@@ -9,7 +9,11 @@ import io.reactivex.Single
 import java.util.stream
 import scala.concurrent.ExecutionContext
 
-abstract class AbstractProcessor(damlAppContext: DamlAppContext, toplContext: ToplContext) {
+abstract class AbstractProcessor[T, U, V](
+  damlAppContext: DamlAppContext,
+  toplContext:    ToplContext,
+  consumer:       java.util.function.BiFunction[T, U, V]
+) {
 
   implicit val implicitDamlAppContext = damlAppContext
 
@@ -20,8 +24,9 @@ abstract class AbstractProcessor(damlAppContext: DamlAppContext, toplContext: To
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): stream.Stream[Command]
+  ): (Boolean, stream.Stream[Command])
 
-  def processTransaction(tx: Transaction): Single[Empty] =
+  def processTransaction(tx: Transaction): Boolean =
     processTransactionAux(tx)(processEvent)
+
 }

@@ -47,8 +47,10 @@ import co.topl.daml.processEventAux
 
 class TransferRequestProcessor(
   damlAppContext: DamlAppContext,
-  toplContext:    ToplContext
-) extends AbstractProcessor(damlAppContext, toplContext) {
+  toplContext:    ToplContext,
+  timeoutMillis:  Int,
+  callback:       java.util.function.BiFunction[TransferRequest, TransferRequest.ContractId, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback) {
 
   val logger = LoggerFactory.getLogger(classOf[TransferRequestProcessor])
 
@@ -89,7 +91,7 @@ class TransferRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): stream.Stream[Command] =
+  ): (Boolean, stream.Stream[Command]) =
     processEventAux(TransferRequest.TEMPLATE_ID, event) {
       val transferRequestContract =
         TransferRequest.Contract.fromCreatedEvent(event).id
@@ -97,40 +99,51 @@ class TransferRequestProcessor(
         TransferRequest.fromValue(
           event.getArguments()
         )
-      val params = createParams(transferRequest)
+      val mustContinue = callback.apply(transferRequest, transferRequestContract)
+      if (mustContinue) {
+        val params = createParams(transferRequest)
 
-      val rawTransaction =
-        ToplRpc.Transaction.RawPolyTransfer.rpc(params).map(_.rawTx)
-      import scala.concurrent.duration._
-      import scala.language.postfixOps
-      Await.result(
-        rawTransaction.fold(
-          failure => {
-            logger.info("Failed to obtain raw transaction from server.")
-            logger.debug("Error: {}", failure)
-            stream.Stream.of(
-              transferRequestContract
-                .exerciseTransferRequest_Reject()
-            )
-          },
-          polyTransfer => {
-            val encodedTx = ByteVector(PolyTransferSerializer.toBytes(polyTransfer)).toBase58
-            logger.info("Successfully generated raw transaction for contract {}.", transferRequestContract.contractId)
-            logger.debug(
-              "Encoded transaction: {}",
-              encodedTx
-            )
-
-            stream.Stream.of(
-              transferRequestContract
-                .exerciseTransferRequest_Accept(
-                  encodedTx
+        val rawTransaction =
+          ToplRpc.Transaction.RawPolyTransfer.rpc(params).map(_.rawTx)
+        import scala.concurrent.duration._
+        import scala.language.postfixOps
+        Await.result(
+          rawTransaction.fold(
+            failure => {
+              logger.info("Failed to obtain raw transaction from server.")
+              logger.debug("Error: {}", failure)
+              (
+                mustContinue,
+                stream.Stream.of(
+                  transferRequestContract
+                    .exerciseTransferRequest_Reject()
                 )
-            )
-          }
-        ),
-        3 second
-      )
+              )
+            },
+            polyTransfer => {
+              val encodedTx = ByteVector(PolyTransferSerializer.toBytes(polyTransfer)).toBase58
+              logger.info("Successfully generated raw transaction for contract {}.", transferRequestContract.contractId)
+              logger.debug(
+                "Encoded transaction: {}",
+                encodedTx
+              )
+
+              (
+                mustContinue,
+                stream.Stream.of(
+                  transferRequestContract
+                    .exerciseTransferRequest_Accept(
+                      encodedTx
+                    )
+                )
+              )
+            }
+          ),
+          timeoutMillis millis
+        )
+      } else {
+        (mustContinue, stream.Stream.empty())
+      }
     }
 
 }
