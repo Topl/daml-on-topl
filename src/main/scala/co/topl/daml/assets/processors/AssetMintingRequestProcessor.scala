@@ -37,130 +37,106 @@ import scala.concurrent.Await
 import ToplRpc.Transaction.RawAssetTransfer
 import co.topl.modifier.transaction.serialization.AssetTransferSerializer
 import co.topl.modifier.box.SimpleValue
+import cats.effect.IO
+import co.topl.daml.RpcClientFailureException
+import co.topl.daml.CommonOperations
+import co.topl.modifier.box.TokenValueHolder
+import cats.syntax.traverse._
 
 class AssetMintingRequestProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext,
   timeoutMillis:  Int,
   callback:       java.util.function.BiFunction[AssetMintingRequest, AssetMintingRequest.ContractId, Boolean]
-) extends AbstractProcessor(damlAppContext, toplContext, callback) {
+) extends AbstractProcessor(damlAppContext, toplContext, callback)
+    with CommonOperations {
 
   val logger = LoggerFactory.getLogger(classOf[AssetMintingRequestProcessor])
 
   import toplContext.provider._
 
-  // FIXME: improve readbility by breaking into smaller methods
+  def createToParamM(
+    assetMintingRequest: AssetMintingRequest
+  )(address:             String, amount: Long): IO[(Address, TokenValueHolder)] =
+    for {
+      address       <- decodeAddressM(address)
+      issuerAddress <- decodeAddressM(assetMintingRequest.from.get(0))
+      latinData     <- createLatinDataM(assetMintingRequest.assetCode.shortName)
+      commitRoot <- createCommitRootM(
+        Option(assetMintingRequest.someCommitRoot).flatMap(x => Option(x.orElseGet(() => null)))
+      )
+      someMetadata <- createMetadataM(
+        Option(assetMintingRequest.someMetadata).flatMap(x => Option(x.orElseGet(() => null)))
+      )
+    } yield (
+      address,
+      AssetValue(
+        amount,
+        AssetCode(
+          assetMintingRequest.assetCode.version.toByte,
+          issuerAddress,
+          latinData
+        ),
+        commitRoot,
+        someMetadata
+      )
+    )
+
+  def processMintingRequestM(
+    assetMintingRequest:    AssetMintingRequest,
+    mintingRequestContract: AssetMintingRequest.ContractId
+  ) =
+    (for {
+      address   <- decodeAddressesM(assetMintingRequest.from.asScala.toList)
+      params    <- getParamsM(address)
+      balance   <- getBalanceM(params)
+      toAddress <- decodeAddressM(assetMintingRequest.to.get(0)._1)
+      value     <- computeValueM(assetMintingRequest.fee, balance)
+      tailList = assetMintingRequest.to.asScala.toList.map(t => (createToParamM(assetMintingRequest) _)(t._1, t._2))
+      listOfToAddresses <- (IO((toAddress, value)) :: tailList).sequence
+      assetTransfer <- createAssetTransferM(
+        assetMintingRequest.fee,
+        None,
+        address,
+        balance,
+        listOfToAddresses
+      )
+      encodedTx <- encodeTransferM(assetTransfer)
+    } yield {
+      logger.info("Successfully generated raw transaction for contract {}.", mintingRequestContract)
+      import io.circe.syntax._
+      logger.info("The returned json: {}", assetTransfer.asJson)
+      logger.debug(
+        "Encoded transaction: {}",
+        assetTransfer
+      )
+
+      stream.Stream.of(
+        mintingRequestContract
+          .exerciseMintingRequest_Accept(
+            encodedTx,
+            assetTransfer.newBoxes.toList.reverse.head.nonce
+          )
+      ): stream.Stream[Command]
+    }).handleError { failure =>
+      logger.info("Failed to obtain raw transaction from server.")
+      logger.debug("Error: {}", failure)
+
+      stream.Stream.of(
+        mintingRequestContract
+          .exerciseTransferRequest_Reject()
+      ): stream.Stream[Command]
+    }
+
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(
+  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
     AssetMintingRequest.TEMPLATE_ID,
     e => AssetMintingRequest.fromValue(e.getArguments()),
     e => AssetMintingRequest.Contract.fromCreatedEvent(e).id,
     callback.apply,
     event
-  ) { (assetMintingRequest, mintingRequestContract) =>
-    val address = assetMintingRequest.from.asScala.toSeq
-      .map(Base58Data.unsafe)
-      .map(_.decodeAddress.getOrThrow())
-    val params =
-      ToplRpc.NodeView.Balances
-        .Params(
-          address.toList
-        )
-    val balances = ToplRpc.NodeView.Balances.rpc(params)
-
-    import scala.concurrent.duration._
-    import scala.language.postfixOps
-    Await.result(
-      balances.fold(
-        failure => {
-          logger.info("Failed to obtain raw transaction from server.")
-          logger.debug("Error: {}", failure)
-
-          stream.Stream.of(
-            mintingRequestContract
-              .exerciseTransferRequest_Reject()
-          )
-        },
-        balance => {
-          val to =
-            (
-              Base58Data.unsafe(assetMintingRequest.to.get(0)._1).decodeAddress.getOrThrow(),
-              SimpleValue(
-                balance.values.map(_.Boxes.PolyBox.head.value.quantity).head - Int128(assetMintingRequest.fee)
-              )
-            ) :: assetMintingRequest.to.asScala.toSeq
-              .map(x =>
-                (
-                  Base58Data.unsafe(x._1).decodeAddress.getOrThrow(),
-                  AssetValue(
-                    Int128(x._2.intValue()),
-                    AssetCode(
-                      assetMintingRequest.assetCode.version.toByte,
-                      Base58Data
-                        .unsafe(assetMintingRequest.from.get(0))
-                        .decodeAddress
-                        .getOrThrow(),
-                      Latin1Data.fromData(
-                        utf8StringToLatin1ByteArray(assetMintingRequest.assetCode.shortName)
-                      )
-                    ),
-                    assetMintingRequest.someCommitRoot
-                      .map(x => SecurityRoot.fromBase58(Base58Data.unsafe(x)))
-                      .orElse(SecurityRoot.empty),
-                    assetMintingRequest.someMetadata
-                      .map(x =>
-                        Option(
-                          Latin1Data.fromData(
-                            utf8StringToLatin1ByteArray(x)
-                          )
-                        )
-                      )
-                      .orElse(None)
-                  )
-                )
-              )
-              .toList
-
-          val assetTransfer = AssetTransfer(
-            balance.values.toList.flatMap(_.Boxes.PolyBox).map(x => (address.head, x.nonce)).toIndexedSeq,
-            to.toIndexedSeq,
-            ListMap(),
-            Int128(
-              assetMintingRequest.fee
-            ),
-            System.currentTimeMillis(),
-            None,
-            true
-          )
-          val mintingRequest = AssetTransferSerializer.toBytes(
-            assetTransfer
-          )
-          val encodedTx =
-            ByteVector(
-              mintingRequest
-            ).toBase58
-          logger.info("Successfully generated raw transaction for contract {}.", mintingRequestContract.contractId)
-          import io.circe.syntax._
-          logger.info("The returned json: {}", mintingRequest.asJson)
-          logger.debug(
-            "Encoded transaction: {}",
-            encodedTx
-          )
-
-          stream.Stream.of(
-            mintingRequestContract
-              .exerciseMintingRequest_Accept(
-                encodedTx,
-                assetTransfer.newBoxes.toList.reverse.head.nonce
-              )
-          )
-        }
-      ),
-      timeoutMillis millis
-    )
-
-  }
+  )(processMintingRequestM)
 
 }

@@ -15,10 +15,13 @@ import java.util.UUID
 import io.reactivex.subjects.SingleSubject
 import scala.collection.JavaConverters._
 import java.util.function.BiFunction
+import cats.effect.IO
 
 package object daml {
 
   type RpcErrorOr[T] = EitherT[Future, RpcClientFailure, T]
+
+  case class RpcClientFailureException(failure: RpcClientFailure) extends Throwable
 
   def processEventAux[T, C](
     templateIdentifier: Identifier,
@@ -27,53 +30,64 @@ package object daml {
     callback:           (T, C) => Boolean,
     event:              CreatedEvent
   )(
-    processor: (T, C) => stream.Stream[Command]
-  ): (Boolean, stream.Stream[Command]) =
+    processor: (T, C) => IO[stream.Stream[Command]]
+  ): IO[(Boolean, stream.Stream[Command])] =
     if (event.getTemplateId() == templateIdentifier) {
-      val contractId = extractContractId(event)
-      val contract = extractContract(event)
-      val mustContinue = callback.apply(contract, contractId)
-      (mustContinue, processor(contract, contractId))
-    } else (true, stream.Stream.empty())
+      for {
+        contractId   <- IO.apply(extractContractId(event))
+        contract     <- IO.apply(extractContract(event))
+        mustContinue <- IO.apply(callback.apply(contract, contractId))
+        resultStream <- processor(contract, contractId)
+      } yield (mustContinue, resultStream)
+    } else IO.apply((true, stream.Stream.empty()))
+
+  def processEventsM(tx: Transaction, processEvent: (String, CreatedEvent) => IO[(Boolean, stream.Stream[Command])]) =
+    tx.getEvents()
+      .asScala
+      .filter(_.isInstanceOf[CreatedEvent])
+      .map(_.asInstanceOf[CreatedEvent])
+      .foldLeft(IO.apply((true, stream.Stream.empty[Command]()))) { (firstIO, b) =>
+        for {
+          pair1 <- firstIO
+          (bool0, str0) = pair1
+          pair2 <- processEvent(tx.getWorkflowId(), b)
+          (bool1, str1) = pair2
+        } yield ((bool0 && bool1), stream.Stream.concat(str0, str1))
+      }
+
+  def submitToDaml(tx: Transaction, exerciseCommands: java.util.List[Command])(implicit
+    damlAppContext:    DamlAppContext
+  ) =
+    if (!exerciseCommands.isEmpty()) {
+      IO.blocking(
+        damlAppContext.client
+          .getCommandClient()
+          .submitAndWait(
+            tx.getWorkflowId(),
+            damlAppContext.appId,
+            UUID.randomUUID().toString(),
+            damlAppContext.operatorParty,
+            exerciseCommands
+          )
+      )
+    } else {
+      IO.apply(SingleSubject.create())
+    }
 
   def processTransactionAux(
     tx: Transaction
   )(
-    processEvent:            (String, CreatedEvent) => (Boolean, stream.Stream[Command])
-  )(implicit damlAppContext: DamlAppContext): Boolean = {
-    val mustContinueAndexerciseCommands = tx
-      .getEvents()
-      .stream()
-      .filter(e => e.isInstanceOf[CreatedEvent])
-      .map(e => e.asInstanceOf[CreatedEvent])
-      .reduce(
-        (true, stream.Stream.empty[Command]()),
-        (a: (Boolean, stream.Stream[Command]), b: CreatedEvent) => {
-          val (bool0, str0) = a
-          val (bool1, str1) = processEvent(tx.getWorkflowId(), b)
-          ((bool0 && bool1), stream.Stream.concat(str0, str1))
-        },
-        (a: (Boolean, stream.Stream[Command]), b: (Boolean, stream.Stream[Command])) => {
-          val (bool0, str0) = a
-          val (bool1, str1) = b
-          ((bool0 && bool1), stream.Stream.concat(str0, str1))
-        }
-      )
-    val (mustContinue, exerciseCommandsStream) = mustContinueAndexerciseCommands
-    val exerciseCommands = exerciseCommandsStream.collect(stream.Collectors.toList())
-    if (!exerciseCommands.isEmpty()) {
-      damlAppContext.client
-        .getCommandClient()
-        .submitAndWait(
-          tx.getWorkflowId(),
-          damlAppContext.appId,
-          UUID.randomUUID().toString(),
-          damlAppContext.operatorParty,
-          exerciseCommands
-        )
-      return mustContinue;
-    } else return true;
-  }
+    processEvent:            (String, CreatedEvent) => IO[(Boolean, stream.Stream[Command])]
+  )(implicit damlAppContext: DamlAppContext): IO[Boolean] =
+    (for {
+      pair <- processEventsM(tx, processEvent)
+      (mustContinue, exerciseCommandsStream) = pair
+      exerciseCommands = exerciseCommandsStream.collect(stream.Collectors.toList())
+      _ <- submitToDaml(tx, exerciseCommands)
+    } yield
+      if (!exerciseCommands.isEmpty()) {
+        mustContinue;
+      } else true)
 
   def utf8StringToLatin1ByteArray(str: String) = str.zipWithIndex
     .map(e => str.codePointAt(e._2).toByte)

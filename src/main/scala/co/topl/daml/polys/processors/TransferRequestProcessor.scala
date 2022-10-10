@@ -44,6 +44,9 @@ import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
 import co.topl.daml.AbstractProcessor
 import co.topl.daml.processEventAux
+import cats.effect.IO
+import cats.arrow.FunctionK
+import co.topl.daml.RpcClientFailureException
 
 class TransferRequestProcessor(
   damlAppContext: DamlAppContext,
@@ -88,52 +91,55 @@ class TransferRequestProcessor(
       boxSelectionAlgorithm = BoxSelectionAlgorithms.All
     )
 
+  def createRawTx(params: RawPolyTransfer.Params) = ToplRpc.Transaction.RawPolyTransfer
+    .rpc(params)
+    .mapK(new FunctionK[Future, IO] { def apply[A](fa: Future[A]): IO[A] = IO.fromFuture(IO(fa)) })
+    .map(_.rawTx)
+    .value
+
+  def prepareTransactionM(
+    transferRequest:         TransferRequest,
+    transferRequestContract: TransferRequest.ContractId
+  ): IO[stream.Stream[Command]] = (for {
+    params               <- IO.apply(createParams(transferRequest))
+    eitherRawTransaction <- createRawTx(params)
+    rawTransaction       <- IO.fromEither(eitherRawTransaction.left.map(x => RpcClientFailureException(x)))
+    encodedTx = ByteVector(PolyTransferSerializer.toBytes(rawTransaction)).toBase58
+  } yield {
+    logger.info("Successfully generated raw transaction for contract {}.", transferRequestContract.contractId)
+    logger.debug(
+      "Encoded transaction: {}",
+      encodedTx
+    )
+
+    stream.Stream.of(
+      transferRequestContract
+        .exerciseTransferRequest_Accept(
+          encodedTx
+        )
+    ): stream.Stream[Command]
+
+  }).handleError { failure =>
+    logger.info("Failed to obtain raw transaction from server.")
+    logger.debug("Error: {}", failure)
+    stream.Stream.of(
+      transferRequestContract
+        .exerciseTransferRequest_Reject()
+    )
+  }
+
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) =
+  ): IO[(Boolean, stream.Stream[Command])] =
     processEventAux(
       TransferRequest.TEMPLATE_ID,
       e => TransferRequest.fromValue(e.getArguments()),
       e => TransferRequest.Contract.fromCreatedEvent(e).id,
       callback.apply,
       event
-    ) { (transferRequest, transferRequestContract) =>
-      val params = createParams(transferRequest)
-
-      val rawTransaction =
-        ToplRpc.Transaction.RawPolyTransfer.rpc(params).map(_.rawTx)
-      import scala.concurrent.duration._
-      import scala.language.postfixOps
-      Await.result(
-        rawTransaction.fold(
-          failure => {
-            logger.info("Failed to obtain raw transaction from server.")
-            logger.debug("Error: {}", failure)
-            stream.Stream.of(
-              transferRequestContract
-                .exerciseTransferRequest_Reject()
-            )
-          },
-          polyTransfer => {
-            val encodedTx = ByteVector(PolyTransferSerializer.toBytes(polyTransfer)).toBase58
-            logger.info("Successfully generated raw transaction for contract {}.", transferRequestContract.contractId)
-            logger.debug(
-              "Encoded transaction: {}",
-              encodedTx
-            )
-
-            stream.Stream.of(
-              transferRequestContract
-                .exerciseTransferRequest_Accept(
-                  encodedTx
-                )
-            )
-          }
-        ),
-        timeoutMillis millis
-      )
-
+    ) {
+      prepareTransactionM
     }
 
 }

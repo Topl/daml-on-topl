@@ -43,6 +43,13 @@ import java.util.stream
 import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.io.Source
+import cats.effect.IO
+import co.topl.daml.RpcClientFailureException
+import co.topl.attestation.Proposition
+import cats.arrow.FunctionK
+import io.circe.Decoder
+import co.topl.utils.NetworkType
+import co.topl.modifier.transaction.Transaction
 
 class SignedTransferProcessor(
   damlAppContext: DamlAppContext,
@@ -51,94 +58,109 @@ class SignedTransferProcessor(
   callback:       java.util.function.BiFunction[SignedTransfer, SignedTransfer.ContractId, Boolean]
 ) extends AbstractProcessor(damlAppContext, toplContext, callback) {
 
-  implicit val networkPrefix = toplContext.provider.networkPrefix
-  implicit val jsonDecoder = co.topl.modifier.transaction.Transaction.jsonDecoder
+  // implicit val networkPrefix = toplContext.provider.networkPrefix
+  // implicit val jsonDecoder = co.topl.modifier.transaction.Transaction.jsonDecoder
 
   val logger = LoggerFactory.getLogger(classOf[SignedTransferProcessor])
   import toplContext.provider._
 
-  private def lift[E, A](a: Either[E, A]) = EitherT[Future, E, A](Future(a))
+  def broadcastTransactionM(
+    signedTx: PolyTransfer[_ <: Proposition]
+  ) =
+    IO.fromFuture(
+      IO(
+        ToplRpc.Transaction.BroadcastTx
+          .rpc(ToplRpc.Transaction.BroadcastTx.Params(signedTx))
+          .leftMap(failure =>
+            RpcClientFailureException(
+              failure
+            )
+          )
+          .value
+      )
+    )
 
-  private def handlePending(
+  def getMessageToSignM(signedTransfer: SignedTransfer) = IO.fromOption(
+    ByteVector
+      .fromBase58(signedTransfer.txToSign)
+      .map(_.toArray)
+  )(RpcClientFailureException(RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid contract", Nil)))))
+
+  def unserializeTransferM(transactionAsBytes: Array[Byte]) = IO.apply(
+    PolyTransferSerializer
+      .parseBytes(transactionAsBytes)
+      .toEither
+      .left
+      .map(_ =>
+        RpcClientFailureException(
+          RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid bytes for transaction", Nil)))
+        )
+      )
+  )
+
+  private def handlePendingM(
     signedTransfer:         SignedTransfer,
     signedTransferContract: SignedTransfer.ContractId
-  ): stream.Stream[Command] = {
-    val result = for {
-      transactionAsBytes <-
-        lift(
-          ByteVector
-            .fromBase58(signedTransfer.signedTx)
-            .map(_.toArray)
-            .toRight(RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid signed tx from base 58", Nil))))
-        )
-      _ = logger.debug("transactionAsBytes = {}", transactionAsBytes)
-      signedTx <- lift(
-        PolyTransferSerializer
-          .parseBytes(transactionAsBytes)
-          .toEither
-          .left
-          .map(_ => RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid bytes for transaction", Nil))))
-      )
-      _ = logger.debug("from address = {}", signedTx.from.head._1.toString())
-      broadcastResult <- ToplRpc.Transaction.BroadcastTx.rpc(ToplRpc.Transaction.BroadcastTx.Params(signedTx))
-    } yield broadcastResult
-    import scala.concurrent.duration._
-    import scala.language.postfixOps
-    Await
-      .result(result.value, timeoutMillis millis)
-      .fold(
-        failure => {
-          logger.info("Failed to broadcast transaction to server.")
-          logger.debug("Error: {}", failure)
-          // FIXME error handling
-          stream.Stream.of(
-            signedTransferContract
-              .exerciseSignedTransfer_Fail("Failed broadcast to server")
-          )
-        },
-        success => {
-          logger.info("Successfully broadcasted transaction to network.")
-          logger.debug(
-            "Server answer: {}",
-            success.asJson
-          )
-          stream.Stream.of(
-            signedTransferContract
-              .exerciseSignedTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, Optional.empty()))
-          )
-        }
-      )
+  ): IO[stream.Stream[Command]] = (for {
+    transactionAsBytes    <- getMessageToSignM(signedTransfer)
+    eitherSignedTx        <- unserializeTransferM(transactionAsBytes)
+    signedTx              <- IO.fromEither(eitherSignedTx)
+    eitherBroadcastResult <- broadcastTransactionM(signedTx)
+    success               <- IO.fromEither(eitherBroadcastResult)
+  } yield {
+    logger.info("Successfully broadcasted transaction to network.")
+    logger.debug(
+      "Server answer: {}",
+      success.asJson
+    )
+    stream.Stream.of(
+      signedTransferContract
+        .exerciseSignedTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, Optional.empty()))
+    ): stream.Stream[Command]
+  }).handleError { failure =>
+    logger.info("Failed to broadcast transaction to server.")
+    logger.debug("Error: {}", failure)
+    stream.Stream.of(
+      signedTransferContract
+        .exerciseSignedTransfer_Fail("Failed broadcast to server")
+    )
   }
 
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(
+  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
     SignedTransfer.TEMPLATE_ID,
     e => SignedTransfer.fromValue(e.getArguments()),
     e => SignedTransfer.Contract.fromCreatedEvent(e).id,
     callback.apply,
     event
-  ) { (contract, contractId) =>
-    if (contract.sendStatus.isInstanceOf[Pending]) {
-      handlePending(contract, contractId)
-    } else if (contract.sendStatus.isInstanceOf[FailedToSend]) {
+  ) { (signedTransfer, signedTransferId) =>
+    if (signedTransfer.sendStatus.isInstanceOf[Pending]) {
+      handlePendingM(signedTransfer, signedTransferId)
+    } else if (signedTransfer.sendStatus.isInstanceOf[FailedToSend]) {
       logger.error("Failed to send contract.")
-      stream.Stream.of(
-        contractId
-          .exerciseSignedTransfer_Archive()
+      IO.apply(
+        stream.Stream.of(
+          signedTransferId
+            .exerciseSignedTransfer_Archive()
+        )
       )
 
-    } else if (contract.sendStatus.isInstanceOf[Sent]) {
+    } else if (signedTransfer.sendStatus.isInstanceOf[Sent]) {
       logger.info("Successfully sent.")
-      stream.Stream.of(
-        contractId
-          .exerciseSignedTransfer_Archive()
+      IO(
+        stream.Stream.of(
+          signedTransferId
+            .exerciseSignedTransfer_Archive()
+        )
       )
     } else {
-      stream.Stream.of(
-        contractId
-          .exerciseSignedTransfer_Archive()
+      IO(
+        stream.Stream.of(
+          signedTransferId
+            .exerciseSignedTransfer_Archive()
+        )
       )
     }
   }

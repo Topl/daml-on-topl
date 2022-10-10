@@ -10,6 +10,7 @@ import com.daml.ledger.javaapi.data.Command
 import co.topl.daml.processEventAux
 import co.topl.daml.api.model.topl.organization.AssetIou
 import co.topl.daml.api.model.da.types
+import cats.effect.IO
 
 class AssetIouProcessor(
   damlAppContext: DamlAppContext,
@@ -20,21 +21,16 @@ class AssetIouProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(
+  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
     AssetIou.TEMPLATE_ID,
     e => AssetIou.fromValue(e.getArguments()),
     e => AssetIou.Contract.fromCreatedEvent(e).id,
     callback.apply,
     event
   ) { (assetIou, assetIouContract) =>
-    val assetIouContract =
-      AssetIou.Contract.fromCreatedEvent(event).id
-    val assetIou =
-      AssetIou.fromValue(
-        event.getArguments()
-      )
-    val mustContinue = callback.apply(assetIou, assetIouContract)
-    stream.Stream.empty()
+    for {
+      res <- IO(callback.apply(assetIou, assetIouContract))
+    } yield stream.Stream.empty()
   }
 
 }

@@ -9,6 +9,7 @@ import java.util.stream
 import com.daml.ledger.javaapi.data.Command
 import co.topl.daml.processEventAux
 import co.topl.daml.api.model.topl.organization.MembershipAcceptance
+import cats.effect.IO
 
 class MembershipAcceptanceProcessor(
   damlAppContext: DamlAppContext,
@@ -19,16 +20,18 @@ class MembershipAcceptanceProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(
+  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
     MembershipAcceptance.TEMPLATE_ID,
     e => MembershipAcceptance.fromValue(e.getArguments()),
     e => MembershipAcceptance.Contract.fromCreatedEvent(e).id,
     callback.apply,
     event
   ) { (membershipAcceptance, membershipAcceptanceContract) =>
-    stream.Stream.of(
-      membershipAcceptanceContract
-        .exerciseAddUserToOrganization()
+    IO(
+      stream.Stream.of(
+        membershipAcceptanceContract
+          .exerciseAddUserToOrganization()
+      )
     )
 
   }

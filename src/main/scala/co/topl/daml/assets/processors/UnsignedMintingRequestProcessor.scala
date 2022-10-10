@@ -31,6 +31,8 @@ import java.util.stream
 import scala.concurrent.Future
 import scala.io.Source
 import co.topl.modifier.transaction.serialization.AssetTransferSerializer
+import co.topl.daml.CommonOperations
+import cats.effect.IO
 
 class UnsignedMintingRequestProcessor(
   damlAppContext: DamlAppContext,
@@ -42,70 +44,55 @@ class UnsignedMintingRequestProcessor(
     UnsignedAssetMinting.ContractId,
     Boolean
   ]
-) extends AbstractProcessor(damlAppContext, toplContext, callback) {
+) extends AbstractProcessor(damlAppContext, toplContext, callback)
+    with CommonOperations {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
 
   val logger = LoggerFactory.getLogger(classOf[UnsignedMintingRequestProcessor])
 
-  val keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519] =
-    KeyRing.empty[PrivateKeyCurve25519, KeyfileCurve25519]()(
-      toplContext.provider.networkPrefix,
-      PrivateKeyCurve25519.secretGenerator,
-      KeyfileCurve25519Companion
+  def signOperationM(
+    unsidgnedMintingRequest:         UnsignedAssetMinting,
+    unsidgnedMintingRequestContract: UnsignedAssetMinting.ContractId
+  ): IO[stream.Stream[Command]] = (for {
+    keyfile        <- readFileM(fileName)
+    jsonKey        <- IO.fromEither(parse(keyfile))
+    address        <- importKeyM(jsonKey, password, keyRing)
+    msg2Sign       <- decodeTransactionM(unsidgnedMintingRequest.mintTxToSign)
+    rawTx          <- parseTxM(msg2Sign)
+    signedTx       <- signTxM(rawTx)
+    signedTxString <- encodeTransferM(signedTx)
+  } yield {
+    logger.info("Successfully signed transaction for contract {}.", unsidgnedMintingRequestContract.contractId)
+    logger.debug("signedTx = {}", signedTx)
+    logger.debug(
+      "Encoded transaction: {}",
+      signedTxString
     )
+
+    stream.Stream.of(
+      unsidgnedMintingRequestContract
+        .exerciseUnsignedMinting_Sign(signedTxString)
+    ): stream.Stream[Command]
+  }).handleError { failure =>
+    logger.info("Failed to sign transaction.")
+    logger.debug("Error: {}", failure)
+
+    stream.Stream.of(
+      unsidgnedMintingRequestContract
+        .exerciseUnsignedMinting_Archive()
+    )
+  }
 
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(
+  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
     UnsignedAssetMinting.TEMPLATE_ID,
     e => UnsignedAssetMinting.fromValue(e.getArguments()),
     e => UnsignedAssetMinting.Contract.fromCreatedEvent(e).id,
     callback.apply,
     event
-  ) { (unsidgnedMintingRequest, unsidgnedMintingRequestContract) =>
-    val keyfile = Source.fromFile(new File(fileName)).getLines().mkString("").mkString
-    (for {
-      jsonKey <- parse(keyfile)
-      address <- Brambl.importCurve25519JsonToKeyRing(jsonKey, password, keyRing)
-      msg2Sign <- ByteVector
-        .fromBase58(unsidgnedMintingRequest.mintTxToSign)
-        .map(_.toArray)
-        .toRight(RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid contract", Nil))))
-      rawTx <- AssetTransferSerializer.parseBytes(msg2Sign).toEither
-      signedTx <- Right {
-        val signFunc = (addr: Address) => keyRing.generateAttestation(addr)(rawTx.messageToSign)
-        logger.debug("listOfAddresses = {}", keyRing.addresses)
-        val signatures = keyRing.addresses.map(signFunc).reduce(_ ++ _)
-        rawTx.copy(attestation = signatures)
-      }
-    } yield signedTx).fold(
-      failure => {
-        logger.info("Failed to sign transaction.")
-        logger.debug("Error: {}", failure)
-
-        stream.Stream.of(
-          unsidgnedMintingRequestContract
-            .exerciseUnsignedMinting_Archive()
-        )
-      },
-      signedTx => {
-        val signedTxString = ByteVector(AssetTransferSerializer.toBytes(signedTx)).toBase58
-        logger.info("Successfully signed transaction for contract {}.", unsidgnedMintingRequestContract.contractId)
-        logger.debug("signedTx = {}", signedTx)
-        logger.debug(
-          "Encoded transaction: {}",
-          signedTxString
-        )
-
-        stream.Stream.of(
-          unsidgnedMintingRequestContract
-            .exerciseUnsignedMinting_Sign(signedTxString)
-        )
-      }
-    )
-
-  }
+  )(signOperationM)
 
 }

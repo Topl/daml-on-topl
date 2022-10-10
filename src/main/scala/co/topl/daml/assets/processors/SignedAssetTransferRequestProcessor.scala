@@ -48,6 +48,12 @@ import java.util.stream
 import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.io.Source
+import cats.effect.IO
+
+import co.topl.daml.RpcClientFailureException
+import co.topl.modifier.transaction.AssetTransfer
+import co.topl.attestation.Proposition
+import co.topl.daml.CommonOperations
 
 // Possible designs:
 // - One-off processor
@@ -59,71 +65,44 @@ class SignedAssetTransferRequestProcessor(
   timeoutMillis:  Int,
   idGenerator:    java.util.function.Supplier[String],
   callback:       java.util.function.BiFunction[SignedAssetTransfer, SignedAssetTransfer.ContractId, Boolean]
-) extends AbstractProcessor(damlAppContext, toplContext, callback) {
-
-  implicit val networkPrefix = toplContext.provider.networkPrefix
-  implicit val jsonDecoder = co.topl.modifier.transaction.Transaction.jsonDecoder
+) extends AbstractProcessor(damlAppContext, toplContext, callback)
+    with CommonOperations {
 
   val logger = LoggerFactory.getLogger(classOf[SignedAssetTransferRequestProcessor])
   import toplContext.provider._
 
-  private def lift[E, A](a: Either[E, A]) = EitherT[Future, E, A](Future(a))
-
-  private def handlePending(
+  private def handlePendingM(
     signedTransferRequest:         SignedAssetTransfer,
     signedTransferRequestContract: SignedAssetTransfer.ContractId
-  ): stream.Stream[Command] = {
-    val result = for {
-      transactionAsBytes <-
-        lift(
-          ByteVector
-            .fromBase58(signedTransferRequest.signedTx)
-            .map(_.toArray)
-            .toRight(RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid signed tx from base 58", Nil))))
-        )
-      _ = logger.debug("transactionAsBytes = {}", transactionAsBytes)
-      signedTx <- lift(
-        AssetTransferSerializer
-          .parseBytes(transactionAsBytes)
-          .toEither
-          .left
-          .map(_ => RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid bytes for transaction", Nil))))
+  ): IO[stream.Stream[Command]] =
+    (for {
+      transactionAsBytes <- decodeTransactionM(signedTransferRequest.signedTx)
+      signedTx           <- deserializeTransactionM(transactionAsBytes)
+      eitherBroadcast    <- broadcastTransactionM(signedTx)
+      broadcast          <- IO.fromEither(eitherBroadcast.left.map(x => new RpcClientFailureException(x)))
+    } yield {
+      logger.info("Successfully broadcasted transaction to network.")
+      logger.debug(
+        "Server answer: {}",
+        broadcast.asJson
       )
-      _ = logger.debug("from address = {}", signedTx.from.head._1.toString())
-      broadcastResult <- ToplRpc.Transaction.BroadcastTx.rpc(ToplRpc.Transaction.BroadcastTx.Params(signedTx))
-    } yield broadcastResult
-    import scala.concurrent.duration._
-    import scala.language.postfixOps
-    Await
-      .result(result.value, timeoutMillis millis)
-      .fold(
-        failure => {
-          logger.info("Failed to broadcast transaction to server.")
-          logger.debug("Error: {}", failure)
-          // FIXME: error handling
-          stream.Stream.of(
-            signedTransferRequestContract
-              .exerciseSignedAssetTransfer_Fail("Failed broadcast to server")
-          )
-        },
-        success => {
-          logger.info("Successfully broadcasted transaction to network.")
-          logger.debug(
-            "Server answer: {}",
-            success.asJson
-          )
-          stream.Stream.of(
-            signedTransferRequestContract
-              .exerciseSignedAssetTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, Optional.empty()))
-          )
-        }
+      stream.Stream.of(
+        signedTransferRequestContract
+          .exerciseSignedAssetTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, Optional.empty()))
+      ): stream.Stream[Command]
+    }).handleError { failure =>
+      logger.info("Failed to broadcast transaction to server.")
+      logger.debug("Error: {}", failure)
+      stream.Stream.of(
+        signedTransferRequestContract
+          .exerciseSignedAssetTransfer_Fail("Failed broadcast to server")
       )
-  }
+    }
 
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(
+  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
     SignedAssetTransfer.TEMPLATE_ID,
     e => SignedAssetTransfer.fromValue(e.getArguments()),
     e => SignedAssetTransfer.Contract.fromCreatedEvent(e).id,
@@ -131,39 +110,47 @@ class SignedAssetTransferRequestProcessor(
     event
   ) { (signedTransferRequest, signedTransferRequestContract) =>
     if (signedTransferRequest.sendStatus.isInstanceOf[Pending]) {
-      handlePending(signedTransferRequest, signedTransferRequestContract)
+      handlePendingM(signedTransferRequest, signedTransferRequestContract)
     } else if (signedTransferRequest.sendStatus.isInstanceOf[FailedToSend]) {
       logger.error("Failed to send contract.")
 
-      stream.Stream.of(
-        signedTransferRequestContract
-          .exerciseSignedAssetTransfer_Archive()
+      IO(
+        stream.Stream.of(
+          signedTransferRequestContract
+            .exerciseSignedAssetTransfer_Archive()
+        )
       )
     } else if (signedTransferRequest.sendStatus.isInstanceOf[Sent]) {
       logger.info("Successfully sent.")
 
-      stream.Stream.of(
-        signedTransferRequestContract
-          .exerciseSignedAssetTransfer_Confirm(
-            new SignedAssetTransfer_Confirm(
-              (signedTransferRequest.sendStatus.asInstanceOf[Sent]).txHash.orElseGet(() => ""),
-              1
+      IO(
+        stream.Stream.of(
+          signedTransferRequestContract
+            .exerciseSignedAssetTransfer_Confirm(
+              new SignedAssetTransfer_Confirm(
+                (signedTransferRequest.sendStatus.asInstanceOf[Sent]).txHash.orElseGet(() => ""),
+                1
+              )
             )
-          )
+        )
       )
     } else if (signedTransferRequest.sendStatus.isInstanceOf[Confirmed]) {
       logger.info("Successfully confirmed.")
 
-      stream.Stream.of(
-        Organization
-          .byKey(new types.Tuple2(signedTransferRequest.operator, signedTransferRequest.someOrgId.get()))
-          .exerciseOrganization_AddSignedAssetTransfer(idGenerator.get(), signedTransferRequestContract)
+      IO(
+        stream.Stream.of(
+          Organization
+            .byKey(new types.Tuple2(signedTransferRequest.operator, signedTransferRequest.someOrgId.get()))
+            .exerciseOrganization_AddSignedAssetTransfer(idGenerator.get(), signedTransferRequestContract)
+        )
       )
     } else {
 
-      stream.Stream.of(
-        signedTransferRequestContract
-          .exerciseSignedAssetTransfer_Archive()
+      IO(
+        stream.Stream.of(
+          signedTransferRequestContract
+            .exerciseSignedAssetTransfer_Archive()
+        )
       )
     }
 

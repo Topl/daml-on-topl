@@ -51,6 +51,9 @@ import java.util.stream
 import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.io.Source
+import co.topl.daml.CommonOperations
+import co.topl.daml.RpcClientFailureException
+import cats.effect.IO
 
 class SignedMintingRequestProcessor(
   damlAppContext: DamlAppContext,
@@ -58,74 +61,50 @@ class SignedMintingRequestProcessor(
   timeoutMillis:  Int,
   idGenerator:    java.util.function.Supplier[String],
   callback:       java.util.function.BiFunction[SignedAssetMinting, SignedAssetMinting.ContractId, Boolean]
-) extends AbstractProcessor(damlAppContext, toplContext, callback) {
+) extends AbstractProcessor(damlAppContext, toplContext, callback)
+    with CommonOperations {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
   implicit val jsonDecoder = co.topl.modifier.transaction.Transaction.jsonDecoder
 
   val logger = LoggerFactory.getLogger(classOf[SignedMintingRequestProcessor])
+
   import toplContext.provider._
 
-  private def lift[E, A](a: Either[E, A]) = EitherT[Future, E, A](Future(a))
-
-  private def handlePending(
+  private def handlePendingM(
     signedMintingRequest:         SignedAssetMinting,
     signedMintingRequestContract: SignedAssetMinting.ContractId
-  ): stream.Stream[Command] = {
-
-    val result = for {
-      transactionAsBytes <-
-        lift(
-          ByteVector
-            .fromBase58(signedMintingRequest.signedMintTx)
-            .map(_.toArray)
-            .toRight(RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid signed tx from base 58", Nil))))
-        )
-      _ = logger.debug("transactionAsBytes = {}", transactionAsBytes)
-      signedTx <- lift(
-        AssetTransferSerializer
-          .parseBytes(transactionAsBytes)
-          .toEither
-          .left
-          .map(_ => RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid bytes for transaction", Nil))))
+  ): IO[stream.Stream[Command]] =
+    (for {
+      transactionAsBytes <- decodeTransactionM(signedMintingRequest.signedMintTx)
+      signedTx           <- deserializeTransactionM(transactionAsBytes)
+      eitherBroadcast    <- broadcastTransactionM(signedTx)
+      broadcast          <- IO.fromEither(eitherBroadcast.left.map(x => new RpcClientFailureException(x)))
+    } yield {
+      logger.info("Successfully broadcasted transaction to network.")
+      logger.debug(
+        "Server answer: {}",
+        broadcast.asJson
       )
-      _ = logger.debug("from address = {}", signedTx.from.head._1.toString())
-      broadcastResult <- ToplRpc.Transaction.BroadcastTx.rpc(ToplRpc.Transaction.BroadcastTx.Params(signedTx))
-    } yield broadcastResult
-    import scala.concurrent.duration._
-    import scala.language.postfixOps
-    Await
-      .result(result.value, timeoutMillis millis)
-      .fold(
-        failure => {
-          logger.info("Failed to broadcast transaction to server.")
-          logger.debug("Error: {}", failure)
-          // FIXME: error handling
-          stream.Stream.of(
-            signedMintingRequestContract
-              .exerciseSignedAssetMinting_Fail("Failed broadcast to server")
+      stream.Stream.of(
+        signedMintingRequestContract
+          .exerciseSignedAssetMinting_Sent(
+            new Sent(Instant.now(), damlAppContext.appId, Optional.of(broadcast.id.toString()))
           )
-        },
-        success => {
-          logger.info("Successfully broadcasted transaction to network.")
-          logger.debug(
-            "Server answer: {}",
-            success.asJson
-          )
-          stream.Stream.of(
-            signedMintingRequestContract
-              .exerciseSignedAssetMinting_Sent(
-                new Sent(Instant.now(), damlAppContext.appId, Optional.of(success.id.toString()))
-              )
-          )
-        }
+      ): stream.Stream[Command]
+    }).handleError { failure =>
+      logger.info("Failed to broadcast transaction to server.")
+      logger.debug("Error: {}", failure)
+      stream.Stream.of(
+        signedMintingRequestContract
+          .exerciseSignedAssetMinting_Fail("Failed broadcast to server")
       )
-  }
+    }
 
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(
+  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
     SignedAssetMinting.TEMPLATE_ID,
     e => SignedAssetMinting.fromValue(e.getArguments()),
     e => SignedAssetMinting.Contract.fromCreatedEvent(e).id,
@@ -133,37 +112,45 @@ class SignedMintingRequestProcessor(
     event
   ) { (signedMintingRequest, signedMintingRequestContract) =>
     if (signedMintingRequest.sendStatus.isInstanceOf[Pending]) {
-      handlePending(signedMintingRequest, signedMintingRequestContract)
+      handlePendingM(signedMintingRequest, signedMintingRequestContract)
     } else if (signedMintingRequest.sendStatus.isInstanceOf[FailedToSend]) {
       logger.error("Failed to send contract.")
 
-      stream.Stream.of(
-        signedMintingRequestContract
-          .exerciseSignedAssetMinting_Archive()
+      IO(
+        stream.Stream.of(
+          signedMintingRequestContract
+            .exerciseSignedAssetMinting_Archive()
+        )
       )
     } else if (signedMintingRequest.sendStatus.isInstanceOf[Sent]) {
       logger.info("Successfully sent.")
 
-      stream.Stream.of(
-        signedMintingRequestContract
-          .exerciseSignedAssetMinting_Confirm(
-            new SignedAssetMinting_Confirm(
-              (signedMintingRequest.sendStatus.asInstanceOf[Sent]).txHash.orElseGet(() => ""),
-              1
+      IO(
+        stream.Stream.of(
+          signedMintingRequestContract
+            .exerciseSignedAssetMinting_Confirm(
+              new SignedAssetMinting_Confirm(
+                (signedMintingRequest.sendStatus.asInstanceOf[Sent]).txHash.orElseGet(() => ""),
+                1
+              )
             )
-          )
+        )
       )
     } else if (signedMintingRequest.sendStatus.isInstanceOf[Confirmed]) {
       logger.info("Successfully confirmed.")
-      stream.Stream.of(
-        Organization
-          .byKey(new types.Tuple2(signedMintingRequest.operator, signedMintingRequest.someOrgId.get()))
-          .exerciseOrganization_AddSignedAssetMinting(idGenerator.get(), signedMintingRequestContract)
+      IO(
+        stream.Stream.of(
+          Organization
+            .byKey(new types.Tuple2(signedMintingRequest.operator, signedMintingRequest.someOrgId.get()))
+            .exerciseOrganization_AddSignedAssetMinting(idGenerator.get(), signedMintingRequestContract)
+        )
       )
     } else {
-      stream.Stream.of(
-        signedMintingRequestContract
-          .exerciseSignedAssetMinting_Archive()
+      IO(
+        stream.Stream.of(
+          signedMintingRequestContract
+            .exerciseSignedAssetMinting_Archive()
+        )
       )
     }
   }

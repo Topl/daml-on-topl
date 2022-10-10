@@ -30,6 +30,12 @@ import java.io.File
 import java.util.stream
 import scala.concurrent.Future
 import scala.io.Source
+import cats.effect.IO
+import scala.util.Try
+import io.circe.Json
+import co.topl.attestation.Proposition
+import co.topl.daml.RpcClientFailureException
+import co.topl.daml.CommonOperations
 
 class UnsignedTransferProcessor(
   damlAppContext: DamlAppContext,
@@ -38,70 +44,58 @@ class UnsignedTransferProcessor(
   password:       String,
   timeoutMillis:  Int,
   callback:       java.util.function.BiFunction[UnsignedTransfer, UnsignedTransfer.ContractId, Boolean]
-) extends AbstractProcessor(damlAppContext, toplContext, callback) {
+) extends AbstractProcessor(damlAppContext, toplContext, callback)
+    with CommonOperations {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
 
   val logger = LoggerFactory.getLogger(classOf[UnsignedTransferProcessor])
 
-  val keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519] =
-    KeyRing.empty[PrivateKeyCurve25519, KeyfileCurve25519]()(
-      toplContext.provider.networkPrefix,
-      PrivateKeyCurve25519.secretGenerator,
-      KeyfileCurve25519Companion
+  def parsePolyTxM(msg2Sign: Array[Byte]) = IO.fromTry(PolyTransferSerializer.parseBytes(msg2Sign))
+
+  def signOperationM(
+    unsidgnedTransferRequest:         UnsignedTransfer,
+    unsidgnedTransferRequestContract: UnsignedTransfer.ContractId
+  ): IO[stream.Stream[Command]] = (for {
+    keyfile        <- readFileM(fileName)
+    jsonKey        <- IO.fromEither(parse(keyfile))
+    address        <- importKeyM(jsonKey, password, keyRing)
+    msg2Sign       <- decodeTransactionM(unsidgnedTransferRequest.txToSign)
+    rawTx          <- parsePolyTxM(msg2Sign)
+    signedTx       <- signTxM(rawTx)
+    signedTxString <- encodeTransferM(signedTx)
+  } yield {
+    val signedTxString = ByteVector(PolyTransferSerializer.toBytes(signedTx)).toBase58
+    logger.info("Successfully signed transaction for contract {}.", unsidgnedTransferRequestContract.contractId)
+    logger.debug("signedTx = {}", signedTx)
+    logger.debug(
+      "Encoded transaction: {}",
+      signedTxString
     )
+
+    stream.Stream.of(
+      unsidgnedTransferRequestContract
+        .exerciseUnsignedTransfer_Sign(signedTxString)
+    ): stream.Stream[Command]
+  }).handleError { failure =>
+    logger.info("Failed to sign transaction.")
+    logger.debug("Error: {}", failure)
+
+    stream.Stream.of(
+      unsidgnedTransferRequestContract
+        .exerciseUnsignedTransfer_Archive()
+    )
+  }
 
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): (Boolean, stream.Stream[Command]) = processEventAux(
+  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
     UnsignedTransfer.TEMPLATE_ID,
     e => UnsignedTransfer.fromValue(e.getArguments()),
     e => UnsignedTransfer.Contract.fromCreatedEvent(e).id,
     callback.apply,
     event
-  ) { (unsidgnedTransferRequest, unsidgnedTransferRequestContract) =>
-    val keyfile = Source.fromFile(new File(fileName)).getLines().mkString("").mkString
-    (for {
-      jsonKey <- parse(keyfile)
-      address <- Brambl.importCurve25519JsonToKeyRing(jsonKey, password, keyRing)
-      msg2Sign <- ByteVector
-        .fromBase58(unsidgnedTransferRequest.txToSign)
-        .map(_.toArray)
-        .toRight(RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid contract", Nil))))
-      rawTx <- PolyTransferSerializer.parseBytes(msg2Sign).toEither
-      signedTx <- Right {
-        val signFunc = (addr: Address) => keyRing.generateAttestation(addr)(rawTx.messageToSign)
-        logger.debug("listOfAddresses = {}", keyRing.addresses)
-        val signatures = keyRing.addresses.map(signFunc).reduce(_ ++ _)
-        rawTx.copy(attestation = signatures)
-      }
-    } yield signedTx).fold(
-      failure => {
-        logger.info("Failed to sign transaction.")
-        logger.debug("Error: {}", failure)
-
-        stream.Stream.of(
-          unsidgnedTransferRequestContract
-            .exerciseUnsignedTransfer_Archive()
-        )
-      },
-      signedTx => {
-        val signedTxString = ByteVector(PolyTransferSerializer.toBytes(signedTx)).toBase58
-        logger.info("Successfully signed transaction for contract {}.", unsidgnedTransferRequestContract.contractId)
-        logger.debug("signedTx = {}", signedTx)
-        logger.debug(
-          "Encoded transaction: {}",
-          signedTxString
-        )
-
-        stream.Stream.of(
-          unsidgnedTransferRequestContract
-            .exerciseUnsignedTransfer_Sign(signedTxString)
-        )
-      }
-    )
-
-  }
+  )(signOperationM)
 
 }
