@@ -14,7 +14,8 @@ import cats.effect.unsafe.implicits.global
 abstract class AbstractProcessor[T, U, V](
   val damlAppContext: DamlAppContext,
   val toplContext:    ToplContext,
-  consumer:           java.util.function.BiFunction[T, U, V]
+  consumer:           java.util.function.BiFunction[T, U, V],
+  onError:            java.util.function.Function[Throwable, Boolean]
 ) {
 
   implicit val implicitDamlAppContext = damlAppContext
@@ -29,6 +30,6 @@ abstract class AbstractProcessor[T, U, V](
   ): IO[(Boolean, stream.Stream[Command])]
 
   def processTransaction(tx: Transaction): Boolean =
-    processTransactionAux(tx)(processEvent).unsafeRunSync()
+    processTransactionAux(tx)(processEvent).handleError(t => onError(t)).unsafeRunSync()
 
 }

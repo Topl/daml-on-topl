@@ -48,8 +48,9 @@ class AssetTransferRequestProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext,
   timeoutMillis:  Int,
-  callback:       java.util.function.BiFunction[AssetTransferRequest, AssetTransferRequest.ContractId, Boolean]
-) extends AbstractProcessor(damlAppContext, toplContext, callback)
+  callback:       java.util.function.BiFunction[AssetTransferRequest, AssetTransferRequest.ContractId, Boolean],
+  onError:        java.util.function.Function[Throwable, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with CommonOperations {
 
   val logger = LoggerFactory.getLogger(classOf[AssetTransferRequestProcessor])

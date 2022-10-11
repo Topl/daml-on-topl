@@ -64,10 +64,10 @@ public class AssetOperatorMain {
 		DamlAppContext damlAppContext = new DamlAppContext(APP_ID, operatorParty, client);
 		ToplContext toplContext = new ToplContext(ActorSystem.create(), new Provider.PrivateTestNet(uri.asScala(), ""));
 		AssetMintingRequestProcessor assetMintingRequestProcessor = new AssetMintingRequestProcessor(damlAppContext,
-				toplContext, 3000, (x, y) -> true);
+				toplContext, 3000, (x, y) -> true, t -> true);
 		transactions.forEach(assetMintingRequestProcessor::processTransaction);
 		UnsignedMintingRequestProcessor unsignedMintingRequestProcessor = new UnsignedMintingRequestProcessor(
-				damlAppContext, toplContext, keyfile, password, (x, y) -> true);
+				damlAppContext, toplContext, keyfile, password, (x, y) -> true, t -> true);
 		transactions.forEach(unsignedMintingRequestProcessor::processTransaction);
 		Supplier<String> supplier = new Supplier<String>() {
 
@@ -78,17 +78,17 @@ public class AssetOperatorMain {
 			}
 		};
 		SignedMintingRequestProcessor signedMintingRequestProcessor = new SignedMintingRequestProcessor(damlAppContext,
-				toplContext, 3000, supplier, (x, y) -> true);
+				toplContext, 3000, supplier, (x, y) -> true, t -> true);
 		transactions.forEach(signedMintingRequestProcessor::processTransaction);
 
 		AssetTransferRequestProcessor assetTransferRequestProcessor = new AssetTransferRequestProcessor(damlAppContext,
-				toplContext, 3000, (x, y) -> true);
+				toplContext, 3000, (x, y) -> true, t -> true);
 		transactions.forEach(assetTransferRequestProcessor::processTransaction);
 		UnsignedAssetTransferRequestProcessor unsignedTransferRequestProcessor = new UnsignedAssetTransferRequestProcessor(
-				damlAppContext, toplContext, keyfile, password, (x, y) -> true);
+				damlAppContext, toplContext, keyfile, password, (x, y) -> true, t -> true);
 		transactions.forEach(unsignedTransferRequestProcessor::processTransaction);
 		SignedAssetTransferRequestProcessor signedTransferRequestProcessor = new SignedAssetTransferRequestProcessor(
-				damlAppContext, toplContext, 3000, supplier, (x, y) -> true);
+				damlAppContext, toplContext, 3000, supplier, (x, y) -> true, t -> true);
 		transactions.forEach(signedTransferRequestProcessor::processTransaction);
 	}
 }

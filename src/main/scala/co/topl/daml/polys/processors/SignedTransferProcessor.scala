@@ -55,8 +55,9 @@ class SignedTransferProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext,
   timeoutMillis:  Int,
-  callback:       java.util.function.BiFunction[SignedTransfer, SignedTransfer.ContractId, Boolean]
-) extends AbstractProcessor(damlAppContext, toplContext, callback) {
+  callback:       java.util.function.BiFunction[SignedTransfer, SignedTransfer.ContractId, Boolean],
+  onError:        java.util.function.Function[Throwable, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback, onError) {
 
   // implicit val networkPrefix = toplContext.provider.networkPrefix
   // implicit val jsonDecoder = co.topl.modifier.transaction.Transaction.jsonDecoder

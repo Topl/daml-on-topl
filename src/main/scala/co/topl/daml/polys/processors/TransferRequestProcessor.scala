@@ -52,8 +52,9 @@ class TransferRequestProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext,
   timeoutMillis:  Int,
-  callback:       java.util.function.BiFunction[TransferRequest, TransferRequest.ContractId, Boolean]
-) extends AbstractProcessor(damlAppContext, toplContext, callback) {
+  callback:       java.util.function.BiFunction[TransferRequest, TransferRequest.ContractId, Boolean],
+  onError:        java.util.function.Function[Throwable, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback, onError) {
 
   val logger = LoggerFactory.getLogger(classOf[TransferRequestProcessor])
 

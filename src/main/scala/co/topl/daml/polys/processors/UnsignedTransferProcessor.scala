@@ -43,8 +43,9 @@ class UnsignedTransferProcessor(
   fileName:       String,
   password:       String,
   timeoutMillis:  Int,
-  callback:       java.util.function.BiFunction[UnsignedTransfer, UnsignedTransfer.ContractId, Boolean]
-) extends AbstractProcessor(damlAppContext, toplContext, callback)
+  callback:       java.util.function.BiFunction[UnsignedTransfer, UnsignedTransfer.ContractId, Boolean],
+  onError:        java.util.function.Function[Throwable, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with CommonOperations {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix

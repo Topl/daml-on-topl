@@ -43,8 +43,9 @@ class UnsignedMintingRequestProcessor(
     UnsignedAssetMinting,
     UnsignedAssetMinting.ContractId,
     Boolean
-  ]
-) extends AbstractProcessor(damlAppContext, toplContext, callback)
+  ],
+  onError: java.util.function.Function[Throwable, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with CommonOperations {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix

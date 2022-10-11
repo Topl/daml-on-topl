@@ -15,8 +15,9 @@ import cats.effect.IO
 class MembershipOfferProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext,
-  callback:       java.util.function.BiFunction[MembershipOffer, MembershipOffer.ContractId, Boolean]
-) extends AbstractProcessor(damlAppContext, toplContext, callback) {
+  callback:       java.util.function.BiFunction[MembershipOffer, MembershipOffer.ContractId, Boolean],
+  onError:        java.util.function.Function[Throwable, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback, onError) {
 
   def processEvent(
     workflowsId: String,

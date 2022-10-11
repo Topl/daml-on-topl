@@ -56,13 +56,13 @@ public class OperatorMain {
 		ToplContext toplContext = new ToplContext(ActorSystem.create(),
 				new Provider.ValhallaTestNet(uri.asScala(), apiKey));
 		TransferRequestProcessor transferProcessor = new TransferRequestProcessor(damlAppContext, toplContext, 3000,
-				(x, y) -> true);
+				(x, y) -> true, t -> true);
 		transactions.forEach(transferProcessor::processTransaction);
 		SignedTransferProcessor signedTransferProcessor = new SignedTransferProcessor(damlAppContext, toplContext, 3000,
-				(x, y) -> true);
+				(x, y) -> true, t -> true);
 		transactions.forEach(signedTransferProcessor::processTransaction);
 		AssetMintingRequestProcessor assetMintingRequestProcessor = new AssetMintingRequestProcessor(damlAppContext,
-				toplContext, 3000, (x, y) -> true);
+				toplContext, 3000, (x, y) -> true, t -> true);
 		transactions.forEach(assetMintingRequestProcessor::processTransaction);
 	}
 }

@@ -64,8 +64,9 @@ class SignedAssetTransferRequestProcessor(
   toplContext:    ToplContext,
   timeoutMillis:  Int,
   idGenerator:    java.util.function.Supplier[String],
-  callback:       java.util.function.BiFunction[SignedAssetTransfer, SignedAssetTransfer.ContractId, Boolean]
-) extends AbstractProcessor(damlAppContext, toplContext, callback)
+  callback:       java.util.function.BiFunction[SignedAssetTransfer, SignedAssetTransfer.ContractId, Boolean],
+  onError:        java.util.function.Function[Throwable, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with CommonOperations {
 
   val logger = LoggerFactory.getLogger(classOf[SignedAssetTransferRequestProcessor])
