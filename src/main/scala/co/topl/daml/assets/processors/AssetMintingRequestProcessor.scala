@@ -42,6 +42,7 @@ import co.topl.daml.RpcClientFailureException
 import co.topl.daml.CommonOperations
 import co.topl.modifier.box.TokenValueHolder
 import cats.syntax.traverse._
+import co.topl.daml.algebras.AssetOperationsAlgebra
 
 class AssetMintingRequestProcessor(
   damlAppContext: DamlAppContext,
@@ -50,38 +51,13 @@ class AssetMintingRequestProcessor(
   callback:       java.util.function.BiFunction[AssetMintingRequest, AssetMintingRequest.ContractId, Boolean],
   onError:        java.util.function.Function[Throwable, Boolean]
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
-    with CommonOperations {
+    with AssetOperationsAlgebra {
 
   val logger = LoggerFactory.getLogger(classOf[AssetMintingRequestProcessor])
 
   import toplContext.provider._
 
-  def createToParamM(
-    assetMintingRequest: AssetMintingRequest
-  )(address:             String, amount: Long): IO[(Address, TokenValueHolder)] =
-    for {
-      address       <- decodeAddressM(address)
-      issuerAddress <- decodeAddressM(assetMintingRequest.from.get(0))
-      latinData     <- createLatinDataM(assetMintingRequest.assetCode.shortName)
-      commitRoot <- createCommitRootM(
-        Option(assetMintingRequest.someCommitRoot).flatMap(x => Option(x.orElseGet(() => null)))
-      )
-      someMetadata <- createMetadataM(
-        Option(assetMintingRequest.someMetadata).flatMap(x => Option(x.orElseGet(() => null)))
-      )
-    } yield (
-      address,
-      AssetValue(
-        amount,
-        AssetCode(
-          assetMintingRequest.assetCode.version.toByte,
-          issuerAddress,
-          latinData
-        ),
-        commitRoot,
-        someMetadata
-      )
-    )
+  implicit val ev = assetMintingRequestEv
 
   def processMintingRequestM(
     assetMintingRequest:    AssetMintingRequest,

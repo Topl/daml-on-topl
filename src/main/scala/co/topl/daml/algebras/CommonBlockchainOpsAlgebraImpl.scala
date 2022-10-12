@@ -1,4 +1,4 @@
-package co.topl.daml
+package co.topl.daml.algebras
 
 import co.topl.rpc.ToplRpc
 import cats.effect.IO
@@ -31,8 +31,15 @@ import co.topl.client.Brambl
 import io.circe.Json
 import co.topl.modifier.transaction.serialization.PolyTransferSerializer
 import co.topl.modifier.transaction.PolyTransfer
+import co.topl.daml.api.model.topl.asset.AssetMintingRequest
+import co.topl.modifier.box.AssetValue
+import co.topl.modifier.box.AssetCode
+import co.topl.daml.api.model.topl.asset.AssetTransferRequest
+import co.topl.daml.ToplContext
+import co.topl.daml.RpcClientFailureException
+import co.topl.daml.utf8StringToLatin1ByteArray
 
-trait CommonOperations {
+trait CommonBlockchainOpsAlgebraImpl extends CommonBlockchainOpsAlgebra[IO] {
 
   val keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519] =
     KeyRing.empty[PrivateKeyCurve25519, KeyfileCurve25519]()(
@@ -49,35 +56,12 @@ trait CommonOperations {
 
   import toplContext.provider._
 
-  def parseTxM(msg2Sign: Array[Byte]) = IO.fromTry(AssetTransferSerializer.parseBytes(msg2Sign))
-
-  def signTxM(rawTx: PolyTransfer[_ <: Proposition]) = IO {
-    val signFunc = (addr: Address) => keyRing.generateAttestation(addr)(rawTx.messageToSign)
-    val signatures = keyRing.addresses.map(signFunc).reduce(_ ++ _)
-    rawTx.copy(attestation = signatures)
-  }
-
-  def signTxM(rawTx: AssetTransfer[_ <: Proposition]) = IO {
-    val signFunc = (addr: Address) => keyRing.generateAttestation(addr)(rawTx.messageToSign)
-    val signatures = keyRing.addresses.map(signFunc).reduce(_ ++ _)
-    rawTx.copy(attestation = signatures)
-  }
-
   def readFileM(fileName: String) =
     IO.blocking(Source.fromFile(new File(fileName)).getLines().mkString("").mkString)
 
   def importKeyM(jsonKey: Json, password: String, keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519]) =
     IO.fromEither(
       Brambl.importCurve25519JsonToKeyRing(jsonKey, password, keyRing).left.map(RpcClientFailureException(_))
-    )
-
-  def broadcastTransactionM(
-    signedTx: AssetTransfer[_ <: Proposition]
-  ) =
-    IO.fromFuture(
-      IO(
-        ToplRpc.Transaction.BroadcastTx.rpc(ToplRpc.Transaction.BroadcastTx.Params(signedTx)).value
-      )
     )
 
   def getBalanceM(param: ToplRpc.NodeView.Balances.Params) = for {
@@ -137,70 +121,5 @@ trait CommonOperations {
       .map(x => createLatinDataM(x))
       .orElse(None)
       .sequence
-
-  def deserializeTransactionM(transactionAsBytes: Array[Byte]) = IO.fromTry(
-    AssetTransferSerializer
-      .parseBytes(transactionAsBytes)
-  )
-
-  def encodeTransferM(assetTransfer: AssetTransfer[PublicKeyPropositionCurve25519]) = for {
-    transferRequest <- IO(
-      AssetTransferSerializer.toBytes(
-        assetTransfer
-      )
-    )
-    encodedTx <- IO(
-      ByteVector(
-        transferRequest
-      ).toBase58
-    )
-  } yield encodedTx
-
-  def encodeTransferM(assetTransfer: PolyTransfer[PublicKeyPropositionCurve25519]) = for {
-    transferRequest <- IO(
-      PolyTransferSerializer.toBytes(
-        assetTransfer
-      )
-    )
-    encodedTx <- IO(
-      ByteVector(
-        transferRequest
-      ).toBase58
-    )
-  } yield encodedTx
-
-  def createAssetTransferM(
-    fee:               Long,
-    someBoxNonce:      Option[Long],
-    address:           Seq[Address],
-    balance:           ToplRpc.NodeView.Balances.Response,
-    listOfToAddresses: List[(Address, TokenValueHolder)]
-  ) = IO(
-    AssetTransfer(
-      someBoxNonce
-        .map(boxNonce =>
-          balance.values.toList
-            .flatMap(_.Boxes.PolyBox)
-            .map(x => (address.head, x.nonce))
-            .toIndexedSeq
-            .++(
-              balance.values.toList
-                .flatMap(_.Boxes.AssetBox)
-                .filter(_.nonce == boxNonce)
-                .map(x => (address.head, x.nonce))
-                .toIndexedSeq
-            )
-        )
-        .getOrElse(balance.values.toList.flatMap(_.Boxes.PolyBox).map(x => (address.head, x.nonce)).toIndexedSeq),
-      listOfToAddresses.toIndexedSeq,
-      ListMap(),
-      Int128(
-        fee
-      ),
-      System.currentTimeMillis(),
-      None,
-      someBoxNonce.isEmpty // no box nonce means minting
-    )
-  )
 
 }

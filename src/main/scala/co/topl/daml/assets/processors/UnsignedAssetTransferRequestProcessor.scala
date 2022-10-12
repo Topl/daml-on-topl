@@ -34,8 +34,8 @@ import co.topl.modifier.transaction.serialization.AssetTransferSerializer
 import co.topl.daml.api.model.topl.asset.UnsignedAssetTransferRequest
 import co.topl.daml.CommonOperations
 import cats.effect.IO
-import co.topl.modifier.transaction.AssetTransfer
 import co.topl.attestation.Proposition
+import co.topl.daml.algebras.AssetOperationsAlgebra
 
 class UnsignedAssetTransferRequestProcessor(
   damlAppContext: DamlAppContext,
@@ -49,7 +49,7 @@ class UnsignedAssetTransferRequestProcessor(
   ],
   onError: java.util.function.Function[Throwable, Boolean]
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
-    with CommonOperations {
+    with AssetOperationsAlgebra {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
 

@@ -54,6 +54,7 @@ import co.topl.daml.RpcClientFailureException
 import co.topl.modifier.transaction.AssetTransfer
 import co.topl.attestation.Proposition
 import co.topl.daml.CommonOperations
+import co.topl.daml.algebras.AssetOperationsAlgebra
 
 // Possible designs:
 // - One-off processor
@@ -67,7 +68,7 @@ class SignedAssetTransferRequestProcessor(
   callback:       java.util.function.BiFunction[SignedAssetTransfer, SignedAssetTransfer.ContractId, Boolean],
   onError:        java.util.function.Function[Throwable, Boolean]
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
-    with CommonOperations {
+    with AssetOperationsAlgebra {
 
   val logger = LoggerFactory.getLogger(classOf[SignedAssetTransferRequestProcessor])
   import toplContext.provider._
@@ -79,8 +80,7 @@ class SignedAssetTransferRequestProcessor(
     (for {
       transactionAsBytes <- decodeTransactionM(signedTransferRequest.signedTx)
       signedTx           <- deserializeTransactionM(transactionAsBytes)
-      eitherBroadcast    <- broadcastTransactionM(signedTx)
-      broadcast          <- IO.fromEither(eitherBroadcast.left.map(x => new RpcClientFailureException(x)))
+      broadcast          <- broadcastTransactionM(signedTx)
     } yield {
       logger.info("Successfully broadcasted transaction to network.")
       logger.debug(

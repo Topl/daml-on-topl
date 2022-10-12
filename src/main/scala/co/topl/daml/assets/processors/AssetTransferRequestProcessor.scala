@@ -43,6 +43,7 @@ import cats.syntax.traverse._
 import co.topl.daml.RpcClientFailureException
 import co.topl.daml.CommonOperations
 import co.topl.modifier.box.TokenValueHolder
+import co.topl.daml.algebras.AssetOperationsAlgebra
 
 class AssetTransferRequestProcessor(
   damlAppContext: DamlAppContext,
@@ -51,13 +52,15 @@ class AssetTransferRequestProcessor(
   callback:       java.util.function.BiFunction[AssetTransferRequest, AssetTransferRequest.ContractId, Boolean],
   onError:        java.util.function.Function[Throwable, Boolean]
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
-    with CommonOperations {
+    with AssetOperationsAlgebra {
 
   val logger = LoggerFactory.getLogger(classOf[AssetTransferRequestProcessor])
 
+  implicit val ev = assetTransferRequestEv
+
   import toplContext.provider._
 
-  def assetTransferM(
+  def processTransferRequestM(
     assetTransferRequest:         AssetTransferRequest,
     assetTransferRequestContract: AssetTransferRequest.ContractId
   ): IO[stream.Stream[Command]] = (for {
@@ -101,33 +104,6 @@ class AssetTransferRequestProcessor(
     )
   }
 
-  def createToParamM(
-    assetTransferRequest: AssetTransferRequest
-  )(address:              String, amount: Long): IO[(Address, TokenValueHolder)] =
-    for {
-      address       <- decodeAddressM(address)
-      issuerAddress <- decodeAddressM(assetTransferRequest.from.get(0))
-      latinData     <- createLatinDataM(assetTransferRequest.assetCode.shortName)
-      commitRoot <- createCommitRootM(
-        Option(assetTransferRequest.someCommitRoot).flatMap(x => Option(x.orElseGet(() => null)))
-      )
-      someMetadata <- createMetadataM(
-        Option(assetTransferRequest.someMetadata).flatMap(x => Option(x.orElseGet(() => null)))
-      )
-    } yield (
-      address,
-      AssetValue(
-        amount,
-        AssetCode(
-          assetTransferRequest.assetCode.version.toByte,
-          issuerAddress,
-          latinData
-        ),
-        commitRoot,
-        someMetadata
-      )
-    )
-
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
@@ -137,6 +113,6 @@ class AssetTransferRequestProcessor(
     e => AssetTransferRequest.Contract.fromCreatedEvent(e).id,
     callback.apply,
     event
-  )(assetTransferM)
+  )(processTransferRequestM)
 
 }

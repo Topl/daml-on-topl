@@ -31,7 +31,7 @@ import java.util.stream
 import scala.concurrent.Future
 import scala.io.Source
 import co.topl.modifier.transaction.serialization.AssetTransferSerializer
-import co.topl.daml.CommonOperations
+import co.topl.daml.algebras.AssetOperationsAlgebra
 import cats.effect.IO
 
 class UnsignedMintingRequestProcessor(
@@ -46,7 +46,7 @@ class UnsignedMintingRequestProcessor(
   ],
   onError: java.util.function.Function[Throwable, Boolean]
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
-    with CommonOperations {
+    with AssetOperationsAlgebra {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
 

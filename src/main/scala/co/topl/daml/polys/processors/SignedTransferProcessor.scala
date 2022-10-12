@@ -50,6 +50,7 @@ import cats.arrow.FunctionK
 import io.circe.Decoder
 import co.topl.utils.NetworkType
 import co.topl.modifier.transaction.Transaction
+import co.topl.daml.algebras.PolySpecificOperationsAlgebra
 
 class SignedTransferProcessor(
   damlAppContext: DamlAppContext,
@@ -57,57 +58,19 @@ class SignedTransferProcessor(
   timeoutMillis:  Int,
   callback:       java.util.function.BiFunction[SignedTransfer, SignedTransfer.ContractId, Boolean],
   onError:        java.util.function.Function[Throwable, Boolean]
-) extends AbstractProcessor(damlAppContext, toplContext, callback, onError) {
-
-  // implicit val networkPrefix = toplContext.provider.networkPrefix
-  // implicit val jsonDecoder = co.topl.modifier.transaction.Transaction.jsonDecoder
+) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
+    with PolySpecificOperationsAlgebra {
 
   val logger = LoggerFactory.getLogger(classOf[SignedTransferProcessor])
   import toplContext.provider._
-
-  def broadcastTransactionM(
-    signedTx: PolyTransfer[_ <: Proposition]
-  ) =
-    IO.fromFuture(
-      IO(
-        ToplRpc.Transaction.BroadcastTx
-          .rpc(ToplRpc.Transaction.BroadcastTx.Params(signedTx))
-          .leftMap(failure =>
-            RpcClientFailureException(
-              failure
-            )
-          )
-          .value
-      )
-    )
-
-  def getMessageToSignM(signedTransfer: SignedTransfer) = IO.fromOption(
-    ByteVector
-      .fromBase58(signedTransfer.txToSign)
-      .map(_.toArray)
-  )(RpcClientFailureException(RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid contract", Nil)))))
-
-  def unserializeTransferM(transactionAsBytes: Array[Byte]) = IO.apply(
-    PolyTransferSerializer
-      .parseBytes(transactionAsBytes)
-      .toEither
-      .left
-      .map(_ =>
-        RpcClientFailureException(
-          RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid bytes for transaction", Nil)))
-        )
-      )
-  )
 
   private def handlePendingM(
     signedTransfer:         SignedTransfer,
     signedTransferContract: SignedTransfer.ContractId
   ): IO[stream.Stream[Command]] = (for {
-    transactionAsBytes    <- getMessageToSignM(signedTransfer)
-    eitherSignedTx        <- unserializeTransferM(transactionAsBytes)
-    signedTx              <- IO.fromEither(eitherSignedTx)
-    eitherBroadcastResult <- broadcastTransactionM(signedTx)
-    success               <- IO.fromEither(eitherBroadcastResult)
+    transactionAsBytes <- decodeTransactionM(signedTransfer.txToSign)
+    signedTx           <- parseTxM(transactionAsBytes)
+    success            <- broadcastTransactionM(signedTx)
   } yield {
     logger.info("Successfully broadcasted transaction to network.")
     logger.debug(

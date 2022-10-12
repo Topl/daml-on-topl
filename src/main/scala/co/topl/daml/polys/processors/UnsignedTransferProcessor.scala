@@ -36,6 +36,7 @@ import io.circe.Json
 import co.topl.attestation.Proposition
 import co.topl.daml.RpcClientFailureException
 import co.topl.daml.CommonOperations
+import co.topl.daml.algebras.PolySpecificOperationsAlgebra
 
 class UnsignedTransferProcessor(
   damlAppContext: DamlAppContext,
@@ -46,13 +47,11 @@ class UnsignedTransferProcessor(
   callback:       java.util.function.BiFunction[UnsignedTransfer, UnsignedTransfer.ContractId, Boolean],
   onError:        java.util.function.Function[Throwable, Boolean]
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
-    with CommonOperations {
+    with PolySpecificOperationsAlgebra {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
 
   val logger = LoggerFactory.getLogger(classOf[UnsignedTransferProcessor])
-
-  def parsePolyTxM(msg2Sign: Array[Byte]) = IO.fromTry(PolyTransferSerializer.parseBytes(msg2Sign))
 
   def signOperationM(
     unsidgnedTransferRequest:         UnsignedTransfer,
@@ -62,7 +61,7 @@ class UnsignedTransferProcessor(
     jsonKey        <- IO.fromEither(parse(keyfile))
     address        <- importKeyM(jsonKey, password, keyRing)
     msg2Sign       <- decodeTransactionM(unsidgnedTransferRequest.txToSign)
-    rawTx          <- parsePolyTxM(msg2Sign)
+    rawTx          <- parseTxM(msg2Sign)
     signedTx       <- signTxM(rawTx)
     signedTxString <- encodeTransferM(signedTx)
   } yield {

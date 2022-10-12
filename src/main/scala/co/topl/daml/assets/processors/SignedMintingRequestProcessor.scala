@@ -54,6 +54,7 @@ import scala.io.Source
 import co.topl.daml.CommonOperations
 import co.topl.daml.RpcClientFailureException
 import cats.effect.IO
+import co.topl.daml.algebras.AssetOperationsAlgebra
 
 class SignedMintingRequestProcessor(
   damlAppContext: DamlAppContext,
@@ -63,7 +64,7 @@ class SignedMintingRequestProcessor(
   callback:       java.util.function.BiFunction[SignedAssetMinting, SignedAssetMinting.ContractId, Boolean],
   onError:        java.util.function.Function[Throwable, Boolean]
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
-    with CommonOperations {
+    with AssetOperationsAlgebra {
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
   implicit val jsonDecoder = co.topl.modifier.transaction.Transaction.jsonDecoder
@@ -79,8 +80,7 @@ class SignedMintingRequestProcessor(
     (for {
       transactionAsBytes <- decodeTransactionM(signedMintingRequest.signedMintTx)
       signedTx           <- deserializeTransactionM(transactionAsBytes)
-      eitherBroadcast    <- broadcastTransactionM(signedTx)
-      broadcast          <- IO.fromEither(eitherBroadcast.left.map(x => new RpcClientFailureException(x)))
+      broadcast          <- broadcastTransactionM(signedTx)
     } yield {
       logger.info("Successfully broadcasted transaction to network.")
       logger.debug(
