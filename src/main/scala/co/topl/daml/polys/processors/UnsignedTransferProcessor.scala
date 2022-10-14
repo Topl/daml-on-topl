@@ -63,10 +63,9 @@ class UnsignedTransferProcessor(
     signedTx       <- signTxM(rawTx)
     signedTxString <- encodeTransferM(signedTx)
   } yield {
-    val signedTxString = ByteVector(PolyTransferSerializer.toBytes(signedTx)).toBase58
     logger.info("Successfully signed transaction for contract {}.", unsidgnedTransferRequestContract.contractId)
-    logger.debug("signedTx = {}", signedTx)
-    logger.debug(
+    logger.info("signedTx = {}", signedTx)
+    logger.info(
       "Encoded transaction: {}",
       signedTxString
     )
@@ -77,7 +76,7 @@ class UnsignedTransferProcessor(
     ): stream.Stream[Command]
   }).handleError { failure =>
     logger.info("Failed to sign transaction.")
-    logger.debug("Error: {}", failure)
+    logger.info("Error: {}", failure)
 
     stream.Stream.of(
       unsidgnedTransferRequestContract

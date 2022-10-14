@@ -289,7 +289,7 @@
                                 <argument>${ledgerhost}</argument>
                                 <argument>${ledgerport}</argument>
                                 <argument>${keyfilename}</argument>
-                                <argument>${key1filepassword}</argument>
+                                <argument>${keyfilepassword}</argument>
                             </arguments>
                         </configuration>
                         <executions>

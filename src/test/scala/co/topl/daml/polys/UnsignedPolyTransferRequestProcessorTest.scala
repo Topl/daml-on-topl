@@ -26,38 +26,41 @@ import com.daml.ledger.javaapi.data
 import com.daml.ledger.api.v1.TransactionOuterClass.Transaction
 import com.daml.ledger.api.v1.EventOuterClass.Event
 import co.topl.daml.api.model.topl.asset.AssetTransferRequest
-import co.topl.daml.base.PolyTransferRequestProcessorBaseTest
+import co.topl.daml.base.UnsignedPolyTransferRequestProcessorBaseTest
 import co.topl.daml.api.model.topl.transfer.TransferRequest
+import co.topl.daml.api.model.topl.transfer.UnsignedTransfer
 
-class PolyTransferRequestProcessorTest extends CatsEffectSuite with PolyTransferRequestProcessorBaseTest {
+class UnsignedPolyTransferRequestProcessorTest
+    extends CatsEffectSuite
+    with UnsignedPolyTransferRequestProcessorBaseTest {
 
-  test("PolyTransferRequestProcessor should exercise TransferRequest_Accept") {
+  test("UnsignedTransferProcessor should exercise TransferRequest_Accept") {
 
     dummyStandardProcessor
-      .prepareTransactionM(assetTransferRequest, assetTransferRequestContract)
+      .signOperationM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
         val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
-        assertEquals(command.getChoice(), "TransferRequest_Accept")
+        assertEquals(command.getChoice(), "UnsignedTransfer_Sign")
       }
   }
 
-  test("PolyTransferRequestProcessorTest should exercise TransferRequest_Reject") {
+  test("UnsignedTransferProcessor should exercise TransferRequest_Reject") {
 
     dummyFailingWithException
-      .prepareTransactionM(assetTransferRequest, assetTransferRequestContract)
+      .signOperationM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
         val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
-        assertEquals(command.getChoice(), "TransferRequest_Reject")
+        assertEquals(command.getChoice(), "UnsignedTransfer_Archive")
       }
   }
 
-  test("PolyTransferRequestProcessorTest should return false if the error function returns false") {
+  test("UnsignedTransferProcessor should return false if the error function returns false") {
 
     val event: data.Event =
       data.CreatedEvent.fromProto(
         CreatedEvent
           .newBuilder()
-          .setTemplateId(TransferRequest.TEMPLATE_ID.toProto())
+          .setTemplateId(UnsignedTransfer.TEMPLATE_ID.toProto())
           .setCreateArguments(assetTransferRequest.toValue().toProto().getRecord())
           .build()
       )
@@ -72,13 +75,13 @@ class PolyTransferRequestProcessorTest extends CatsEffectSuite with PolyTransfer
       }
   }
 
-  test("PolyTransferRequestProcessorTest should return false if the condition function return false") {
+  test("UnsignedTransferProcessor should return false if the condition function return false") {
 
     val event =
       data.CreatedEvent.fromProto(
         CreatedEvent
           .newBuilder()
-          .setTemplateId(TransferRequest.TEMPLATE_ID.toProto())
+          .setTemplateId(UnsignedTransfer.TEMPLATE_ID.toProto())
           .setCreateArguments(assetTransferRequest.toValue().toProto().getRecord())
           .build()
       )

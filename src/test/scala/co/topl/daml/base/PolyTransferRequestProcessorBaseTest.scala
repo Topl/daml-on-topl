@@ -44,6 +44,8 @@ trait PolyTransferRequestProcessorBaseTest extends BaseTest {
   val assetTransferRequestContract = new TransferRequest.ContractId("")
 
   val serverResponse = """{
+    "messageToSign": "",
+    "rawTx": {
   "txType" : "PolyTransfer",
   "timestamp" : 1665697142778,
   "signatures" : {
@@ -101,6 +103,7 @@ trait PolyTransferRequestProcessorBaseTest extends BaseTest {
     ]
   ],
   "propositionType" : "PublicKeyCurve25519"
+}
 }"""
 
   val assetTransferRequest = new TransferRequest(
@@ -108,7 +111,7 @@ trait PolyTransferRequestProcessorBaseTest extends BaseTest {
     "alice",
     ju.List.of("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64"),
     ju.List.of(new types.Tuple2("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64", java.lang.Long.valueOf(1L))),
-    "address",
+    "AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",
     100L
   )
 
@@ -120,10 +123,10 @@ trait PolyTransferRequestProcessorBaseTest extends BaseTest {
       ): IO[PolyTransfer[Proposition]] =
         for {
           json <- IO.fromEither(parse(serverResponse))
-          res <- IO(
+          res <- IO.fromEither(
             transactionRawPolyTransferResponseDecoder.decodeJson(json)
           )
-        } yield res.toOption.get.rawTx
+        } yield res.rawTx
     }
 
   def dummyStandardProcessorWithErrorReturningTrue =
@@ -142,10 +145,10 @@ trait PolyTransferRequestProcessorBaseTest extends BaseTest {
       ): IO[PolyTransfer[Proposition]] =
         for {
           json <- IO.fromEither(parse(serverResponse))
-          res <- IO(
+          res <- IO.fromEither(
             transactionRawPolyTransferResponseDecoder.decodeJson(json)
           )
-        } yield res.toOption.get.rawTx
+        } yield res.rawTx
     }
 
   def dummyFailingWithException =

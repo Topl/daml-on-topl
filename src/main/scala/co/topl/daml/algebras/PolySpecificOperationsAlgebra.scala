@@ -84,11 +84,7 @@ trait PolySpecificOperationsAlgebra
     ByteVector(PolyTransferSerializer.toBytes(assetTransfer)).toBase58
   )
 
-  def createParamsM(transferRequest: TransferRequest): IO[RawPolyTransfer.Params] = {
-    println("transferRequest.from = " + transferRequest.from)
-    println("transferRequest.to = " + transferRequest.to)
-    println("transferRequest.fee = " + transferRequest.fee)
-    println("transferRequest.changeAddress = " + transferRequest.fee)
+  def createParamsM(transferRequest: TransferRequest): IO[RawPolyTransfer.Params] =
     IO(
       RawPolyTransfer.Params(
         propositionType =
@@ -121,7 +117,6 @@ trait PolySpecificOperationsAlgebra
         boxSelectionAlgorithm = BoxSelectionAlgorithms.All
       )
     )
-  }
 
   def createRawTxM(params: RawPolyTransfer.Params) =
     for {

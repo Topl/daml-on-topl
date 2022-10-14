@@ -63,11 +63,11 @@ class SignedTransferProcessor(
   val logger = LoggerFactory.getLogger(classOf[SignedTransferProcessor])
   import toplContext.provider._
 
-  private def handlePendingM(
+  def handlePendingM(
     signedTransfer:         SignedTransfer,
     signedTransferContract: SignedTransfer.ContractId
   ): IO[stream.Stream[Command]] = (for {
-    transactionAsBytes <- decodeTransactionM(signedTransfer.txToSign)
+    transactionAsBytes <- decodeTransactionM(signedTransfer.signedTx)
     signedTx           <- parseTxM(transactionAsBytes)
     success            <- broadcastTransactionM(signedTx)
   } yield {
