@@ -35,6 +35,16 @@ import cats.effect.IO
 import co.topl.attestation.Proposition
 import co.topl.daml.algebras.AssetOperationsAlgebra
 
+/**
+ * This processor processes the signing of transfer requests.
+ *
+ * @param damlAppContext the context of the DAML application
+ * @param toplContext the context for Topl blockain, in particular the provider
+ * @param filename the filename where the keys are stored
+ * @param password the password of the keyfile
+ * @param callback a function that performs operations before the processing is done. Its result is returned by the processor when there are no errors.
+ * @param onError a function executed when there is an error sending the commands to the DAML server. Its result is returned by the processor when there are errors in the DAML.
+ */
 class UnsignedAssetTransferRequestProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext,

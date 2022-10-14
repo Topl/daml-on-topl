@@ -58,6 +58,7 @@ trait AssetOperationsAlgebra
 
   }
 
+  // evidence for AssetMintingRequest
   val assetMintingRequestEv = new TransferEv[AssetMintingRequest] {
 
     def issuerAddress(assetMintingRequest: AssetMintingRequest): String = assetMintingRequest.from.get(0)
@@ -71,6 +72,7 @@ trait AssetOperationsAlgebra
     def assetCodeVersion(t: AssetMintingRequest): Byte = t.assetCode.version.toByte
   }
 
+  // evidence for AssetTransferRequest
   val assetTransferRequestEv = new TransferEv[AssetTransferRequest] {
 
     def issuerAddress(assetMintingRequest: AssetTransferRequest): String = assetMintingRequest.from.get(0)

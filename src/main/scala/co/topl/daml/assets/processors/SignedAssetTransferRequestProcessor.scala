@@ -54,6 +54,16 @@ import co.topl.modifier.transaction.AssetTransfer
 import co.topl.attestation.Proposition
 import co.topl.daml.algebras.AssetOperationsAlgebra
 
+/**
+ * This processor processes the broadcasting of signed transfer requests.
+ *
+ * @param damlAppContext the context of the DAML application
+ * @param toplContext the context for Topl blockain, in particular the provider
+ * @param timeoutMillis the timeout before processing fails
+ * @param idGenerator generates the id for the created transaction.
+ * @param callback a function that performs operations before the processing is done. Its result is returned by the processor when there are no errors.
+ * @param onError a function executed when there is an error sending the commands to the DAML server. Its result is returned by the processor when there are errors in the DAML.
+ */
 class SignedAssetTransferRequestProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext,

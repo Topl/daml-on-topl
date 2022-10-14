@@ -27,18 +27,45 @@ import scala.collection.immutable.ListMap
 import scala.concurrent.ExecutionContext
 import scala.io.Source
 
+/**
+ * Algebra for asset specific operations.
+ */
 trait AssetSpecificOperationsAlgebra[Transfer[_ <: Proposition], F[_]] {
 
-  def parseTxM(msg2Sign: Array[Byte]): F[Transfer[_ <: Proposition]]
+  /**
+   * Parse a transaction from an array of bytes.
+   *
+   * @param tx The transaction encoded as an array of bytes
+   * @return the actual transaction as an object.
+   */
+  def parseTxM(tx: Array[Byte]): F[Transfer[_ <: Proposition]]
 
+  /**
+   * Sign a transaction.
+   *
+   * @param rawTx the unsigned transaction
+   * @return the signed transaction
+   */
   def signTxM(rawTx: Transfer[_ <: Proposition]): F[Transfer[PublicKeyPropositionCurve25519]]
 
   def broadcastTransactionM(
     signedTx: Transfer[_ <: Proposition]
   ): F[ToplRpc.Transaction.BroadcastTx.Response]
 
+  /**
+   * Deserialize a transaction.
+   *
+   * @param transactionAsBytes The serialized transaction
+   * @return the deserialized transaction
+   */
   def deserializeTransactionM(transactionAsBytes: Array[Byte]): F[Transfer[_ <: Proposition]]
 
+  /**
+   * Encodes a transaction as a string.
+   *
+   * @param assetTransfer the transaction to encode
+   * @return the string encoding the transaction.
+   */
   def encodeTransferM(assetTransfer: Transfer[PublicKeyPropositionCurve25519]): F[String]
 
 }
