@@ -22,7 +22,6 @@ import co.topl.daml.api.model.topl.utils.SendStatus
 import co.topl.daml.api.model.topl.utils.sendstatus.FailedToSend
 import co.topl.daml.api.model.topl.utils.sendstatus.Pending
 import co.topl.daml.api.model.topl.utils.sendstatus.Sent
-import co.topl.daml.processEventAux
 import co.topl.modifier.transaction.PolyTransfer
 import co.topl.modifier.transaction.serialization.PolyTransferSerializer
 import co.topl.rpc.ToplRpc

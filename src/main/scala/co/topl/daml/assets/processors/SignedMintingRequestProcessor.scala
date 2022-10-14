@@ -27,7 +27,6 @@ import co.topl.daml.api.model.topl.utils.sendstatus.Confirmed
 import co.topl.daml.api.model.topl.utils.sendstatus.FailedToSend
 import co.topl.daml.api.model.topl.utils.sendstatus.Pending
 import co.topl.daml.api.model.topl.utils.sendstatus.Sent
-import co.topl.daml.processEventAux
 import co.topl.modifier.transaction.serialization.AssetTransferSerializer
 import co.topl.rpc.ToplRpc
 import co.topl.rpc.implicits.client._
@@ -51,7 +50,6 @@ import java.util.stream
 import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.io.Source
-import co.topl.daml.CommonOperations
 import co.topl.daml.RpcClientFailureException
 import cats.effect.IO
 import co.topl.daml.algebras.AssetOperationsAlgebra

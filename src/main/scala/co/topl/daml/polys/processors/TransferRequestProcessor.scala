@@ -43,7 +43,6 @@ import co.topl.modifier.transaction.serialization.PolyTransferSerializer
 import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
 import co.topl.daml.AbstractProcessor
-import co.topl.daml.processEventAux
 import cats.effect.IO
 import cats.arrow.FunctionK
 import co.topl.daml.RpcClientFailureException
@@ -66,12 +65,16 @@ class TransferRequestProcessor(
     transferRequest:         TransferRequest,
     transferRequestContract: TransferRequest.ContractId
   ): IO[stream.Stream[Command]] = (for {
-    params               <- IO.apply(createParamsM(transferRequest))
-    eitherRawTransaction <- createRawTxM(params)
-    rawTransaction       <- IO.fromEither(eitherRawTransaction.left.map(x => RpcClientFailureException(x)))
-    encodedTx = ByteVector(PolyTransferSerializer.toBytes(rawTransaction)).toBase58
+    params         <- createParamsM(transferRequest)
+    rawTransaction <- createRawTxM(params)
+    encodedTx      <- IO(ByteVector(PolyTransferSerializer.toBytes(rawTransaction)).toBase58)
   } yield {
     logger.info("Successfully generated raw transaction for contract {}.", transferRequestContract.contractId)
+    import io.circe.syntax._
+    logger.info(
+      "Raw transaction: {}",
+      rawTransaction.asJson
+    )
     logger.debug(
       "Encoded transaction: {}",
       encodedTx
@@ -86,7 +89,7 @@ class TransferRequestProcessor(
 
   }).handleError { failure =>
     logger.info("Failed to obtain raw transaction from server.")
-    logger.debug("Error: {}", failure)
+    logger.info("Error: {}", failure)
     stream.Stream.of(
       transferRequestContract
         .exerciseTransferRequest_Reject()

@@ -9,7 +9,6 @@ import co.topl.attestation._
 import co.topl.daml.AbstractProcessor
 import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
-import co.topl.daml.processEventAux
 import co.topl.daml.utf8StringToLatin1ByteArray
 import co.topl.modifier.box.AssetCode
 import co.topl.modifier.box.AssetValue
@@ -41,7 +40,6 @@ import cats.effect.IO
 import cats.syntax.traverse._
 
 import co.topl.daml.RpcClientFailureException
-import co.topl.daml.CommonOperations
 import co.topl.modifier.box.TokenValueHolder
 import co.topl.daml.algebras.AssetOperationsAlgebra
 

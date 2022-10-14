@@ -17,7 +17,6 @@ import co.topl.daml.ToplContext
 import co.topl.daml.api.model.topl.asset.UnsignedAssetMinting
 import co.topl.daml.api.model.topl.transfer.UnsignedTransfer
 
-import co.topl.daml.processEventAux
 import co.topl.utils.StringDataTypes
 import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent

@@ -7,7 +7,6 @@ import com.daml.ledger.javaapi.data.CreatedEvent
 
 import java.util.stream
 import com.daml.ledger.javaapi.data.Command
-import co.topl.daml.processEventAux
 import co.topl.daml.api.model.topl.organization.AssetIou
 import co.topl.daml.api.model.da.types
 import cats.effect.IO

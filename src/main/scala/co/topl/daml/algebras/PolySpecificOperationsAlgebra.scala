@@ -84,42 +84,55 @@ trait PolySpecificOperationsAlgebra
     ByteVector(PolyTransferSerializer.toBytes(assetTransfer)).toBase58
   )
 
-  def createParamsM(transferRequest: TransferRequest): RawPolyTransfer.Params =
-    RawPolyTransfer.Params(
-      propositionType =
-        PublicKeyPropositionCurve25519.typeString, // required fixed string for now, exciting possibilities in the future!
-      sender = NonEmptyChain
-        .fromSeq(
-          transferRequest.from.asScala.toSeq
-            .map(Base58Data.unsafe)
-            .map(_.decodeAddress.getOrThrow())
-        )
-        .get, // Set of addresses whose state you want to use for the transaction
-      recipients = NonEmptyChain
-        .fromSeq(
-          transferRequest.to.asScala.toSeq.map(x =>
-            (
-              Base58Data.unsafe(x._1).decodeAddress.getOrThrow(),
-              Int128(x._2.intValue())
+  def createParamsM(transferRequest: TransferRequest): IO[RawPolyTransfer.Params] = {
+    println("transferRequest.from = " + transferRequest.from)
+    println("transferRequest.to = " + transferRequest.to)
+    println("transferRequest.fee = " + transferRequest.fee)
+    println("transferRequest.changeAddress = " + transferRequest.fee)
+    IO(
+      RawPolyTransfer.Params(
+        propositionType =
+          PublicKeyPropositionCurve25519.typeString, // required fixed string for now, exciting possibilities in the future!
+        sender = NonEmptyChain
+          .fromSeq(
+            transferRequest.from.asScala.toSeq
+              .map(Base58Data.unsafe)
+              .map(_.decodeAddress.getOrThrow())
+          )
+          .get, // Set of addresses whose state you want to use for the transaction
+        recipients = NonEmptyChain
+          .fromSeq(
+            transferRequest.to.asScala.toSeq.map(x =>
+              (
+                Base58Data.unsafe(x._1).decodeAddress.getOrThrow(),
+                Int128(x._2.intValue())
+              )
             )
           )
-        )
-        .get, // Chain of (Recipients, Value) tuples that represent the output boxes
-      fee = Int128(
-        transferRequest.fee
-      ), // fee to be paid to the network for the transaction (unit is nanoPoly)
-      changeAddress = Base58Data
-        .unsafe(transferRequest.changeAddress)
-        .decodeAddress
-        .getOrThrow(), // who will get ALL the change from the transaction?
-      data = None, // upto 128 Latin-1 encoded characters of optional data,
-      boxSelectionAlgorithm = BoxSelectionAlgorithms.All
+          .get, // Chain of (Recipients, Value) tuples that represent the output boxes
+        fee = Int128(
+          transferRequest.fee
+        ), // fee to be paid to the network for the transaction (unit is nanoPoly)
+        changeAddress = Base58Data
+          .unsafe(transferRequest.changeAddress)
+          .decodeAddress
+          .getOrThrow(), // who will get ALL the change from the transaction?
+        data = None, // upto 128 Latin-1 encoded characters of optional data,
+        boxSelectionAlgorithm = BoxSelectionAlgorithms.All
+      )
     )
+  }
 
-  def createRawTxM(params: RawPolyTransfer.Params) = ToplRpc.Transaction.RawPolyTransfer
-    .rpc(params)
-    .mapK(new FunctionK[Future, IO] { def apply[A](fa: Future[A]): IO[A] = IO.fromFuture(IO(fa)) })
-    .map(_.rawTx)
-    .value
+  def createRawTxM(params: RawPolyTransfer.Params) =
+    for {
+      eitherTx <- IO.fromFuture(
+        IO(
+          ToplRpc.Transaction.RawPolyTransfer
+            .rpc(params)
+            .value
+        )
+      )
+      rawTx <- IO.fromEither(eitherTx.left.map(x => RpcClientFailureException(x)))
+    } yield rawTx.rawTx
 
 }

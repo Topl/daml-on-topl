@@ -10,8 +10,6 @@ import co.topl.daml.AbstractProcessor
 import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
 import co.topl.daml.api.model.topl.asset.AssetMintingRequest
-import co.topl.daml.processEventAux
-import co.topl.daml.utf8StringToLatin1ByteArray
 import co.topl.modifier.box.AssetCode
 import co.topl.modifier.box.AssetValue
 import co.topl.modifier.box.SecurityRoot
@@ -39,7 +37,6 @@ import co.topl.modifier.transaction.serialization.AssetTransferSerializer
 import co.topl.modifier.box.SimpleValue
 import cats.effect.IO
 import co.topl.daml.RpcClientFailureException
-import co.topl.daml.CommonOperations
 import co.topl.modifier.box.TokenValueHolder
 import cats.syntax.traverse._
 import co.topl.daml.algebras.AssetOperationsAlgebra
@@ -96,7 +93,7 @@ class AssetMintingRequestProcessor(
           )
       ): stream.Stream[Command]
     }).handleError { failure =>
-      logger.info("Failed to obtain raw transaction from server.")
+      logger.info("Failed to build transaction.")
       logger.debug("Error: {}", failure)
 
       stream.Stream.of(

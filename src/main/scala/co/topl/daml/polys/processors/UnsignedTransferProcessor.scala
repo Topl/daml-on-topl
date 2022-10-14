@@ -15,7 +15,6 @@ import co.topl.daml.AbstractProcessor
 import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
 import co.topl.daml.api.model.topl.transfer.UnsignedTransfer
-import co.topl.daml.processEventAux
 import co.topl.modifier.transaction.PolyTransfer
 import co.topl.modifier.transaction.serialization.PolyTransferSerializer
 import co.topl.utils.StringDataTypes
@@ -35,7 +34,6 @@ import scala.util.Try
 import io.circe.Json
 import co.topl.attestation.Proposition
 import co.topl.daml.RpcClientFailureException
-import co.topl.daml.CommonOperations
 import co.topl.daml.algebras.PolySpecificOperationsAlgebra
 
 class UnsignedTransferProcessor(

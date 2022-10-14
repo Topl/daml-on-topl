@@ -32,16 +32,14 @@ public class AliceMain {
 	private static final Logger logger = LoggerFactory.getLogger(OperatorMain.class);
 
 	public static void main(String[] args) {
-		if (args.length < 6) {
+		if (args.length < 4) {
 			System.err.println("Usage: HOST PORT PROJECTID APIKEY KEYFILENAME KEYFILEPASSWORD");
 			System.exit(-1);
 		}
 		String host = args[0];
 		int port = Integer.parseInt(args[1]);
-		String projectId = args[2];
-		String apiKey = args[3];
-		String keyfile = args[4];
-		String password = args[5];
+		String keyfile = args[2];
+		String password = args[3];
 		DamlLedgerClient client = DamlLedgerClient.newBuilder(host, port).build();
 		client.connect();
 		UserManagementClient userManagementClient = client.getUserManagementClient();
@@ -51,10 +49,9 @@ public class AliceMain {
 		Flowable<Transaction> transactions = client.getTransactionsClient().getTransactions(
 				LedgerOffset.LedgerEnd.getInstance(),
 				new FiltersByParty(Collections.singletonMap(aliceParty, NoFilter.instance)), true);
-		Uri uri = Uri.create("https://vertx.topl.services/valhalla/" + projectId);
+		Uri uri = Uri.create("http://localhost:9085/");
 		DamlAppContext damlAppContext = new DamlAppContext(APP_ID, aliceParty, client);
-		ToplContext toplContext = new ToplContext(ActorSystem.create(),
-				new Provider.ValhallaTestNet(uri.asScala(), apiKey));
+		ToplContext toplContext = new ToplContext(ActorSystem.create(), new Provider.PrivateTestNet(uri.asScala(), ""));
 		UnsignedTransferProcessor unsignedTransferProcessor = new UnsignedTransferProcessor(damlAppContext, toplContext,
 				keyfile, password, 3000, (x, y) -> true, t -> true);
 		transactions.forEach(unsignedTransferProcessor::processTransaction);

@@ -29,17 +29,9 @@ import scala.io.Source
 
 trait CommonBlockchainOpsAlgebra[F[_]] {
 
-  // def parseTxM(msg2Sign: Array[Byte]): F[Transfer[_ <: Proposition]]
-
-  // def signTxM(rawTx: Transfer[_ <: Proposition]): F[Transfer[PublicKeyPropositionCurve25519]]
-
   def readFileM(fileName: String): F[String]
 
   def importKeyM(jsonKey: Json, password: String, keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519]): F[Address]
-
-  // def broadcastTransactionM(
-  //   signedTx: Transfer[_ <: Proposition]
-  // ): F[ToplRpc.Transaction.BroadcastTx.Response]
 
   def getBalanceM(param: ToplRpc.NodeView.Balances.Params): F[ToplRpc.NodeView.Balances.Response]
 
@@ -61,21 +53,5 @@ trait CommonBlockchainOpsAlgebra[F[_]] {
   def createCommitRootM(someCommitRoot: Option[String]): F[SecurityRoot]
 
   def createMetadataM(someMetadata: Option[String]): F[Option[StringDataTypes.Latin1Data]]
-
-  // def deserializeTransactionM(transactionAsBytes: Array[Byte]): F[Transfer[_ <: Proposition]]
-
-  // def encodeTransferM(assetTransfer: Transfer[PublicKeyPropositionCurve25519]): F[String]
-
-  // def createAssetTransferM(
-  //   fee:               Long,
-  //   someBoxNonce:      Option[Long],
-  //   address:           Seq[Address],
-  //   balance:           ToplRpc.NodeView.Balances.Response,
-  //   listOfToAddresses: List[(Address, TokenValueHolder)]
-  // ): F[Transfer[PublicKeyPropositionCurve25519]]
-
-  // def createToParamM[InputTransfer](
-  //   assetTransferRequest: InputTransfer
-  // )(address:              String, amount: Long): F[(Address, TokenValueHolder)]
 
 }
