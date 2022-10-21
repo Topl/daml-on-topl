@@ -43,94 +43,79 @@ import co.topl.modifier.transaction.serialization.PolyTransferSerializer
 import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
 import co.topl.daml.AbstractProcessor
-import co.topl.daml.processEventAux
+import cats.effect.IO
+import cats.arrow.FunctionK
+import co.topl.daml.RpcClientFailureException
+import co.topl.daml.algebras.PolySpecificOperationsAlgebra
 
+/**
+ * This processor processes the transfer requests.
+ *
+ * @param damlAppContext the context of the DAML application
+ * @param toplContext the context for Topl blockain, in particular the provider
+ * @param timeoutMillis the timeout before processing fails
+ * @param callback a function that performs operations before the processing is done. Its result is returned by the processor when there are no errors.
+ * @param onError a function executed when there is an error sending the commands to the DAML server. Its result is returned by the processor when there are errors in the DAML.
+ */
 class TransferRequestProcessor(
   damlAppContext: DamlAppContext,
-  toplContext:    ToplContext
-) extends AbstractProcessor(damlAppContext, toplContext) {
+  toplContext:    ToplContext,
+  timeoutMillis:  Int,
+  callback:       java.util.function.BiFunction[TransferRequest, TransferRequest.ContractId, Boolean],
+  onError:        java.util.function.Function[Throwable, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
+    with PolySpecificOperationsAlgebra {
 
-  val logger = LoggerFactory.getLogger(classOf[TransferRequestProcessor])
+  def this(
+    damlAppContext: DamlAppContext,
+    toplContext:    ToplContext
+  ) =
+    this(damlAppContext, toplContext, 3000, (x, y) => true, x => true)
 
   import toplContext.provider._
 
-  def createParams(transferRequest: TransferRequest): RawPolyTransfer.Params =
-    RawPolyTransfer.Params(
-      propositionType =
-        PublicKeyPropositionCurve25519.typeString, // required fixed string for now, exciting possibilities in the future!
-      sender = NonEmptyChain
-        .fromSeq(
-          transferRequest.from.asScala.toSeq
-            .map(Base58Data.unsafe)
-            .map(_.decodeAddress.getOrThrow())
-        )
-        .get, // Set of addresses whose state you want to use for the transaction
-      recipients = NonEmptyChain
-        .fromSeq(
-          transferRequest.to.asScala.toSeq.map(x =>
-            (
-              Base58Data.unsafe(x._1).decodeAddress.getOrThrow(),
-              Int128(x._2.intValue())
-            )
-          )
-        )
-        .get, // Chain of (Recipients, Value) tuples that represent the output boxes
-      fee = Int128(
-        transferRequest.fee
-      ), // fee to be paid to the network for the transaction (unit is nanoPoly)
-      changeAddress = Base58Data
-        .unsafe(transferRequest.changeAddress)
-        .decodeAddress
-        .getOrThrow(), // who will get ALL the change from the transaction?
-      data = None, // upto 128 Latin-1 encoded characters of optional data,
-      boxSelectionAlgorithm = BoxSelectionAlgorithms.All
+  def prepareTransactionM(
+    transferRequest:         TransferRequest,
+    transferRequestContract: TransferRequest.ContractId
+  ): IO[stream.Stream[Command]] = (for {
+    params         <- createParamsM(transferRequest)
+    rawTransaction <- createRawTxM(params)
+    encodedTx      <- IO(ByteVector(PolyTransferSerializer.toBytes(rawTransaction)).toBase58)
+  } yield {
+    import io.circe.syntax._
+    logger.info("Successfully generated raw transaction for contract {}.", transferRequestContract.contractId)
+    logger.debug(
+      "Encoded transaction: {}",
+      encodedTx
     )
+
+    stream.Stream.of(
+      transferRequestContract
+        .exerciseTransferRequest_Accept(
+          encodedTx
+        )
+    ): stream.Stream[Command]
+
+  }).handleError { failure =>
+    logger.info("Failed to obtain raw transaction from server.\nError: {}", failure)
+    stream.Stream.of(
+      transferRequestContract
+        .exerciseTransferRequest_Reject()
+    )
+  }
 
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): stream.Stream[Command] =
-    processEventAux(TransferRequest.TEMPLATE_ID, event) {
-      val transferRequestContract =
-        TransferRequest.Contract.fromCreatedEvent(event).id
-      val transferRequest =
-        TransferRequest.fromValue(
-          event.getArguments()
-        )
-      val params = createParams(transferRequest)
-
-      val rawTransaction =
-        ToplRpc.Transaction.RawPolyTransfer.rpc(params).map(_.rawTx)
-      import scala.concurrent.duration._
-      import scala.language.postfixOps
-      Await.result(
-        rawTransaction.fold(
-          failure => {
-            logger.info("Failed to obtain raw transaction from server.")
-            logger.debug("Error: {}", failure)
-            stream.Stream.of(
-              transferRequestContract
-                .exerciseTransferRequest_Reject()
-            )
-          },
-          polyTransfer => {
-            val encodedTx = ByteVector(PolyTransferSerializer.toBytes(polyTransfer)).toBase58
-            logger.info("Successfully generated raw transaction for contract {}.", transferRequestContract.contractId)
-            logger.debug(
-              "Encoded transaction: {}",
-              encodedTx
-            )
-
-            stream.Stream.of(
-              transferRequestContract
-                .exerciseTransferRequest_Accept(
-                  encodedTx
-                )
-            )
-          }
-        ),
-        3 second
-      )
+  ): IO[(Boolean, stream.Stream[Command])] =
+    processEventAux(
+      TransferRequest.TEMPLATE_ID,
+      e => TransferRequest.fromValue(e.getArguments()),
+      e => TransferRequest.Contract.fromCreatedEvent(e).id,
+      callback.apply,
+      event
+    ) {
+      prepareTransactionM
     }
 
 }

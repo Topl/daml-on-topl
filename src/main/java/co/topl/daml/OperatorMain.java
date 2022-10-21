@@ -51,16 +51,17 @@ public class OperatorMain {
 		Flowable<Transaction> transactions = client.getTransactionsClient().getTransactions(
 				LedgerOffset.LedgerEnd.getInstance(),
 				new FiltersByParty(Collections.singletonMap(operatorParty, NoFilter.instance)), true);
-		Uri uri = Uri.create("https://vertx.topl.services/valhalla/" + projectId);
+		Uri uri = Uri.create("http://localhost:9085/");
 		DamlAppContext damlAppContext = new DamlAppContext(APP_ID, operatorParty, client);
-		ToplContext toplContext = new ToplContext(ActorSystem.create(),
-				new Provider.ValhallaTestNet(uri.asScala(), apiKey));
-		TransferRequestProcessor transferProcessor = new TransferRequestProcessor(damlAppContext, toplContext);
+		ToplContext toplContext = new ToplContext(ActorSystem.create(), new Provider.PrivateTestNet(uri.asScala(), ""));
+		TransferRequestProcessor transferProcessor = new TransferRequestProcessor(damlAppContext, toplContext, 3000,
+				(x, y) -> true, t -> true);
 		transactions.forEach(transferProcessor::processTransaction);
-		SignedTransferProcessor signedTransferProcessor = new SignedTransferProcessor(damlAppContext, toplContext);
+		SignedTransferProcessor signedTransferProcessor = new SignedTransferProcessor(damlAppContext, toplContext, 3000,
+				(x, y) -> true, t -> true);
 		transactions.forEach(signedTransferProcessor::processTransaction);
 		AssetMintingRequestProcessor assetMintingRequestProcessor = new AssetMintingRequestProcessor(damlAppContext,
-				toplContext);
+				toplContext, 3000, (x, y) -> true, t -> true);
 		transactions.forEach(assetMintingRequestProcessor::processTransaction);
 	}
 }

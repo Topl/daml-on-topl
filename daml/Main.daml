@@ -52,3 +52,7 @@ initialize = do
       createUser (Daml.Script.User bobId (Some bob)) [CanActAs bob]
       createUser (Daml.Script.User eveId (Some eve)) [CanActAs eve]
       pure []
+
+initializeDemo : Script [Party]
+initializeDemo = do
+                   pure []
