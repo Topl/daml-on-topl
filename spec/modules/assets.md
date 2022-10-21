@@ -2,24 +2,36 @@
 
 #### `AssetMintingRequest`
 
-The asset minting request contract models a request from some user to the operator to mint a particular asset. The asset to mint is passed as a parameter at the creation time of the contract.
+The asset minting request contract models a request from some user to the operator to mint a particular asset. We pass the asset to mint as a parameter at the creation time of the contract.
 
 **Module:** Topl.Asset
 
 ##### Parameters
 
 | Name           | Type           | Description                                                  |
+
 | -------------- | -------------- | ------------------------------------------------------------ |
+
 | operator       | Party          | The operator that will handle this request.                  |
+
 | requestor      | Party          | The party that requested this minting operation.             |
-| someOrgId      | Optional Text  | If this minting request is related to an organization, this field contains the organization id, otherwise, `None`. |
+
+| someOrgId      | Optional Text  | If we relate this minting request to an organization, this field contains the organization id, otherwise, `None`. |
+
 | from           | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the assets are going to be minted. |
+
 | to             | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
+
 | changeAddress  | Text           | The address where the change will be sent after the transaction. |
+
 | assetCode      | AssetCode      | The code of the asset being minted                           |
+
 | quantity       | Int            | The number of assets to mint.                                |
+
 | someCommitRoot | Optional Text  | A commit root encoded in a base 58 string or `None` if there is not commit root. |
+
 | someMetadata   | Optional Text  | Some metadata or `None` if no metadata is needed.            |
+
 | fee            | Int            | The amount of polys that are paid to perform this transaction. |
 
 ##### Choices
@@ -31,8 +43,11 @@ Accepts the request for further processing by the operator.
 ###### Parameters
 
 | Name     | Type | Description                                                  |
+
 | -------- | ---- | ------------------------------------------------------------ |
+
 | txToSign | Text | The transaction to be signed serialized by the `AssetTransferSerializer` and encoded in Base58. |
+
 | boxNonce | Int  | The nonce of the box where the asset is going to be stored.  |
 
 ##### `TransferRequest_Reject`
@@ -45,7 +60,7 @@ None.
 
 ##### `TransferRequest_Archive`
 
-Archives the request. Archive implies that the archiving was not done because of an error.
+Archives the request. Archive implies that we did not do the archiving because of an error.
 
 ###### Parameters
 
@@ -60,19 +75,33 @@ An unsigned asset minting. It is created when a `MintingRequest_Accept` is exerc
 ##### Parameters
 
 | Name           | Type           | Description                                                  |
+
 | -------------- | -------------- | ------------------------------------------------------------ |
+
 | operator       | Party          | The operator that will handle this request.                  |
+
 | requestor      | Party          | The party that requested this minting operation.             |
-| someOrgId      | Optional Text  | If this minting request is related to an organization, this field contains the organization id, otherwise, `None`. |
+
+| someOrgId      | Optional Text  | If we relate this minting request to an organization, this field contains the organization id, otherwise, `None`. |
+
 | from           | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the assets are going to be minted. |
+
 | to             | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
+
 | changeAddress  | Text           | The address where the change will be sent after the transaction. |
+
 | assetCode      | AssetCode      | The code of the asset being minted                           |
+
 | quantity       | Int            | The number of assets to mint.                                |
+
 | someCommitRoot | Optional Text  | A commit root encoded in a base 58 string or `None` if there is not commit root. |
+
 | someMetadata   | Optional Text  | Some metadata or `None` if no metadata is needed.            |
+
 | boxNonce       | Int            | The nonce of the box where the asset is going to be stored.  |
+
 | fee            | Int            | The amount of polys that are paid to perform this transaction. |
+
 | mintTxToSign   | Text           | The minting transaction to be signed serialized by the `AssetTransferSerializer` and encoded in Base58. |
 
 ##### Choices
@@ -84,7 +113,9 @@ Signs the request for broadcasting to the network by the operator.
 ###### Parameters
 
 | Name         | Type | Description                                                  |
+
 | ------------ | ---- | ------------------------------------------------------------ |
+
 | signedMintTx | Text | The signed minting transaction serialized by the `AssetTransferSerializer` and encoded in Base58. |
 
 ##### `UnsignedMinting_Reject`
@@ -112,21 +143,37 @@ A signed asset minting request. It is created when a `UnsignedMinting_Sign` is e
 ##### Parameters
 
 | Name           | Type           | Description                                                  |
+
 | -------------- | -------------- | ------------------------------------------------------------ |
+
 | operator       | Party          | The operator that will handle this request.                  |
+
 | requestor      | Party          | The party that requested this minting operation.             |
-| someOrgId      | Optional Text  | If this minting request is related to an organization, this field contains the organization id, otherwise, `None`. |
+
+| someOrgId      | Optional Text  | If we relate this minting request to an organization, this field contains the organization id, otherwise, `None`. |
+
 | from           | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the assets are going to be minted. |
+
 | to             | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
+
 | changeAddress  | Text           | The address where the change will be sent after the transaction. |
+
 | assetCode      | AssetCode      | The code of the asset being minted                           |
+
 | quantity       | Int            | The number of assets to mint.                                |
+
 | someCommitRoot | Optional Text  | A commit root encoded in a base 58 string or `None` if there is not commit root. |
+
 | someMetadata   | Optional Text  | Some metadata or `None` if no metadata is needed.            |
+
 | boxNonce       | Int            | The nonce of the box where the asset is going to be stored.  |
+
 | fee            | Int            | The amount of polys that are paid to perform this transaction. |
+
 | mintTxToSign   | Text           | The minting transaction to be signed serialized by the `AssetTransferSerializer` and encoded in Base58. |
+
 | signedMintTx   | Text           | The minting transaction signed serialized by the `AssetTransferSerializer` and encoded in Base58. |
+
 | sendStatus     | SendStatus     | The status of the transaction. It can be: New, Pending, Sent, FailedToSend, and Confirmed. |
 
 ##### Choices
@@ -146,7 +193,9 @@ Marks a pending transaction with a new status
 ###### Parameters
 
 | Name          | Type       | Description                                                  |
+
 | ------------- | ---------- | ------------------------------------------------------------ |
+
 | newSendStatus | SendStatus | The new status of this transaction after being sent to the network. |
 
 ##### `SignedAssetMinting_Fail`
@@ -156,7 +205,9 @@ Marks this transaction as failed
 ###### Parameters
 
 | Name   | Type | Description                |
+
 | ------ | ---- | -------------------------- |
+
 | reason | Text | The reason of the failure. |
 
 ##### `SignedAssetMinting_Confirm`
@@ -166,8 +217,11 @@ Marks this transaction as confirmed.
 ###### Parameters
 
 | Name  | Type | Description                                           |
+
 | ----- | ---- | ----------------------------------------------------- |
+
 | txId  | Text | The identifier of this transaction in the blockchain. |
+
 | depth | Int  | The depth at which the transaction is done.           |
 
 ##### `SignedAssetMinting_Archive`
@@ -187,18 +241,31 @@ The asset transfer request contract models a request from some user to the opera
 ##### Parameters
 
 | Name           | Type           | Description                                                  |
+
 | -------------- | -------------- | ------------------------------------------------------------ |
+
 | operator       | Party          | The operator that will handle this request.                  |
+
 | requestor      | Party          | The party that requested this minting operation.             |
-| someOrgId      | Optional Text  | If this minting request is related to an organization, this field contains the organization id, otherwise, `None`. |
+
+| someOrgId      | Optional Text  | If we relate this minting request to an organization, this field contains the organization id, otherwise, `None`. |
+
 | from           | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the assets are going to be minted. |
+
 | to             | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
+
 | changeAddress  | Text           | The address where the change will be sent after the transaction. |
+
 | assetCode      | AssetCode      | The code of the asset being minted                           |
+
 | quantity       | Int            | The number of assets to mint.                                |
+
 | someCommitRoot | Optional Text  | A commit root encoded in a base 58 string or `None` if there is not commit root. |
+
 | someMetadata   | Optional Text  | Some metadata or `None` if no metadata is needed.            |
+
 | boxNonce       | Int            | The nonce of the box where the asset is stored.              |
+
 | fee            | Int            | The amount of polys that are paid to perform this transaction. |
 
 ##### Choices
@@ -210,8 +277,11 @@ Accepts the request for further processing by the operator.
 ###### Parameters
 
 | Name        | Type | Description                                                  |
+
 | ----------- | ---- | ------------------------------------------------------------ |
+
 | txToSign    | Text | The transaction to be signed serialized by the `AssetTransferSerializer` and encoded in Base58. |
+
 | newBoxNonce | Int  | The nonce of the box where the asset is going to be stored.  |
 
 ##### `AssetTransferRequest_Reject`
@@ -224,7 +294,7 @@ None.
 
 ##### `AssetTransferRequest_Archive`
 
-Archives the request. Archive implies that the archiving was not done because of an error.
+Archives the request. Archive implies that we did not do the archiving because of an error.
 
 ###### Parameters
 
@@ -239,19 +309,33 @@ An unsigned asset transfer. It is created when a `AssetTransferRequest_Accept` i
 ##### Parameters
 
 | Name           | Type           | Description                                                  |
+
 | -------------- | -------------- | ------------------------------------------------------------ |
+
 | operator       | Party          | The operator that will handle this request.                  |
+
 | requestor      | Party          | The party that requested this minting operation.             |
+
 | someOrgId      | Optional Text  | If this minting request is related to an organization, this field contains the organization id, otherwise, `None`. |
+
 | from           | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the assets are going to be minted. |
+
 | to             | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
+
 | changeAddress  | Text           | The address where the change will be sent after the transaction. |
+
 | assetCode      | AssetCode      | The code of the asset being minted                           |
+
 | quantity       | Int            | The number of assets to mint.                                |
+
 | someCommitRoot | Optional Text  | A commit root encoded in a base 58 string or `None` if there is not commit root. |
+
 | someMetadata   | Optional Text  | Some metadata or `None` if no metadata is needed.            |
+
 | boxNonce       | Int            | The nonce of the box where the asset is going to be stored.  |
+
 | fee            | Int            | The amount of polys that are paid to perform this transaction. |
+
 | txToSign       | Text           | The transfer transaction to be signed serialized by the `AssetTransferSerializer` and encoded in Base58. |
 
 ##### Choices
@@ -263,7 +347,9 @@ Signs the request for broadcasting to the network by the operator.
 ###### Parameters
 
 | Name     | Type | Description                                                  |
+
 | -------- | ---- | ------------------------------------------------------------ |
+
 | signedTx | Text | The signed transfer transaction serialized by the `AssetTransferSerializer` and encoded in Base58. |
 
 ##### `UnsignedAssetTransfer_Reject`
@@ -291,21 +377,37 @@ A signed asset transfer request. It is created when a `UnsignedAssetTransfer_Sig
 ##### Parameters
 
 | Name           | Type           | Description                                                  |
+
 | -------------- | -------------- | ------------------------------------------------------------ |
+
 | operator       | Party          | The operator that will handle this request.                  |
+
 | requestor      | Party          | The party that requested this minting operation.             |
+
 | someOrgId      | Optional Text  | If this minting request is related to an organization, this field contains the organization id, otherwise, `None`. |
+
 | from           | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the assets are going to be minted. |
+
 | to             | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
+
 | changeAddress  | Text           | The address where the change will be sent after the transaction. |
+
 | assetCode      | AssetCode      | The code of the asset being minted                           |
+
 | quantity       | Int            | The number of assets to mint.                                |
+
 | someCommitRoot | Optional Text  | A commit root encoded in a base 58 string or `None` if there is not commit root. |
+
 | someMetadata   | Optional Text  | Some metadata or `None` if no metadata is needed.            |
+
 | boxNonce       | Int            | The nonce of the box where the asset is going to be stored.  |
+
 | fee            | Int            | The amount of polys that are paid to perform this transaction. |
+
 | txToSign       | Text           | The transfer transaction to be signed serialized by the `AssetTransferSerializer` and encoded in Base58. |
+
 | signedTx       | Text           | The signed transfer transaction serialized by the `AssetTransferSerializer` and encoded in Base58. |
+
 | sendStatus     | SendStatus     | The status of the transaction. It can be: New, Pending, Sent, FailedToSend, and Confirmed. |
 
 ##### Choices
@@ -325,7 +427,9 @@ Marks a pending transaction with a new status
 ###### Parameters
 
 | Name          | Type       | Description                                                  |
+
 | ------------- | ---------- | ------------------------------------------------------------ |
+
 | newSendStatus | SendStatus | The new status of this transaction after being sent to the network. |
 
 ##### `SignedAssetTransfer_Fail`
@@ -335,7 +439,9 @@ Marks this transaction as failed
 ###### Parameters
 
 | Name   | Type | Description                |
+
 | ------ | ---- | -------------------------- |
+
 | reason | Text | The reason of the failure. |
 
 ##### `SignedAssetTransfer_Confirm`
@@ -345,8 +451,11 @@ Marks this transaction as confirmed.
 ###### Parameters
 
 | Name  | Type | Description                                           |
+
 | ----- | ---- | ----------------------------------------------------- |
+
 | txId  | Text | The identifier of this transaction in the blockchain. |
+
 | depth | Int  | The depth at which the transaction is done.           |
 
 ##### `SignedAssetTransfer_Archive`
@@ -356,4 +465,5 @@ Archives the contract.
 ###### Parameters
 
 None.
+
 
