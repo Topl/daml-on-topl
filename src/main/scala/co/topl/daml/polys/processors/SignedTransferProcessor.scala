@@ -69,7 +69,12 @@ class SignedTransferProcessor(
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with PolySpecificOperationsAlgebra {
 
-  val logger = LoggerFactory.getLogger(classOf[SignedTransferProcessor])
+  def this(
+    damlAppContext: DamlAppContext,
+    toplContext:    ToplContext
+  ) =
+    this(damlAppContext, toplContext, 3000, (x, y) => true, x => true)
+
   import toplContext.provider._
 
   def handlePendingM(

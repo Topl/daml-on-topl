@@ -59,7 +59,11 @@ class AssetMintingRequestProcessor(
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with AssetOperationsAlgebra {
 
-  val logger = LoggerFactory.getLogger(classOf[AssetMintingRequestProcessor])
+  def this(
+    damlAppContext: DamlAppContext,
+    toplContext:    ToplContext
+  ) =
+    this(damlAppContext, toplContext, 3000, (x, y) => true, x => true)
 
   import toplContext.provider._
 

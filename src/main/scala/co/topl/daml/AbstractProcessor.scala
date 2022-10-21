@@ -21,6 +21,7 @@ import com.daml.ledger.rxjava.LedgerClient
 import java.util.UUID
 import io.reactivex.subjects.SingleSubject
 import scala.collection.JavaConverters._
+import org.slf4j.LoggerFactory
 
 abstract class AbstractProcessor[T, U, V](
   val damlAppContext: DamlAppContext,
@@ -30,6 +31,8 @@ abstract class AbstractProcessor[T, U, V](
 ) {
 
   implicit val implicitDamlAppContext = damlAppContext
+
+  val logger = LoggerFactory.getLogger(this.getClass())
 
   implicit val executionContext: ExecutionContext = toplContext.actorSystem.dispatcher
 

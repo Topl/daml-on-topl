@@ -57,9 +57,15 @@ class UnsignedTransferProcessor(
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with PolySpecificOperationsAlgebra {
 
-  implicit val networkPrefix = toplContext.provider.networkPrefix
+  def this(
+    damlAppContext: DamlAppContext,
+    toplContext:    ToplContext,
+    fileName:       String,
+    password:       String
+  ) =
+    this(damlAppContext, toplContext, fileName, password, 3000, (x, y) => true, x => true)
 
-  val logger = LoggerFactory.getLogger(classOf[UnsignedTransferProcessor])
+  implicit val networkPrefix = toplContext.provider.networkPrefix
 
   def signOperationM(
     unsidgnedTransferRequest:         UnsignedTransfer,

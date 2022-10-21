@@ -59,9 +59,15 @@ class UnsignedAssetTransferRequestProcessor(
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with AssetOperationsAlgebra {
 
-  implicit val networkPrefix = toplContext.provider.networkPrefix
+  def this(
+    damlAppContext: DamlAppContext,
+    toplContext:    ToplContext,
+    fileName:       String,
+    password:       String
+  ) =
+    this(damlAppContext, toplContext, fileName, password, (x, y) => true, x => true)
 
-  val logger = LoggerFactory.getLogger(classOf[UnsignedAssetTransferRequestProcessor])
+  implicit val networkPrefix = toplContext.provider.networkPrefix
 
   def signOperationM(
     unsidgnedTransferRequest:         UnsignedAssetTransferRequest,

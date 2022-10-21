@@ -61,7 +61,11 @@ class AssetTransferRequestProcessor(
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with AssetOperationsAlgebra {
 
-  val logger = LoggerFactory.getLogger(classOf[AssetTransferRequestProcessor])
+  def this(
+    damlAppContext: DamlAppContext,
+    toplContext:    ToplContext
+  ) =
+    this(damlAppContext, toplContext, 3000, (x, y) => true, x => true)
 
   implicit val ev = assetTransferRequestEv
 

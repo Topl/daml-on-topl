@@ -29,19 +29,18 @@ import co.topl.daml.ToplContext;
 
 public class AssetOperatorMain {
 
-	// FIXME: Divide into smaller methods.
-
 	// constants for referring to users with access to the parties
 	public static final String OPERATOR_USER = "operator";
 
 	// application id used for sending commands
 	private static final String APP_ID = "OperatorMainApp";
 
+	private static final int MIN_ARG_COUNT = 6;
+
 	private static final Logger logger = LoggerFactory.getLogger(OperatorMain.class);
 
 	public static void main(String[] args) {
-		// FIXME: add more robust handling of parameters.
-		if (args.length < 4) {
+		if (args.length < MIN_ARG_COUNT) {
 			System.err.println("Usage: HOST PORT PROJECTID  APIKEY KEYFILENAME KEYFILEPASSWORD");
 			System.exit(-1);
 		}

@@ -74,10 +74,12 @@ class SignedMintingRequestProcessor(
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with AssetOperationsAlgebra {
 
-  implicit val networkPrefix = toplContext.provider.networkPrefix
-  implicit val jsonDecoder = co.topl.modifier.transaction.Transaction.jsonDecoder
-
-  val logger = LoggerFactory.getLogger(classOf[SignedMintingRequestProcessor])
+  def this(
+    damlAppContext: DamlAppContext,
+    toplContext:    ToplContext,
+    idGenerator:    java.util.function.Supplier[String]
+  ) =
+    this(damlAppContext, toplContext, 3000, idGenerator, (x, y) => true, x => true)
 
   import toplContext.provider._
 

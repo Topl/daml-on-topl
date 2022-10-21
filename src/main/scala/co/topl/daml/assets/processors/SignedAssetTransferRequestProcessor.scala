@@ -74,7 +74,13 @@ class SignedAssetTransferRequestProcessor(
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with AssetOperationsAlgebra {
 
-  val logger = LoggerFactory.getLogger(classOf[SignedAssetTransferRequestProcessor])
+  def this(
+    damlAppContext: DamlAppContext,
+    toplContext:    ToplContext,
+    idGenerator:    java.util.function.Supplier[String]
+  ) =
+    this(damlAppContext, toplContext, 3000, idGenerator, (x, y) => true, x => true)
+
   import toplContext.provider._
 
   def handlePendingM(

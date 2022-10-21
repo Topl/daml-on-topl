@@ -29,10 +29,12 @@ public class AliceMain {
 	// application id used for sending commands
 	private static final String APP_ID = "AliceMainApp";
 
+	private static final int MIN_ARG_COUNT = 4;
+
 	private static final Logger logger = LoggerFactory.getLogger(OperatorMain.class);
 
 	public static void main(String[] args) {
-		if (args.length < 4) {
+		if (args.length < MIN_ARG_COUNT) {
 			System.err.println("Usage: HOST PORT PROJECTID APIKEY KEYFILENAME KEYFILEPASSWORD");
 			System.exit(-1);
 		}

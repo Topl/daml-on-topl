@@ -66,7 +66,11 @@ class TransferRequestProcessor(
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with PolySpecificOperationsAlgebra {
 
-  val logger = LoggerFactory.getLogger(classOf[TransferRequestProcessor])
+  def this(
+    damlAppContext: DamlAppContext,
+    toplContext:    ToplContext
+  ) =
+    this(damlAppContext, toplContext, 3000, (x, y) => true, x => true)
 
   import toplContext.provider._
 
@@ -97,8 +101,7 @@ class TransferRequestProcessor(
     ): stream.Stream[Command]
 
   }).handleError { failure =>
-    logger.info("Failed to obtain raw transaction from server.")
-    logger.info("Error: {}", failure)
+    logger.info("Failed to obtain raw transaction from server.\nError: {}", failure)
     stream.Stream.of(
       transferRequestContract
         .exerciseTransferRequest_Reject()
