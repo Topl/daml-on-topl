@@ -29,19 +29,18 @@ import co.topl.daml.ToplContext;
 
 public class AssetOperatorMain {
 
-	// FIXME: Divide into smaller methods.
-
 	// constants for referring to users with access to the parties
 	public static final String OPERATOR_USER = "operator";
 
 	// application id used for sending commands
 	private static final String APP_ID = "OperatorMainApp";
 
+	private static final int MIN_ARG_COUNT = 6;
+
 	private static final Logger logger = LoggerFactory.getLogger(OperatorMain.class);
 
 	public static void main(String[] args) {
-		// FIXME: add more robust handling of parameters.
-		if (args.length < 4) {
+		if (args.length < MIN_ARG_COUNT) {
 			System.err.println("Usage: HOST PORT PROJECTID  APIKEY KEYFILENAME KEYFILEPASSWORD");
 			System.exit(-1);
 		}
@@ -64,10 +63,10 @@ public class AssetOperatorMain {
 		DamlAppContext damlAppContext = new DamlAppContext(APP_ID, operatorParty, client);
 		ToplContext toplContext = new ToplContext(ActorSystem.create(), new Provider.PrivateTestNet(uri.asScala(), ""));
 		AssetMintingRequestProcessor assetMintingRequestProcessor = new AssetMintingRequestProcessor(damlAppContext,
-				toplContext);
+				toplContext, 3000, (x, y) -> true, t -> true);
 		transactions.forEach(assetMintingRequestProcessor::processTransaction);
 		UnsignedMintingRequestProcessor unsignedMintingRequestProcessor = new UnsignedMintingRequestProcessor(
-				damlAppContext, toplContext, keyfile, password);
+				damlAppContext, toplContext, keyfile, password, (x, y) -> true, t -> true);
 		transactions.forEach(unsignedMintingRequestProcessor::processTransaction);
 		Supplier<String> supplier = new Supplier<String>() {
 
@@ -78,17 +77,17 @@ public class AssetOperatorMain {
 			}
 		};
 		SignedMintingRequestProcessor signedMintingRequestProcessor = new SignedMintingRequestProcessor(damlAppContext,
-				toplContext, supplier);
+				toplContext, 3000, supplier, (x, y) -> true, t -> true);
 		transactions.forEach(signedMintingRequestProcessor::processTransaction);
 
 		AssetTransferRequestProcessor assetTransferRequestProcessor = new AssetTransferRequestProcessor(damlAppContext,
-				toplContext);
+				toplContext, 3000, (x, y) -> true, t -> true);
 		transactions.forEach(assetTransferRequestProcessor::processTransaction);
 		UnsignedAssetTransferRequestProcessor unsignedTransferRequestProcessor = new UnsignedAssetTransferRequestProcessor(
-				damlAppContext, toplContext, keyfile, password);
+				damlAppContext, toplContext, keyfile, password, (x, y) -> true, t -> true);
 		transactions.forEach(unsignedTransferRequestProcessor::processTransaction);
 		SignedAssetTransferRequestProcessor signedTransferRequestProcessor = new SignedAssetTransferRequestProcessor(
-				damlAppContext, toplContext, supplier);
+				damlAppContext, toplContext, 3000, supplier, (x, y) -> true, t -> true);
 		transactions.forEach(signedTransferRequestProcessor::processTransaction);
 	}
 }

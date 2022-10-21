@@ -13,42 +13,15 @@ import com.daml.ledger.javaapi.data.Transaction
 import com.daml.ledger.rxjava.LedgerClient
 import java.util.UUID
 import io.reactivex.subjects.SingleSubject
+import scala.collection.JavaConverters._
+import java.util.function.BiFunction
+import cats.effect.IO
 
 package object daml {
 
   type RpcErrorOr[T] = EitherT[Future, RpcClientFailure, T]
 
-  def processEventAux(templateIdentifier: Identifier, event: CreatedEvent)(
-    processor:                            => stream.Stream[Command]
-  ): stream.Stream[Command] =
-    if (event.getTemplateId() == templateIdentifier)
-      processor
-    else stream.Stream.empty()
-
-  def processTransactionAux(
-    tx: Transaction
-  )(
-    processEvent:            (String, CreatedEvent) => stream.Stream[Command]
-  )(implicit damlAppContext: DamlAppContext): Single[Empty] = {
-    val exerciseCommands = tx
-      .getEvents()
-      .stream()
-      .filter(e => e.isInstanceOf[CreatedEvent])
-      .map(e => e.asInstanceOf[CreatedEvent])
-      .flatMap(e => processEvent(tx.getWorkflowId(), e))
-      .collect(stream.Collectors.toList())
-    if (!exerciseCommands.isEmpty()) {
-      return damlAppContext.client
-        .getCommandClient()
-        .submitAndWait(
-          tx.getWorkflowId(),
-          damlAppContext.appId,
-          UUID.randomUUID().toString(),
-          damlAppContext.operatorParty,
-          exerciseCommands
-        )
-    } else return SingleSubject.create()
-  }
+  case class RpcClientFailureException(failure: RpcClientFailure) extends Throwable
 
   def utf8StringToLatin1ByteArray(str: String) = str.zipWithIndex
     .map(e => str.codePointAt(e._2).toByte)

@@ -10,8 +10,6 @@ import co.topl.daml.AbstractProcessor
 import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
 import co.topl.daml.api.model.topl.asset.AssetMintingRequest
-import co.topl.daml.processEventAux
-import co.topl.daml.utf8StringToLatin1ByteArray
 import co.topl.modifier.box.AssetCode
 import co.topl.modifier.box.AssetValue
 import co.topl.modifier.box.SecurityRoot
@@ -37,125 +35,95 @@ import scala.concurrent.Await
 import ToplRpc.Transaction.RawAssetTransfer
 import co.topl.modifier.transaction.serialization.AssetTransferSerializer
 import co.topl.modifier.box.SimpleValue
+import cats.effect.IO
+import co.topl.daml.RpcClientFailureException
+import co.topl.modifier.box.TokenValueHolder
+import cats.syntax.traverse._
+import co.topl.daml.algebras.AssetOperationsAlgebra
 
+/**
+ * This processor processes the minting requests.
+ *
+ * @param damlAppContext the context of the DAML application
+ * @param toplContext the context for Topl blockain, in particular the provider
+ * @param timeoutMillis the timeout before processing fails
+ * @param callback a function that performs operations before the processing is done. Its result is returned by the processor when there are no errors.
+ * @param onError a function executed when there is an error sending the commands to the DAML server. Its result is returned by the processor when there are errors in the DAML.
+ */
 class AssetMintingRequestProcessor(
   damlAppContext: DamlAppContext,
-  toplContext:    ToplContext
-) extends AbstractProcessor(damlAppContext, toplContext) {
+  toplContext:    ToplContext,
+  timeoutMillis:  Int,
+  callback:       java.util.function.BiFunction[AssetMintingRequest, AssetMintingRequest.ContractId, Boolean],
+  onError:        java.util.function.Function[Throwable, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
+    with AssetOperationsAlgebra {
 
-  val logger = LoggerFactory.getLogger(classOf[AssetMintingRequestProcessor])
+  def this(
+    damlAppContext: DamlAppContext,
+    toplContext:    ToplContext
+  ) =
+    this(damlAppContext, toplContext, 3000, (x, y) => true, x => true)
 
   import toplContext.provider._
 
-  // FIXME: improve readbility by breaking into smaller methods
+  implicit val ev = assetMintingRequestEv
+
+  def processMintingRequestM(
+    assetMintingRequest:    AssetMintingRequest,
+    mintingRequestContract: AssetMintingRequest.ContractId
+  ) =
+    (for {
+      address   <- decodeAddressesM(assetMintingRequest.from.asScala.toList)
+      params    <- getParamsM(address)
+      balance   <- getBalanceM(params)
+      toAddress <- decodeAddressM(assetMintingRequest.to.get(0)._1)
+      value     <- computeValueM(assetMintingRequest.fee, balance)
+      tailList = assetMintingRequest.to.asScala.toList.map(t => (createToParamM(assetMintingRequest) _)(t._1, t._2))
+      listOfToAddresses <- (IO((toAddress, value)) :: tailList).sequence
+      assetTransfer <- createAssetTransferM(
+        assetMintingRequest.fee,
+        None,
+        address,
+        balance,
+        listOfToAddresses
+      )
+      encodedTx <- encodeTransferM(assetTransfer)
+    } yield {
+      logger.info("Successfully generated raw transaction for contract {}.", mintingRequestContract)
+      import io.circe.syntax._
+      logger.info("The returned json: {}", assetTransfer.asJson)
+      logger.debug(
+        "Encoded transaction: {}",
+        assetTransfer
+      )
+
+      stream.Stream.of(
+        mintingRequestContract
+          .exerciseMintingRequest_Accept(
+            encodedTx,
+            assetTransfer.newBoxes.toList.reverse.head.nonce
+          )
+      ): stream.Stream[Command]
+    }).handleError { failure =>
+      logger.info("Failed to build transaction.")
+      logger.debug("Error: {}", failure)
+
+      stream.Stream.of(
+        mintingRequestContract
+          .exerciseTransferRequest_Reject()
+      ): stream.Stream[Command]
+    }
+
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): stream.Stream[Command] = processEventAux(AssetMintingRequest.TEMPLATE_ID, event) {
-    val mintingRequestContract =
-      AssetMintingRequest.Contract.fromCreatedEvent(event).id
-    val assetMintingRequest =
-      AssetMintingRequest.fromValue(
-        event.getArguments()
-      )
-    val address = assetMintingRequest.from.asScala.toSeq
-      .map(Base58Data.unsafe)
-      .map(_.decodeAddress.getOrThrow())
-    val params =
-      ToplRpc.NodeView.Balances
-        .Params(
-          address.toList
-        )
-    val balances = ToplRpc.NodeView.Balances.rpc(params)
-    import scala.concurrent.duration._
-    import scala.language.postfixOps
-    Await.result(
-      balances.fold(
-        failure => {
-          logger.info("Failed to obtain raw transaction from server.")
-          logger.debug("Error: {}", failure)
-          stream.Stream.of(
-            mintingRequestContract
-              .exerciseTransferRequest_Reject()
-          )
-        },
-        balance => {
-          val to =
-            (
-              Base58Data.unsafe(assetMintingRequest.to.get(0)._1).decodeAddress.getOrThrow(),
-              SimpleValue(
-                balance.values.map(_.Boxes.PolyBox.head.value.quantity).head - Int128(assetMintingRequest.fee)
-              )
-            ) :: assetMintingRequest.to.asScala.toSeq
-              .map(x =>
-                (
-                  Base58Data.unsafe(x._1).decodeAddress.getOrThrow(),
-                  AssetValue(
-                    Int128(x._2.intValue()),
-                    AssetCode(
-                      assetMintingRequest.assetCode.version.toByte,
-                      Base58Data
-                        .unsafe(assetMintingRequest.from.get(0))
-                        .decodeAddress
-                        .getOrThrow(),
-                      Latin1Data.fromData(
-                        utf8StringToLatin1ByteArray(assetMintingRequest.assetCode.shortName)
-                      )
-                    ),
-                    assetMintingRequest.someCommitRoot
-                      .map(x => SecurityRoot.fromBase58(Base58Data.unsafe(x)))
-                      .orElse(SecurityRoot.empty),
-                    assetMintingRequest.someMetadata
-                      .map(x =>
-                        Option(
-                          Latin1Data.fromData(
-                            utf8StringToLatin1ByteArray(x)
-                          )
-                        )
-                      )
-                      .orElse(None)
-                  )
-                )
-              )
-              .toList
-
-          val assetTransfer = AssetTransfer(
-            balance.values.toList.flatMap(_.Boxes.PolyBox).map(x => (address.head, x.nonce)).toIndexedSeq,
-            to.toIndexedSeq,
-            ListMap(),
-            Int128(
-              assetMintingRequest.fee
-            ),
-            System.currentTimeMillis(),
-            None,
-            true
-          )
-          val mintingRequest = AssetTransferSerializer.toBytes(
-            assetTransfer
-          )
-          val encodedTx =
-            ByteVector(
-              mintingRequest
-            ).toBase58
-          logger.info("Successfully generated raw transaction for contract {}.", mintingRequestContract.contractId)
-          import io.circe.syntax._
-          logger.info("The returned json: {}", mintingRequest.asJson)
-          logger.debug(
-            "Encoded transaction: {}",
-            encodedTx
-          )
-
-          stream.Stream.of(
-            mintingRequestContract
-              .exerciseMintingRequest_Accept(
-                encodedTx,
-                assetTransfer.newBoxes.toList.reverse.head.nonce
-              )
-          )
-        }
-      ),
-      3 second
-    )
-  }
+  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
+    AssetMintingRequest.TEMPLATE_ID,
+    e => AssetMintingRequest.fromValue(e.getArguments()),
+    e => AssetMintingRequest.Contract.fromCreatedEvent(e).id,
+    callback.apply,
+    event
+  )(processMintingRequestM)
 
 }

@@ -22,7 +22,6 @@ import co.topl.daml.api.model.topl.utils.SendStatus
 import co.topl.daml.api.model.topl.utils.sendstatus.FailedToSend
 import co.topl.daml.api.model.topl.utils.sendstatus.Pending
 import co.topl.daml.api.model.topl.utils.sendstatus.Sent
-import co.topl.daml.processEventAux
 import co.topl.modifier.transaction.PolyTransfer
 import co.topl.modifier.transaction.serialization.PolyTransferSerializer
 import co.topl.rpc.ToplRpc
@@ -43,99 +42,102 @@ import java.util.stream
 import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.io.Source
+import cats.effect.IO
+import co.topl.daml.RpcClientFailureException
+import co.topl.attestation.Proposition
+import cats.arrow.FunctionK
+import io.circe.Decoder
+import co.topl.utils.NetworkType
+import co.topl.modifier.transaction.Transaction
+import co.topl.daml.algebras.PolySpecificOperationsAlgebra
 
+/**
+ * This processor processes the broadcasting of signed transfer requests.
+ *
+ * @param damlAppContext the context of the DAML application
+ * @param toplContext the context for Topl blockain, in particular the provider
+ * @param timeoutMillis the timeout before processing fails
+ * @param callback a function that performs operations before the processing is done. Its result is returned by the processor when there are no errors.
+ * @param onError a function executed when there is an error sending the commands to the DAML server. Its result is returned by the processor when there are errors in the DAML.
+ */
 class SignedTransferProcessor(
   damlAppContext: DamlAppContext,
-  toplContext:    ToplContext
-) extends AbstractProcessor(damlAppContext, toplContext) {
+  toplContext:    ToplContext,
+  timeoutMillis:  Int,
+  callback:       java.util.function.BiFunction[SignedTransfer, SignedTransfer.ContractId, Boolean],
+  onError:        java.util.function.Function[Throwable, Boolean]
+) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
+    with PolySpecificOperationsAlgebra {
 
-  implicit val networkPrefix = toplContext.provider.networkPrefix
-  implicit val jsonDecoder = co.topl.modifier.transaction.Transaction.jsonDecoder
+  def this(
+    damlAppContext: DamlAppContext,
+    toplContext:    ToplContext
+  ) =
+    this(damlAppContext, toplContext, 3000, (x, y) => true, x => true)
 
-  val logger = LoggerFactory.getLogger(classOf[SignedTransferProcessor])
   import toplContext.provider._
 
-  private def lift[E, A](a: Either[E, A]) = EitherT[Future, E, A](Future(a))
-
-  private def handlePending(
+  def handlePendingM(
     signedTransfer:         SignedTransfer,
     signedTransferContract: SignedTransfer.ContractId
-  ): stream.Stream[Command] = {
-    val result = for {
-      transactionAsBytes <-
-        lift(
-          ByteVector
-            .fromBase58(signedTransfer.signedTx)
-            .map(_.toArray)
-            .toRight(RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid signed tx from base 58", Nil))))
-        )
-      _ = logger.debug("transactionAsBytes = {}", transactionAsBytes)
-      signedTx <- lift(
-        PolyTransferSerializer
-          .parseBytes(transactionAsBytes)
-          .toEither
-          .left
-          .map(_ => RpcErrorFailure(InvalidParametersError(DecodingFailure("Invalid bytes for transaction", Nil))))
-      )
-      _ = logger.debug("from address = {}", signedTx.from.head._1.toString())
-      broadcastResult <- ToplRpc.Transaction.BroadcastTx.rpc(ToplRpc.Transaction.BroadcastTx.Params(signedTx))
-    } yield broadcastResult
-    import scala.concurrent.duration._
-    import scala.language.postfixOps
-    Await
-      .result(result.value, 3 second)
-      .fold(
-        failure => {
-          logger.info("Failed to broadcast transaction to server.")
-          logger.debug("Error: {}", failure)
-          // FIXME error handling
-          stream.Stream.of(
-            signedTransferContract
-              .exerciseSignedTransfer_Fail("Failed broadcast to server")
-          )
-        },
-        success => {
-          logger.info("Successfully broadcasted transaction to network.")
-          logger.debug(
-            "Server answer: {}",
-            success.asJson
-          )
-          stream.Stream.of(
-            signedTransferContract
-              .exerciseSignedTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, Optional.empty()))
-          )
-        }
-      )
+  ): IO[stream.Stream[Command]] = (for {
+    transactionAsBytes <- decodeTransactionM(signedTransfer.signedTx)
+    signedTx           <- parseTxM(transactionAsBytes)
+    success            <- broadcastTransactionM(signedTx)
+  } yield {
+    logger.info("Successfully broadcasted transaction to network.")
+    logger.debug(
+      "Server answer: {}",
+      success.asJson
+    )
+    stream.Stream.of(
+      signedTransferContract
+        .exerciseSignedTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, Optional.empty()))
+    ): stream.Stream[Command]
+  }).handleError { failure =>
+    logger.info("Failed to broadcast transaction to server.")
+    logger.debug("Error: {}", failure)
+    stream.Stream.of(
+      signedTransferContract
+        .exerciseSignedTransfer_Fail("Failed broadcast to server")
+    )
   }
 
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): stream.Stream[Command] = processEventAux(SignedTransfer.TEMPLATE_ID, event) {
-    val signedTransferContract =
-      SignedTransfer.Contract.fromCreatedEvent(event).id
-    val signedTransfer =
-      SignedTransfer.fromValue(
-        event.getArguments()
-      )
+  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
+    SignedTransfer.TEMPLATE_ID,
+    e => SignedTransfer.fromValue(e.getArguments()),
+    e => SignedTransfer.Contract.fromCreatedEvent(e).id,
+    callback.apply,
+    event
+  ) { (signedTransfer, signedTransferId) =>
     if (signedTransfer.sendStatus.isInstanceOf[Pending]) {
-      handlePending(signedTransfer, signedTransferContract)
+      handlePendingM(signedTransfer, signedTransferId)
     } else if (signedTransfer.sendStatus.isInstanceOf[FailedToSend]) {
       logger.error("Failed to send contract.")
-      stream.Stream.of(
-        signedTransferContract
-          .exerciseSignedTransfer_Archive()
+      IO.apply(
+        stream.Stream.of(
+          signedTransferId
+            .exerciseSignedTransfer_Archive()
+        )
       )
+
     } else if (signedTransfer.sendStatus.isInstanceOf[Sent]) {
       logger.info("Successfully sent.")
-      stream.Stream.of(
-        signedTransferContract
-          .exerciseSignedTransfer_Archive()
+      IO(
+        stream.Stream.of(
+          signedTransferId
+            .exerciseSignedTransfer_Archive()
+        )
       )
     } else {
-      stream.Stream.of(
-        signedTransferContract
-          .exerciseSignedTransfer_Archive()
+      IO(
+        stream.Stream.of(
+          signedTransferId
+            .exerciseSignedTransfer_Archive()
+        )
       )
     }
   }
