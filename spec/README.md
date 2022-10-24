@@ -140,6 +140,18 @@ In this section we present the different contracts available in our implementati
 - [Organization](modules/organization.md)
 - [Transfer](modules/transfer.md)
 
+### Processors
+
+In this section we present the different processors that are provided as part of the library. Each processor takes at least 4 parameters: the DAML app context (including the DAML client), the Topl context (including an actor system, and other dependencies used by the DAML client), a `callback` function and an `onError` function. 
+
+The `callback` function is a function that is executed before the actual processing is done. It returns a boolean. Its return value is the one returned on a successful processing. This is meant to be used with the `forEachWhile` method of the `Flowable` interface. This method can be used to install a processor in a DAML client. By using the callback function we can decide if the processor must continue running after this processing round. This function can also be used to perform custom validations by throwing an exception on invalid input.
+
+The `onError` function is executed when there was an error sending commands back to the DAML node. This can be used for error recovery or to enter a degraded state in the client until the DAML service is restored.
+
+- [Assets Processors](processors/assets.md)
+- [Operator Processors](processors/operator.md)
+- [Polys Processors](processors/polys.md)
+
 
 
 [^1]: https://docs.daml.com/concepts/glossary.html#participant-node
