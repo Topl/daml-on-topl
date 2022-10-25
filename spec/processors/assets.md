@@ -20,7 +20,7 @@ This processor processes the signed transfer requests. It reacts to the creation
 
 If the `SignedAssetTransfer` is in `Pending` state, the transaction is broadcast to the network. If the broadcast of the transaction succeeds it exercises the `SignedAssetTransfer_Sent` choice on the `SignedAssetTransfer` contract.  If the processor does not succeed in the broadcast of the transaction it exercises the `SignedAssetTransfer_Fail` choice. After the exercise of `SignedAssetTransfer_Sent`, a new `SignedAssetTransfer` contract is created with status `Sent`.
 
-If the `SignedAssetTransfer` is in `Sent` state, the current implementation executes the `SignedAssetTransfer_Confirm` choice, which creates a new  `SignedAssetTransfer` with status `Confirmed`.
+If the `SignedAssetTransfer` is in `Sent` state, the processor checks the confirmation status on the server until the confirmation threshold is met and then  executes the `SignedAssetTransfer_Confirm` choice, which creates a new  `SignedAssetTransfer` with status `Confirmed`.
 
 If the `SignedAssetTransfer` is in `Confirmed` state, then the `Organization_AddSignedAssetTransfer` choice (from the `Organization` contract) is exercised. This choice creates an `AssetIou` contract to represent the asset in the system.
 
@@ -32,7 +32,7 @@ This processor processes the signed minting requests. It reacts to the creation 
 
 If the `SignedAssetMinting` is in `Pending` state, the transaction is broadcast to the network. If the broadcast of the transaction succeeds it exercises the `SignedAssetMinting_Sent` choice on the `SignedAssetMinting` contract.  If the processor does not succeed in the broadcast of the transaction it exercises the `SignedAssetMinting_Fail` choice. After the exercise of `SignedAssetMinting_Sent`, a new `SignedAssetMinting` contract is created with status `Sent`.
 
-If the `SignedAssetMinting` is in `Sent` state, the current implementation executes the `SignedAssetMinting_Confirm` choice, which creates a new  `SignedAssetMinting` with status `Confirmed`.
+If the `SignedAssetMinting` is in `Sent` state, the processor checks the confirmation status on the server until the confirmation threshold is met and then executes the `SignedAssetMinting_Confirm` choice, which creates a new  `SignedAssetMinting` with status `Confirmed`.
 
 If the `SignedAssetMinting` is in `Confirmed` state, then the `Organization_AddSignedAssetMinting` choice (from the `Organization` contract) is exercised. This choice creates an `AssetIou` contract to represent the asset in the system.
 

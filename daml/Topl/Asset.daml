@@ -5,12 +5,6 @@ module Topl.Asset where
     import Topl.Utils
     import DA.Assert
 
-    isSent: SendStatus -> Bool
-    isSent New = False 
-    isSent Pending = False 
-    isSent (Sent {} ) = True 
-    isSent (FailedToSend {} ) = False 
-    isSent (Confirmed {}) = False 
 
     type AssetMintingRequestCid = ContractId AssetMintingRequest
     type UnsignedAssetMintingCid = ContractId UnsignedAssetMinting

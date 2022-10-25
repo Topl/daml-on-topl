@@ -58,7 +58,7 @@ public class OperatorMain {
 				(x, y) -> true, t -> true);
 		transactions.forEach(transferProcessor::processTransaction);
 		SignedTransferProcessor signedTransferProcessor = new SignedTransferProcessor(damlAppContext, toplContext, 3000,
-				(x, y) -> true, t -> true);
+				10, (x, y) -> true, t -> true);
 		transactions.forEach(signedTransferProcessor::processTransaction);
 		AssetMintingRequestProcessor assetMintingRequestProcessor = new AssetMintingRequestProcessor(damlAppContext,
 				toplContext, 3000, (x, y) -> true, t -> true);

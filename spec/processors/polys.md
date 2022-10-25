@@ -6,7 +6,7 @@ This processor processes the signed transfer requests. It reacts to the creation
 
 If the `SignedTransfer` is in `Pending` state, the transaction is broadcast to the network. If the broadcast of the transaction succeeds it exercises the `SignedTransfer_Sent` choice on the `SignedTransfer` contract.  If the processor does not succeed in the broadcast of the transaction it exercises the `SignedTransfer_Fail` choice. After the exercise of `SignedTransfer_Sent`, a new `SignedTransfer` contract is created with status `Sent`.
 
-If the `SignedTransfer` is in `Sent` state, the current implementation executes the `SignedTransfer_Archive` choice, which archive the transfer.
+If the `SignedTransfer` is in `Sent` state, the processor verifies its depth until the required depth is achieved. Then, the processor exercises the `SignedTransfer_Confirm`.
 
 #### `TransferRequestProcessor`
 

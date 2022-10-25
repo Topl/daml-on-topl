@@ -45,7 +45,7 @@ class AssetMintingRequestProcessorTest extends CatsEffectSuite with AssetMinting
       .processMintingRequestM(assetMintingRequest, assetMintingRequestContract)
       .map { x =>
         val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
-        assertEquals(command.getChoice(), "TransferRequest_Reject")
+        assertEquals(command.getChoice(), "MintingRequest_Reject")
       }
   }
 

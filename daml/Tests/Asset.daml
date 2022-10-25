@@ -50,7 +50,7 @@ module Tests.Asset where
                     newSendStatus = Sent with
                                         when = t
                                         from = "XXXX"
-                                        txHash = None
+                                        txId = "YYYYY"
         signedAssetMintingCid <- submit operator do 
             exerciseCmd signedAssetMintingSentCid SignedAssetMinting_Confirm with
                 txId = "XXXXX"
@@ -112,7 +112,7 @@ module Tests.Asset where
                     newSendStatus = Sent with
                                         when = t
                                         from = "XXXX"
-                                        txHash = None
+                                        txId = "YYYY"
         signedAssetTransferCid <- submit operator do 
             exerciseCmd signedAssetTransferSentCid SignedAssetTransfer_Confirm with
                 txId = "XXXXX"

@@ -128,6 +128,7 @@ trait SignedPolyTransferRequestProcessorBaseTest extends BaseTest {
       damlAppContext,
       toplContext,
       1000,
+      1,
       (x, y) => true,
       t => true
     ) {
@@ -148,6 +149,7 @@ trait SignedPolyTransferRequestProcessorBaseTest extends BaseTest {
       damlAppContext,
       toplContext,
       1000,
+      1,
       (x, y) => true,
       t => false
     ) {
@@ -168,6 +170,7 @@ trait SignedPolyTransferRequestProcessorBaseTest extends BaseTest {
       damlAppContext,
       toplContext,
       1000,
+      1,
       (x, y) => false,
       t => true
     ) {
@@ -188,6 +191,7 @@ trait SignedPolyTransferRequestProcessorBaseTest extends BaseTest {
       damlAppContext,
       toplContext,
       1000,
+      1,
       (x, y) => true,
       t => true
     ) {

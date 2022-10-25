@@ -70,6 +70,10 @@ trait CommonBlockchainOpsAlgebra[F[_]] {
     balance: ToplRpc.NodeView.Balances.Response
   ): F[TokenValueHolder]
 
+  def getTransactionConfirmationStatusM(
+    transactionId: String
+  ): F[ToplRpc.NodeView.ConfirmationStatus.Response]
+
   /**
    * Computes the parameter por the balances service
    *

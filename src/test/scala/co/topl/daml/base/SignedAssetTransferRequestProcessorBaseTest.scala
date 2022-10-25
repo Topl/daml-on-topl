@@ -140,6 +140,7 @@ trait SignedAssetTransferRequestProcessorBaseTest extends BaseTest {
       damlAppContext,
       toplContext,
       1000,
+      1,
       () => "1",
       (x, y) => true,
       t => true
@@ -161,6 +162,7 @@ trait SignedAssetTransferRequestProcessorBaseTest extends BaseTest {
       damlAppContext,
       toplContext,
       1000,
+      1,
       () => "1",
       (x, y) => true,
       t => false
@@ -171,6 +173,7 @@ trait SignedAssetTransferRequestProcessorBaseTest extends BaseTest {
       damlAppContext,
       toplContext,
       1000,
+      1,
       () => "1",
       (x, y) => false,
       t => true
@@ -181,6 +184,7 @@ trait SignedAssetTransferRequestProcessorBaseTest extends BaseTest {
       damlAppContext,
       toplContext,
       1000,
+      1,
       () => "1",
       (x, y) => true,
       t => true

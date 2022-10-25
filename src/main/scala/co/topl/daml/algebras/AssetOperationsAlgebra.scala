@@ -43,6 +43,7 @@ import cats.arrow.FunctionK
 import co.topl.modifier.transaction.AssetTransfer
 import co.topl.daml.RpcClientFailureException
 import co.topl.daml.api.model.topl.asset.AssetMintingRequest
+import co.topl.modifier.ModifierId
 
 trait AssetOperationsAlgebra
     extends AssetSpecificOperationsAlgebra[AssetTransfer, IO]
