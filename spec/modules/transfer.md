@@ -104,9 +104,8 @@ A signed transfer request. It is created when a `UnsignedTransfer_Sign` is exerc
 | someMetadata   | Optional Text  | Some metadata or `None` if no metadata is needed.            |
 | boxNonce       | Int            | The nonce of the box where the asset is going to be stored.  |
 | fee            | Int            | The amount of polys that are paid to perform this transaction. |
-|                |                |                                                              |
 | signedTx       | Text           | The signed transfer transaction serialized by the `AssetTransferSerializer` and encoded in Base58. |
-| sendStatus     | SendStatus     | The status of the transaction. It can be: New, Pending, Sent, FailedToSend, and Confirmed. |
+| sendStatus     | SendStatus     | The status of the transaction. It can be: New, Pending, Sent, FailedToSend, and Confirmed |
 
 ##### Choices
 
@@ -117,6 +116,17 @@ Marks the transaction as `Pending`.
 ###### Parameters
 
 None.
+
+##### `SignedTransfer_Confirm`
+
+Marks this transaction as confirmed.
+
+###### Parameters
+
+| Name  | Type | Description                                           |
+| ----- | ---- | ----------------------------------------------------- |
+| txId  | Text | The identifier of this transaction in the blockchain. |
+| depth | Int  | The depth at which the transaction is done.           |
 
 ##### `SignedTransfer_Sent`
 
