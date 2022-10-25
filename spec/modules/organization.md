@@ -145,7 +145,7 @@ This contract is and invitation from the operator and the members of an organiza
 
 ##### Choices
 
-##### `Membershp_Accept`
+##### `MembershipOffer_Accept`
 
 By exericsing this choice the invitee creates `MembershipAcceptance` contract that enables the operator to add the member to the `Organization` contract.
 
@@ -153,7 +153,7 @@ By exericsing this choice the invitee creates `MembershipAcceptance` contract th
 
 None.
 
-##### `Membership_Reject`
+##### `MembershipOffer_Reject`
 
 By exericsing this choice the invitee archives the `MembershipOffer`.
 

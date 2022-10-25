@@ -31,7 +31,7 @@ class MembershipOfferProcessor(
     IO(
       stream.Stream.of(
         membershipOfferContract
-          .exerciseMembershp_Accept()
+          .exerciseMembershipOffer_Accept()
       )
     )
   }

@@ -111,7 +111,7 @@ class AssetMintingRequestProcessor(
 
       stream.Stream.of(
         mintingRequestContract
-          .exerciseTransferRequest_Reject()
+          .exerciseMintingRequest_Reject()
       ): stream.Stream[Command]
     }
 
