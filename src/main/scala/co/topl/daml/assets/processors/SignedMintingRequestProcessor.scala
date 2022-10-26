@@ -1,6 +1,7 @@
 package co.topl.daml.assets.processors
 
 import cats.data.EitherT
+import cats.effect.IO
 import cats.implicits._
 import co.topl.akkahttprpc.InvalidParametersError
 import co.topl.akkahttprpc.RpcClientFailure
@@ -15,7 +16,9 @@ import co.topl.attestation.keyManagement.PrivateKeyCurve25519
 import co.topl.client.Brambl
 import co.topl.daml.AbstractProcessor
 import co.topl.daml.DamlAppContext
+import co.topl.daml.RpcClientFailureException
 import co.topl.daml.ToplContext
+import co.topl.daml.algebras.AssetOperationsAlgebra
 import co.topl.daml.api.model.da.types
 import co.topl.daml.api.model.topl.asset.SignedAssetMinting
 import co.topl.daml.api.model.topl.asset.SignedAssetMinting_Confirm
@@ -27,6 +30,7 @@ import co.topl.daml.api.model.topl.utils.sendstatus.Confirmed
 import co.topl.daml.api.model.topl.utils.sendstatus.FailedToSend
 import co.topl.daml.api.model.topl.utils.sendstatus.Pending
 import co.topl.daml.api.model.topl.utils.sendstatus.Sent
+import co.topl.modifier.ModifierId
 import co.topl.modifier.transaction.serialization.AssetTransferSerializer
 import co.topl.rpc.ToplRpc
 import co.topl.rpc.implicits.client._
@@ -49,11 +53,8 @@ import java.util.Optional
 import java.util.stream
 import scala.concurrent.Await
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.io.Source
-import co.topl.daml.RpcClientFailureException
-import cats.effect.IO
-import co.topl.daml.algebras.AssetOperationsAlgebra
-import co.topl.modifier.ModifierId
 
 /**
  * This processor processes the broadcasting of signed minting requests.
@@ -106,7 +107,7 @@ class SignedMintingRequestProcessor(
             new Sent(Instant.now(), damlAppContext.appId, broadcast.id.toString())
           )
       ): stream.Stream[Command]
-    }).handleError { failure =>
+    }).timeout(timeoutMillis.millis).handleError { failure =>
       logger.info("Failed to broadcast transaction to server.")
       logger.debug("Error: {}", failure)
       stream.Stream.of(

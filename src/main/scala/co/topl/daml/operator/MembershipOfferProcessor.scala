@@ -1,15 +1,15 @@
 package co.topl.daml.operator
 
+import cats.effect.IO
+import co.topl.daml.AbstractProcessor
 import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
-import co.topl.daml.AbstractProcessor
+import co.topl.daml.api.model.topl.organization.MembershipAcceptance
+import co.topl.daml.api.model.topl.organization.MembershipOffer
+import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
 
 import java.util.stream
-import com.daml.ledger.javaapi.data.Command
-import co.topl.daml.api.model.topl.organization.MembershipAcceptance
-import co.topl.daml.api.model.topl.organization.MembershipOffer
-import cats.effect.IO
 
 class MembershipOfferProcessor(
   damlAppContext: DamlAppContext,
