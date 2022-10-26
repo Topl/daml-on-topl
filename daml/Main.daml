@@ -31,7 +31,7 @@ initialize = do
           with 
             invitee = alice
       membershipAcceptance <- submit alice do
-        exerciseCmd membershipOfferCid Membershp_Accept
+        exerciseCmd membershipOfferCid MembershipOffer_Accept
       submit operator do
           exerciseCmd membershipAcceptance AddUserToOrganization
       someOrg <- queryContractKey @Organization operator (operator, "1")
@@ -39,7 +39,7 @@ initialize = do
         exerciseCmd (fromSome someOrg)._1 Organization_InviteMember
           with invitee = bob
       membershipAcceptance <- submit bob do
-        exerciseCmd membershipOfferCid Membershp_Accept
+        exerciseCmd membershipOfferCid MembershipOffer_Accept
       submit operator do
           exerciseCmd membershipAcceptance AddUserToOrganization
       userInvitationCid <- submit operator do

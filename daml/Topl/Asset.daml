@@ -46,11 +46,11 @@ module Topl.Asset where
                                 create UnsignedAssetMinting with 
                                     mintTxToSign = txToSign
                                     ..
-                    choice TransferRequest_Reject : ()
+                    choice MintingRequest_Reject : ()
                         controller operator
                             do
                                 return ()
-                    choice TransferRequest_Archive : ()
+                    choice MintingRequest_Archive : ()
                         controller operator
                             do
                                 return ()

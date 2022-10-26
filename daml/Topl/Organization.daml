@@ -252,13 +252,13 @@ module Topl.Organization where
 
             observer  invitee
 
-            choice Membershp_Accept : MembershipAcceptanceCid
+            choice MembershipOffer_Accept : MembershipAcceptanceCid
                 controller invitee
                     do 
                         create MembershipAcceptance with ..
                         
 
-            choice Membership_Reject : ()
+            choice MembershipOffer_Reject : ()
                 controller invitee
                     do return ()
 

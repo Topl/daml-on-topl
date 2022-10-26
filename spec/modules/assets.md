@@ -35,7 +35,7 @@ Accepts the request for further processing by the operator.
 | txToSign | Text | The transaction to be signed serialized by the `AssetTransferSerializer` and encoded in Base58. |
 | boxNonce | Int  | The nonce of the box where the asset is going to be stored.  |
 
-##### `TransferRequest_Reject`
+##### `MintingRequest_Reject`
 
 Rejects the request.
 
@@ -43,7 +43,7 @@ Rejects the request.
 
 None.
 
-##### `TransferRequest_Archive`
+##### `MintingRequest_Archive`
 
 Archives the request. Archive implies that the archiving was not done because of an error.
 

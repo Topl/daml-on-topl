@@ -20,7 +20,7 @@ module Tests.Organization where
         membershiptOffer <- submit operator do
             exerciseCmd org Organization_InviteMember with invitee = alice
         membershipAcceptance <- submit alice do
-            exerciseCmd membershiptOffer Membershp_Accept
+            exerciseCmd membershiptOffer MembershipOffer_Accept
         submit operator do
             exerciseCmd membershipAcceptance AddUserToOrganization
         someOrgData <-  queryContractKey @Organization alice (operator, "1")
@@ -42,14 +42,14 @@ module Tests.Organization where
         membershiptOffer <- submit operator do
             exerciseCmd org Organization_InviteMember with invitee = alice
         membershipAcceptance <- submit alice do
-            exerciseCmd membershiptOffer Membershp_Accept
+            exerciseCmd membershiptOffer MembershipOffer_Accept
         org <- submit operator do
             exerciseCmd membershipAcceptance AddUserToOrganization
         someOrg <- queryContractKey @Organization operator (operator, "1")
         membershiptOffer <- submit operator do
             exerciseCmd (fromSome someOrg)._1 Organization_InviteMember with invitee = bob
         membershipAcceptance <- submit bob do
-            exerciseCmd membershiptOffer Membershp_Accept 
+            exerciseCmd membershiptOffer MembershipOffer_Accept 
         org <- submit operator do
             exerciseCmd membershipAcceptance AddUserToOrganization
         someOrgData <-  queryContractId @Organization alice org
@@ -77,14 +77,14 @@ module Tests.Organization where
         membershiptOfferBob <- submit operator do
             exerciseCmd (fromSome newOrg)._1 Organization_InviteMember with invitee = bob
         membershipAcceptance <- submit alice do
-            exerciseCmd membershiptOfferAlice Membershp_Accept
+            exerciseCmd membershiptOfferAlice MembershipOffer_Accept
         -- after each new member is added the operator must update the environment, this is required to update the invitations, assets, Ious, etc that belong to the organization
         -- we need this step because if this is performed by a user, it will fail. Indeed, each user does not have the right to see the membership invitation
         submit operator do
             exerciseCmd membershipAcceptance AddUserToOrganization
         someMembershipOfferForBob <-  queryContractKey @MembershipOffer operator (operator, bob, "1")
         membershipAcceptance <- submit bob do
-            exerciseCmd (fromSomeNote "No offer found for Bob" someMembershipOfferForBob)._1 Membershp_Accept
+            exerciseCmd (fromSomeNote "No offer found for Bob" someMembershipOfferForBob)._1 MembershipOffer_Accept
         org <- submit operator do
             exerciseCmd membershipAcceptance AddUserToOrganization
         someOrgData <-  queryContractId @Organization operator org

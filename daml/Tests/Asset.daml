@@ -74,7 +74,7 @@ module Tests.Asset where
         membershiptOffer <- submit operator do
             exerciseCmd orgId Organization_InviteMember with invitee = eve
         membershipAcceptance <- submit eve do 
-            exerciseCmd membershiptOffer Membershp_Accept
+            exerciseCmd membershiptOffer MembershipOffer_Accept
         submit operator do
             exerciseCmd membershipAcceptance AddUserToOrganization
         someAssetIou <- queryContractKey @AssetIou operator (operator, "1", (head org.assetCodesAndIous)._1, "1")
