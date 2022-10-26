@@ -122,7 +122,7 @@ A contract that states that the operator and the invitee agree to add the user t
 
 ##### `AddUserToOrganization`
 
-By exericsing this choice the operator addes the user to the organization and then exercises the `Organization_Update` choice to update the organization and related contracts.
+By exercising this choice the operator addes the user to the organization and then exercises the `Organization_Update` choice to update the organization and related contracts.
 
 ###### Parameters
 
@@ -147,7 +147,7 @@ This contract is and invitation from the operator and the members of an organiza
 
 ##### `Membershp_Accept`
 
-By exericsing this choice the invitee creates `MembershipAcceptance` contract that enables the operator to add the member to the `Organization` contract.
+By exercising this choice the invitee creates `MembershipAcceptance` contract that enables the operator to add the member to the `Organization` contract.
 
 ###### Parameters
 
@@ -155,7 +155,7 @@ None.
 
 ##### `Membership_Reject`
 
-By exericsing this choice the invitee archives the `MembershipOffer`.
+By exercising this choice the invitee archives the `MembershipOffer`.
 
 ###### Parameters
 
@@ -163,7 +163,7 @@ None.
 
 ##### `MembershipOffer_Archive`
 
-By exericsing this choice the operator archives the `MembershipOffer`.
+By exercising this choice the operator archives the `MembershipOffer`.
 
 ###### Parameters
 
@@ -194,7 +194,7 @@ Represents a contract between the members of an organization and the operator th
 
 ##### `AssetIou_UpdateAsset`
 
-By exericsing this choice the requestor initiates the modification of an asset on chain through the creation of a `AssetTransferRequest`.
+By exercising this choice the requestor initiates the modification of an asset on chain through the creation of a `AssetTransferRequest`.
 
 ###### Parameters
 

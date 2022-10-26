@@ -90,23 +90,15 @@ A signed transfer request. It is created when a `UnsignedTransfer_Sign` is exerc
 
 ##### Parameters
 
-| Name           | Type           | Description                                                  |
-| -------------- | -------------- | ------------------------------------------------------------ |
-| operator       | Party          | The operator that will handle this request.                  |
-| user           | Party          | The party that requested this minting operation.             |
-| from           | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the assets are going to be minted. |
-| to             | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
-| txToSign       | Text           | The transfer transaction to be signed serialized by the `PolyTransferSerializer` and encoded in Base58. |
-| changeAddress  | Text           | The address where the change will be sent after the transaction. |
-| assetCode      | AssetCode      | The code of the asset being minted                           |
-| quantity       | Int            | The number of assets to mint.                                |
-| someCommitRoot | Optional Text  | A commit root encoded in a base 58 string or `None` if there is not commit root. |
-| someMetadata   | Optional Text  | Some metadata or `None` if no metadata is needed.            |
-| boxNonce       | Int            | The nonce of the box where the asset is going to be stored.  |
-| fee            | Int            | The amount of polys that are paid to perform this transaction. |
-|                |                |                                                              |
-| signedTx       | Text           | The signed transfer transaction serialized by the `AssetTransferSerializer` and encoded in Base58. |
-| sendStatus     | SendStatus     | The status of the transaction. It can be: New, Pending, Sent, FailedToSend, and Confirmed. |
+| Name       | Type           | Description                                                  |
+| ---------- | -------------- | ------------------------------------------------------------ |
+| operator   | Party          | The operator that will handle this request.                  |
+| user       | Party          | The party that requested this transfer operation.            |
+| from       | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the polys or LVLs are going to be transferred. |
+| to         | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
+| txToSign   | Text           | The transfer transaction to be signed serialized by the `PolyTransferSerializer` and encoded in Base58. |
+| signedTx   | Text           | The signed transfer transaction serialized by the `AssetTransferSerializer` and encoded in Base58. |
+| sendStatus | SendStatus     | The status of the transaction. It can be: New, Pending, Sent, FailedToSend, and Confirmed. |
 
 ##### Choices
 
