@@ -1,11 +1,18 @@
 module Topl.Utils where
 
+isSent: SendStatus -> Bool
+isSent New = False 
+isSent Pending = False 
+isSent (Sent {} ) = True 
+isSent (FailedToSend {} ) = False 
+isSent (Confirmed {}) = False 
+
 data SendStatus = New
                 | Pending
                 | Sent with
                     when   : Time
                     from   : Text
-                    txHash : Optional Text
+                    txId   : Text
                 | FailedToSend with
                     reason : Text
                 | Confirmed with

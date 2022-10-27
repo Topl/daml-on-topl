@@ -81,7 +81,16 @@ module Topl.Transfer where
                 do 
                     sendStatus === Pending
                     create this with sendStatus = newSendStatus
-
+            choice SignedTransfer_Confirm : SignedTransferCid
+                with
+                    txId : Text
+                    depth : Int
+                controller operator
+                    do
+                        assert (isSent sendStatus)
+                        create this with
+                            sendStatus = Confirmed 
+                                with ..
             choice SignedTransfer_Fail : SignedTransferCid
                     with    reason : Text
                 controller operator

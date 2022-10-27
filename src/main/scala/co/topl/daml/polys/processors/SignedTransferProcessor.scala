@@ -18,6 +18,7 @@ import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
 import co.topl.daml.api.model.topl.transfer.SignedTransfer
 import co.topl.daml.api.model.topl.transfer.UnsignedTransfer
+import co.topl.daml.api.model.topl.transfer.SignedTransfer_Confirm
 import co.topl.daml.api.model.topl.utils.SendStatus
 import co.topl.daml.api.model.topl.utils.sendstatus.FailedToSend
 import co.topl.daml.api.model.topl.utils.sendstatus.Pending
@@ -50,6 +51,7 @@ import io.circe.Decoder
 import co.topl.utils.NetworkType
 import co.topl.modifier.transaction.Transaction
 import co.topl.daml.algebras.PolySpecificOperationsAlgebra
+import co.topl.modifier.ModifierId
 
 /**
  * This processor processes the broadcasting of signed transfer requests.
@@ -57,15 +59,17 @@ import co.topl.daml.algebras.PolySpecificOperationsAlgebra
  * @param damlAppContext the context of the DAML application
  * @param toplContext the context for Topl blockain, in particular the provider
  * @param timeoutMillis the timeout before processing fails
+ * @param confirmationDepth the depth at which a transaction is confirmed
  * @param callback a function that performs operations before the processing is done. Its result is returned by the processor when there are no errors.
  * @param onError a function executed when there is an error sending the commands to the DAML server. Its result is returned by the processor when there are errors in the DAML.
  */
 class SignedTransferProcessor(
-  damlAppContext: DamlAppContext,
-  toplContext:    ToplContext,
-  timeoutMillis:  Int,
-  callback:       java.util.function.BiFunction[SignedTransfer, SignedTransfer.ContractId, Boolean],
-  onError:        java.util.function.Function[Throwable, Boolean]
+  damlAppContext:    DamlAppContext,
+  toplContext:       ToplContext,
+  timeoutMillis:     Int,
+  confirmationDepth: Int,
+  callback:          java.util.function.BiFunction[SignedTransfer, SignedTransfer.ContractId, Boolean],
+  onError:           java.util.function.Function[Throwable, Boolean]
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with PolySpecificOperationsAlgebra {
 
@@ -73,7 +77,7 @@ class SignedTransferProcessor(
     damlAppContext: DamlAppContext,
     toplContext:    ToplContext
   ) =
-    this(damlAppContext, toplContext, 3000, (x, y) => true, x => true)
+    this(damlAppContext, toplContext, 3000, 1, (x, y) => true, x => true)
 
   import toplContext.provider._
 
@@ -92,7 +96,7 @@ class SignedTransferProcessor(
     )
     stream.Stream.of(
       signedTransferContract
-        .exerciseSignedTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, Optional.empty()))
+        .exerciseSignedTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, success.id.toString()))
     ): stream.Stream[Command]
   }).handleError { failure =>
     logger.info("Failed to broadcast transaction to server.")
@@ -102,6 +106,36 @@ class SignedTransferProcessor(
         .exerciseSignedTransfer_Fail("Failed broadcast to server")
     )
   }
+
+  private def handleSentM(
+    signedTransfer:         SignedTransfer,
+    signedTransferContract: SignedTransfer.ContractId,
+    sentStatus:             Sent
+  ): IO[stream.Stream[Command]] = (for {
+    confirmationStatusMap <- getTransactionConfirmationStatusM(sentStatus.txId)
+  } yield {
+    val confirmationStatus = confirmationStatusMap(ModifierId(sentStatus.txId))
+    if (confirmationStatus.depthFromHead >= confirmationDepth) {
+      IO(
+        stream.Stream.of(
+          signedTransferContract
+            .exerciseSignedTransfer_Confirm(
+              new SignedTransfer_Confirm(
+                (signedTransfer.sendStatus.asInstanceOf[Sent]).txId,
+                confirmationDepth
+              )
+            )
+        ): stream.Stream[Command]
+      )
+    } else {
+      import scala.concurrent.duration._
+      IO.sleep(10.second)
+        .flatMap { _ =>
+          logger.info("Transaction depth: {}. Retrying.", confirmationStatus.depthFromHead)
+          handleSentM(signedTransfer, signedTransferContract, sentStatus)
+        }
+    }
+  }).flatten
 
   def processEvent(
     workflowsId: String,
@@ -126,12 +160,7 @@ class SignedTransferProcessor(
 
     } else if (signedTransfer.sendStatus.isInstanceOf[Sent]) {
       logger.info("Successfully sent.")
-      IO(
-        stream.Stream.of(
-          signedTransferId
-            .exerciseSignedTransfer_Archive()
-        )
-      )
+      handleSentM(signedTransfer, signedTransferId, signedTransfer.sendStatus.asInstanceOf[Sent])
     } else {
       IO(
         stream.Stream.of(

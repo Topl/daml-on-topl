@@ -38,6 +38,7 @@ import co.topl.daml.api.model.topl.asset.AssetTransferRequest
 import co.topl.daml.ToplContext
 import co.topl.daml.RpcClientFailureException
 import co.topl.daml.utf8StringToLatin1ByteArray
+import co.topl.modifier.ModifierId
 
 trait CommonBlockchainOpsAlgebraImpl extends CommonBlockchainOpsAlgebra[IO] {
 
@@ -70,6 +71,20 @@ trait CommonBlockchainOpsAlgebraImpl extends CommonBlockchainOpsAlgebra[IO] {
     )
     balance <- IO.fromEither(eitherBalances)
   } yield balance
+
+  def getTransactionConfirmationStatusM(
+    transactionId: String
+  ): IO[ToplRpc.NodeView.ConfirmationStatus.Response] =
+    for {
+      eitherTransactionById <- IO.fromFuture(
+        IO(
+          ToplRpc.NodeView.ConfirmationStatus
+            .rpc(ToplRpc.NodeView.ConfirmationStatus.Params(List(ModifierId(transactionId))))
+            .value
+        )
+      )
+      confirmationStatus <- IO.fromEither(eitherTransactionById.left.map(x => new RpcClientFailureException(x)))
+    } yield confirmationStatus
 
   def computeValueM(
     fee:     Long,

@@ -77,7 +77,7 @@ public class AssetOperatorMain {
 			}
 		};
 		SignedMintingRequestProcessor signedMintingRequestProcessor = new SignedMintingRequestProcessor(damlAppContext,
-				toplContext, 3000, supplier, (x, y) -> true, t -> true);
+				toplContext, 3000, 20, supplier, (x, y) -> true, t -> true);
 		transactions.forEach(signedMintingRequestProcessor::processTransaction);
 
 		AssetTransferRequestProcessor assetTransferRequestProcessor = new AssetTransferRequestProcessor(damlAppContext,
@@ -87,7 +87,7 @@ public class AssetOperatorMain {
 				damlAppContext, toplContext, keyfile, password, (x, y) -> true, t -> true);
 		transactions.forEach(unsignedTransferRequestProcessor::processTransaction);
 		SignedAssetTransferRequestProcessor signedTransferRequestProcessor = new SignedAssetTransferRequestProcessor(
-				damlAppContext, toplContext, 3000, supplier, (x, y) -> true, t -> true);
+				damlAppContext, toplContext, 3000, 20, supplier, (x, y) -> true, t -> true);
 		transactions.forEach(signedTransferRequestProcessor::processTransaction);
 	}
 }

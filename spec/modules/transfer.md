@@ -110,6 +110,17 @@ Marks the transaction as `Pending`.
 
 None.
 
+##### `SignedTransfer_Confirm`
+
+Marks this transaction as confirmed.
+
+###### Parameters
+
+| Name  | Type | Description                                           |
+| ----- | ---- | ----------------------------------------------------- |
+| txId  | Text | The identifier of this transaction in the blockchain. |
+| depth | Int  | The depth at which the transaction is done.           |
+
 ##### `SignedTransfer_Sent`
 
 Marks a pending transaction with a new status
