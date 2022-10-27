@@ -100,7 +100,6 @@ A signed transfer request. It is created when a `UnsignedTransfer_Sign` is exerc
 | signedTx   | Text           | The signed transfer transaction serialized by the `AssetTransferSerializer` and encoded in Base58. |
 | sendStatus | SendStatus     | The status of the transaction. It can be: New, Pending, Sent, FailedToSend, and Confirmed. |
 
-
 ##### Choices
 
 ##### `SignedTransfer_Send`
