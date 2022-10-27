@@ -6,11 +6,13 @@ The goal of this document is to enable the reader to implement the different pro
 
 ## Prerequirements
 
-The reader of this document must be familiar with DAML, the Topl blockchain, and their basic respective concepts. 
+The reader of this document must be familiar with [DAML](https://docs.daml.com), the Topl blockchain, and their basic respective concepts. 
 
 ## Definitions
 
 Most definitions in this section come from the [DAML glossary](https://docs.daml.com/concepts/glossary.html). We included them here to improve the readability of the document.
+
+**Base58.-** [Scorex](https://github.com/ScorexFoundation/scorex-util/tree/master/src/main/scala/scorex/util/encode) base 58 encoding.
 
 **Participant node.-** The participant node is a server that provides users consistent programmatic access to a ledger through the Ledger API. The participant nodes handle transaction signing and validation, such that users don’t have to deal with cryptographic primitives but can trust the participant node that we have properly verified the data they are observing to be correct.[^1]
 
@@ -30,7 +32,7 @@ A multi-party application, from DAML’s point of view, is an application that r
 
 ### Topl
 
-Topl Blockchain is an implementation of the blockchain technology focused on sustainability.It offers a native token (the poly or level) and the possibility of minting native assets, which can be traded and stored in the blockchain.
+Topl Blockchain is an implementation of the blockchain technology focused on sustainability. It offers a native token (the poly or LVL) and the possibility of minting native assets, which can be traded and stored in the blockchain.
 
 ### DAML-Topl integration
 
@@ -46,21 +48,21 @@ The former API allows the application to start operations in DAML on behalf of t
 
 We assume that the user starts operations in the participant node using directly the gRPC API, thus; the library does not provide wrappers around this API.
 
-The library defines a standard flow for transfer of polys, and minting and transfer of assets. 
+The library defines a standard flow for transfer of polys or LVLs, and minting and transfer of assets. 
 
 ## Use cases
 
 The library fulfills the three following use cases:
 
-- Transfer of polys from one address to another address on behalf of a party
+- Transfer of polys or LVLs from one address to another address on behalf of a party
 
 - Minting and transfer of assets in standalone fashion
 
 - Minting and transfer of assets as part of an organization
 
-### Transfer of polys from one address to another
+### Transfer of polys or LVLs from one address to another
 
-We structured the transfer of polys from one party to another in three steps:
+We structured the transfer of polys or LVLs from one party to another in three steps:
 
 - Request
 
@@ -124,19 +126,19 @@ The Asset modules contains the code for the [Minting and transfer of assets in s
 
 #### Onboarding
 
-The Onboarding module contains the code for the operator and user contract. The module contains three contracts. One contract is for the operator itself, that allows the software to create the other contracts. The two others model an invitation to another party to become a user, and the user contract. The user contract contains the operations that the user can ask the operator to perform. Transfer of polys from one address to another is the only operation supported by the contract.
+The Onboarding module contains the code for the operator and user contract. The module contains three contracts. One contract is for the operator itself, that allows the software to create the other contracts. This module depends on the Transfer and Organization module. The two others model an invitation to another party to become a user, and the user contract. The user contract contains the operations that the user can ask the operator to perform. Transfer of polys or LVLs from one address to another is the only operation supported by the contract.
 
 #### Organization
 
-The organization module contains the contracts that are necessary to handle the organization. It includes the Organization contract itself as well as the invitations to become a member, the acceptance contract, the asset creation contract and the IOUs contracts modelling the ownership of assets in the blockchain.
+The organization module contains the contracts that are necessary to handle the organization. It includes the Organization contract itself as well as the invitations to become a member, the acceptance contract, the asset creation contract and the IOUs contracts modelling the ownership of assets in the blockchain. This module depends on the Utils and Asset module.
 
 #### Transfer
 
-The transfer module contains the code for the [Transfer of polys from one address to another](#transfer-of-polys-from-one-address-to-another). This module allows the user to start a transfer of polys on the blockchain. In contains contracts modeling transfer requests, unsigned transfer and signed transfer in different states.
+The transfer module contains the code for the [Transfer of polys or LVLs from one address to another](#transfer-of-polys-or-lvls-from-one-address-to-another). This module allows the user to start a transfer of polys on the blockchain. This module only depends on the Utils module. In contains contracts modeling transfer requests, unsigned transfer and signed transfer in different states. This module depends on the Utils module.
 
 #### Utils
 
-The Utils module contains the supporting functions and data structures used in the other modules.
+The Utils module contains the supporting functions and data structures used in the other modules. This module is standalone.
 
 ## Contracts
 
@@ -167,5 +169,4 @@ The `onError` function is executed when there was an error sending commands back
 [^1]: https://docs.daml.com/concepts/glossary.html#participant-node
 
 [^2]: https://docs.daml.com/concepts/glossary.html#party
-
 

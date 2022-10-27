@@ -189,8 +189,8 @@ The asset transfer request contract models a request from some user to the opera
 | Name           | Type           | Description                                                  |
 | -------------- | -------------- | ------------------------------------------------------------ |
 | operator       | Party          | The operator that will handle this request.                  |
-| requestor      | Party          | The party that requested this minting operation.             |
-| someOrgId      | Optional Text  | If this minting request is related to an organization, this field contains the organization id, otherwise, `None`. |
+| requestor      | Party          | The party that requested this transfer operation.            |
+| someOrgId      | Optional Text  | If this transfer request is related to an organization, this field contains the organization id, otherwise, `None`. |
 | from           | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the assets are going to be minted. |
 | to             | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
 | changeAddress  | Text           | The address where the change will be sent after the transaction. |
@@ -241,8 +241,8 @@ An unsigned asset transfer. It is created when a `AssetTransferRequest_Accept` i
 | Name           | Type           | Description                                                  |
 | -------------- | -------------- | ------------------------------------------------------------ |
 | operator       | Party          | The operator that will handle this request.                  |
-| requestor      | Party          | The party that requested this minting operation.             |
-| someOrgId      | Optional Text  | If this minting request is related to an organization, this field contains the organization id, otherwise, `None`. |
+| requestor      | Party          | The party that requested this transfer operation.            |
+| someOrgId      | Optional Text  | If this transfer request is related to an organization, this field contains the organization id, otherwise, `None`. |
 | from           | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the assets are going to be minted. |
 | to             | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
 | changeAddress  | Text           | The address where the change will be sent after the transaction. |
@@ -293,8 +293,8 @@ A signed asset transfer request. It is created when a `UnsignedAssetTransfer_Sig
 | Name           | Type           | Description                                                  |
 | -------------- | -------------- | ------------------------------------------------------------ |
 | operator       | Party          | The operator that will handle this request.                  |
-| requestor      | Party          | The party that requested this minting operation.             |
-| someOrgId      | Optional Text  | If this minting request is related to an organization, this field contains the organization id, otherwise, `None`. |
+| requestor      | Party          | The party that requested this transfer operation.            |
+| someOrgId      | Optional Text  | If this transfer request is related to an organization, this field contains the organization id, otherwise, `None`. |
 | from           | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the assets are going to be minted. |
 | to             | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
 | changeAddress  | Text           | The address where the change will be sent after the transaction. |

@@ -27,7 +27,7 @@ Invites a user to become a user of the system. After accepting the invitation, t
 
 ##### `Operator_CreateOrganization`
 
-Creates an Organization contract where this operator is the operator and the address of the organization is inherited by the organization.
+Creates an Organization contract where this operator is the operator and the address of the organization is inherited from the current organization.
 
 ###### Parameters
 
@@ -61,7 +61,7 @@ None.
 
 ##### `UserInvitation_Reject`
 
-A choice where the user is the controller. On rejection the invitaion is archived.
+A choice where the user is the controller. On rejection the invitation is archived.
 
 ###### Parameters
 
@@ -69,7 +69,7 @@ None.
 
 ##### `UserInvitation_Cancel`
 
-A choice where the operator is the controller. The controller can at any time revoke the invitaion. On cancel, the invitation is archived.
+A choice where the operator is the controller. The controller can at any time revoke the invitation. On cancel, the invitation is archived.
 
 ###### Parameters
 
@@ -101,7 +101,7 @@ A choice where the user is the controller. When this choice is exercised a new `
 | from          | [Text]         | A list of addresses where the sent polys are stored currently. |
 | to            | [ (Text, Int)] | A list of addresses and amounts. For each pair in the list the given amount of polys is sent to the account. |
 | changeAddress | Text           | The address where the unspent polys are returned.            |
-| fee           | Int            | The number of polys to be sent.                              |
+| fee           | Int            | The number of polys to be paid for the transaction.          |
 
 ##### `User_Revoke`
 
