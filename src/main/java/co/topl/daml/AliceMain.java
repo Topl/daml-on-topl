@@ -55,7 +55,7 @@ public class AliceMain {
 		DamlAppContext damlAppContext = new DamlAppContext(APP_ID, aliceParty, client);
 		ToplContext toplContext = new ToplContext(ActorSystem.create(), new Provider.PrivateTestNet(uri.asScala(), ""));
 		UnsignedTransferProcessor unsignedTransferProcessor = new UnsignedTransferProcessor(damlAppContext, toplContext,
-				keyfile, password, 3000, (x, y) -> true, t -> true);
+				keyfile, password, (x, y) -> true, t -> true);
 		transactions.forEach(unsignedTransferProcessor::processTransaction);
 	}
 }

@@ -1,27 +1,21 @@
 package co.topl.daml
 
-import com.daml.ledger.javaapi.data.Command
-import com.daml.ledger.javaapi.data.CreatedEvent
-import com.daml.ledger.javaapi.data.Transaction
-import com.google.protobuf.Empty
-import io.reactivex.Single
-
-import java.util.stream
-import scala.concurrent.ExecutionContext
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import com.daml.ledger.javaapi.data.Identifier
-import com.daml.ledger.javaapi.data.CreatedEvent
-import java.util.stream
 import com.daml.ledger.javaapi.data.Command
-import io.reactivex.Single
-import com.google.protobuf.Empty
+import com.daml.ledger.javaapi.data.CreatedEvent
+import com.daml.ledger.javaapi.data.Identifier
 import com.daml.ledger.javaapi.data.Transaction
 import com.daml.ledger.rxjava.LedgerClient
-import java.util.UUID
+import com.google.protobuf.Empty
+import io.reactivex.Single
 import io.reactivex.subjects.SingleSubject
-import scala.collection.JavaConverters._
 import org.slf4j.LoggerFactory
+
+import java.util.UUID
+import java.util.stream
+import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext
 
 abstract class AbstractProcessor[T, U, V](
   val damlAppContext: DamlAppContext,

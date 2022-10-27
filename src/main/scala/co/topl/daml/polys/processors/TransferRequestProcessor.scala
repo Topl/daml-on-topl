@@ -1,52 +1,60 @@
 package co.topl.daml.polys.processors
 
-import com.daml.ledger.rxjava.DamlLedgerClient
-import io.reactivex.Single
-import com.daml.ledger.javaapi.data.Command
-import co.topl.akkahttprpc.implicits.client.rpcToClient
-import cats.data.{EitherT, NonEmptyChain}
-import com.daml.ledger.javaapi.data.CreatedEvent
+import akka.actor.ActorSystem
+import cats.arrow.FunctionK
+import cats.data.EitherT
+import cats.data.NonEmptyChain
+import cats.effect.IO
 import co.topl.akkahttprpc.RpcClientFailure
-import co.topl.client.Provider
-import co.topl.attestation.{Address, PublicKeyPropositionCurve25519}
-import co.topl.utils.StringDataTypes.{Base58Data, Latin1Data}
-import co.topl.modifier.transaction.builder.BoxSelectionAlgorithms
+import co.topl.akkahttprpc.implicits.client.rpcToClient
+import co.topl.attestation.Address
 import co.topl.attestation.AddressCodec.implicits._
-import co.topl.rpc.implicits.client._
-import scala.concurrent.{ExecutionContext, Future}
-import co.topl.utils.IdiomaticScalaTransition.implicits.toValidatedOps
-import scala.collection.JavaConverters._
-import co.topl.daml.api.model.da.types.{Tuple2 => DamlTuple2}
-import co.topl.daml.api.model.topl.transfer.TransferRequest
-
-import co.topl.rpc.ToplRpc.Transaction.{BroadcastTx, RawArbitTransfer, RawAssetTransfer, RawPolyTransfer}
+import co.topl.attestation.PublicKeyPropositionCurve25519
 import co.topl.attestation.keyManagement.KeyRing
-import co.topl.attestation.keyManagement.PrivateKeyCurve25519
 import co.topl.attestation.keyManagement.KeyfileCurve25519
 import co.topl.attestation.keyManagement.KeyfileCurve25519Companion
-import co.topl.rpc.ToplRpc
-import akka.actor.ActorSystem
-import com.daml.ledger.javaapi.data.Identifier
-import java.util.stream
-import co.topl.utils.Int128
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-import scodec.bits._
-import com.daml.ledger.javaapi.data.Transaction
-import com.daml.ledger.rxjava.LedgerClient
-import java.util.UUID
-import co.topl.daml.OperatorMain
-import io.reactivex.subjects.SingleSubject
-import com.google.protobuf.Empty
-import org.slf4j.LoggerFactory
-import co.topl.modifier.transaction.serialization.PolyTransferSerializer
-import co.topl.daml.DamlAppContext
-import co.topl.daml.ToplContext
+import co.topl.attestation.keyManagement.PrivateKeyCurve25519
+import co.topl.client.Provider
 import co.topl.daml.AbstractProcessor
-import cats.effect.IO
-import cats.arrow.FunctionK
+import co.topl.daml.DamlAppContext
+import co.topl.daml.OperatorMain
 import co.topl.daml.RpcClientFailureException
+import co.topl.daml.ToplContext
 import co.topl.daml.algebras.PolySpecificOperationsAlgebra
+import co.topl.daml.api.model.da.types.{Tuple2 => DamlTuple2}
+import co.topl.daml.api.model.topl.transfer.TransferRequest
+import co.topl.modifier.transaction.builder.BoxSelectionAlgorithms
+import co.topl.modifier.transaction.serialization.PolyTransferSerializer
+import co.topl.rpc.ToplRpc
+import co.topl.rpc.ToplRpc.Transaction.BroadcastTx
+import co.topl.rpc.ToplRpc.Transaction.RawArbitTransfer
+import co.topl.rpc.ToplRpc.Transaction.RawAssetTransfer
+import co.topl.rpc.ToplRpc.Transaction.RawPolyTransfer
+import co.topl.rpc.implicits.client._
+import co.topl.utils.IdiomaticScalaTransition.implicits.toValidatedOps
+import co.topl.utils.Int128
+import co.topl.utils.StringDataTypes.Base58Data
+import co.topl.utils.StringDataTypes.Latin1Data
+import com.daml.ledger.javaapi.data.Command
+import com.daml.ledger.javaapi.data.CreatedEvent
+import com.daml.ledger.javaapi.data.Identifier
+import com.daml.ledger.javaapi.data.Transaction
+import com.daml.ledger.rxjava.DamlLedgerClient
+import com.daml.ledger.rxjava.LedgerClient
+import com.google.protobuf.Empty
+import io.reactivex.Single
+import io.reactivex.subjects.SingleSubject
+import org.slf4j.LoggerFactory
+import scodec.bits._
+
+import java.util.UUID
+import java.util.stream
+import scala.collection.JavaConverters._
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 
 /**
  * This processor processes the transfer requests.
@@ -96,7 +104,7 @@ class TransferRequestProcessor(
         )
     ): stream.Stream[Command]
 
-  }).handleError { failure =>
+  }).timeout(timeoutMillis.millis).handleError { failure =>
     logger.info("Failed to obtain raw transaction from server.\nError: {}", failure)
     stream.Stream.of(
       transferRequestContract
@@ -108,7 +116,7 @@ class TransferRequestProcessor(
     workflowsId: String,
     event:       CreatedEvent
   ): IO[(Boolean, stream.Stream[Command])] =
-    processEventAux(
+    (processEventAux(
       TransferRequest.TEMPLATE_ID,
       e => TransferRequest.fromValue(e.getArguments()),
       e => TransferRequest.Contract.fromCreatedEvent(e).id,
@@ -116,6 +124,6 @@ class TransferRequestProcessor(
       event
     ) {
       prepareTransactionM
-    }
+    }).timeout(timeoutMillis.millis)
 
 }

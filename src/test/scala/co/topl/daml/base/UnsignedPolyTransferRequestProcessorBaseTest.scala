@@ -77,7 +77,6 @@ trait UnsignedPolyTransferRequestProcessorBaseTest extends BaseTest {
       toplContext,
       "keyfile.json",
       "test",
-      1000,
       (x, y) => true,
       t => true
     ) {
@@ -92,7 +91,6 @@ trait UnsignedPolyTransferRequestProcessorBaseTest extends BaseTest {
       toplContext,
       "keyfile.json",
       "test",
-      1000,
       (x, y) => true,
       t => false
     ) {
@@ -105,7 +103,6 @@ trait UnsignedPolyTransferRequestProcessorBaseTest extends BaseTest {
       toplContext,
       "keyfile.json",
       "test",
-      1000,
       (x, y) => false,
       t => true
     ) {
@@ -118,7 +115,6 @@ trait UnsignedPolyTransferRequestProcessorBaseTest extends BaseTest {
       toplContext,
       "keyfile.json",
       "test",
-      1000,
       (x, y) => true,
       t => true
     ) {

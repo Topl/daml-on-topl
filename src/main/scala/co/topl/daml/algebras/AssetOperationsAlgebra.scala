@@ -1,19 +1,34 @@
 package co.topl.daml.algebras
 
+import cats.arrow.FunctionK
+import cats.data.EitherT
+import cats.data.NonEmptyChain
+import cats.effect.IO
+import co.topl.akkahttprpc.implicits.client._
+import co.topl.attestation.AddressCodec.implicits._
 import co.topl.attestation.PublicKeyPropositionCurve25519._
 import co.topl.attestation._
 import co.topl.attestation.keyManagement.KeyRing
 import co.topl.attestation.keyManagement.KeyfileCurve25519
 import co.topl.attestation.keyManagement.KeyfileCurve25519Companion
 import co.topl.attestation.keyManagement.PrivateKeyCurve25519
+import co.topl.daml.RpcClientFailureException
+import co.topl.daml.api.model.topl.asset.AssetMintingRequest
 import co.topl.daml.api.model.topl.asset.AssetTransferRequest
+import co.topl.modifier.ModifierId
 import co.topl.modifier.box.AssetCode
 import co.topl.modifier.box.AssetValue
 import co.topl.modifier.box.SecurityRoot
 import co.topl.modifier.box.SimpleValue
 import co.topl.modifier.box.TokenValueHolder
+import co.topl.modifier.transaction.AssetTransfer
+import co.topl.modifier.transaction.PolyTransfer
+import co.topl.modifier.transaction.builder.BoxSelectionAlgorithms
 import co.topl.modifier.transaction.serialization.AssetTransferSerializer
+import co.topl.modifier.transaction.serialization.PolyTransferSerializer
 import co.topl.rpc.ToplRpc
+import co.topl.rpc.ToplRpc.Transaction.RawPolyTransfer
+import co.topl.rpc.implicits.client._
 import co.topl.rpc.implicits.client._
 import co.topl.utils.IdiomaticScalaTransition.implicits.toValidatedOps
 import co.topl.utils.Int128
@@ -21,29 +36,13 @@ import co.topl.utils.StringDataTypes
 import co.topl.utils.StringDataTypes.Base58Data
 import io.circe.Json
 import scodec.bits.ByteVector
-import co.topl.rpc.ToplRpc
-import co.topl.rpc.ToplRpc.Transaction.RawPolyTransfer
-import co.topl.rpc.implicits.client._
-import cats.data.{EitherT, NonEmptyChain}
-
-import co.topl.attestation.AddressCodec.implicits._
-import scala.collection.JavaConverters._
 
 import java.io.File
+import scala.collection.JavaConverters._
 import scala.collection.immutable.ListMap
 import scala.concurrent.ExecutionContext
-import scala.io.Source
-import cats.effect.IO
-import co.topl.modifier.transaction.PolyTransfer
-import co.topl.modifier.transaction.serialization.PolyTransferSerializer
-import co.topl.akkahttprpc.implicits.client._
-import co.topl.modifier.transaction.builder.BoxSelectionAlgorithms
 import scala.concurrent.Future
-import cats.arrow.FunctionK
-import co.topl.modifier.transaction.AssetTransfer
-import co.topl.daml.RpcClientFailureException
-import co.topl.daml.api.model.topl.asset.AssetMintingRequest
-import co.topl.modifier.ModifierId
+import scala.io.Source
 
 trait AssetOperationsAlgebra
     extends AssetSpecificOperationsAlgebra[AssetTransfer, IO]
