@@ -49,7 +49,11 @@ trait PolySpecificOperationsAlgebra
 
   import toplContext.provider._
 
-  def parseTxM(msg2Sign: Array[Byte]) = IO.fromTry(PolyTransferSerializer.parseBytes(msg2Sign))
+  def parseTxM(msg2Sign: Array[Byte]) = IO.fromEither {
+    import io.circe.parser._
+    import co.topl.modifier.transaction.PolyTransfer.jsonDecoder
+    parse(new String(msg2Sign)).flatMap(jsonDecoder.decodeJson)
+  }
 
   def signTxM(rawTx: PolyTransfer[_ <: Proposition]) = IO {
     val signFunc = (addr: Address) => keyRing.generateAttestation(addr)(rawTx.messageToSign)
@@ -75,14 +79,35 @@ trait PolySpecificOperationsAlgebra
     broadcast <- IO.fromEither(eitherBroadcast)
   } yield broadcast
 
-  def deserializeTransactionM(transactionAsBytes: Array[Byte]): IO[PolyTransfer[_ <: Proposition]] = IO.fromTry(
-    PolyTransferSerializer
-      .parseBytes(transactionAsBytes)
-  )
+  def deserializeTransactionM(transactionAsBytes: Array[Byte]): IO[PolyTransfer[_ <: Proposition]] = IO.fromEither {
+    import io.circe.parser._
+    import co.topl.modifier.transaction.PolyTransfer.jsonDecoder
+    parse(new String(transactionAsBytes)).flatMap(jsonDecoder.decodeJson)
+  }
 
-  def encodeTransferM(assetTransfer: PolyTransfer[PublicKeyPropositionCurve25519]): IO[String] = IO(
-    ByteVector(PolyTransferSerializer.toBytes(assetTransfer)).toBase58
-  )
+  def encodeTransferEd25519M(assetTransfer: PolyTransfer[PublicKeyPropositionEd25519]): IO[String] = for {
+    transferRequest <- IO {
+      import io.circe.syntax._
+      // import co.topl.modifier.transaction.AssetTransfer.jsonEncoder
+      assetTransfer.asJson.noSpaces
+    }
+    // encodedTx <- IO(
+    //   ByteVector(
+    //     transferRequest
+    //   ).toBase58
+  } yield transferRequest
+
+  def encodeTransferM(assetTransfer: PolyTransfer[PublicKeyPropositionCurve25519]): IO[String] = for {
+    transferRequest <- IO {
+      import io.circe.syntax._
+      // import co.topl.modifier.transaction.AssetTransfer.jsonEncoder
+      assetTransfer.asJson.noSpaces
+    }
+    // encodedTx <- IO(
+    //   ByteVector(
+    //     transferRequest
+    //   ).toBase58
+  } yield transferRequest
 
   def createParamsM(transferRequest: TransferRequest): IO[RawPolyTransfer.Params] =
     IO(

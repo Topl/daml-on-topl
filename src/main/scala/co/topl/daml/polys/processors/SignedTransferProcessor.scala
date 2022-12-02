@@ -122,7 +122,7 @@ class SignedTransferProcessor(
             .exerciseSignedTransfer_Confirm(
               new SignedTransfer_Confirm(
                 (signedTransfer.sendStatus.asInstanceOf[Sent]).txId,
-                confirmationDepth
+                confirmationStatus.depthFromHead
               )
             )
         ): stream.Stream[Command]
@@ -131,6 +131,7 @@ class SignedTransferProcessor(
       import scala.concurrent.duration._
       IO.sleep(10.second)
         .flatMap { _ =>
+          logger.info("Transaction id: {}.", sentStatus.txId)
           logger.info("Transaction depth: {}. Retrying.", confirmationStatus.depthFromHead)
           handleSentM(signedTransfer, signedTransferContract, sentStatus)
         }

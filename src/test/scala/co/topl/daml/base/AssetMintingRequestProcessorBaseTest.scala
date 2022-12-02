@@ -39,7 +39,7 @@ trait AssetMintingRequestProcessorBaseTest extends BaseTest {
     ju.List.of("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64"),
     ju.List.of(new types.Tuple2("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64", java.lang.Long.valueOf(1L))),
     "address",
-    new AssetCode(1L, "Wheat"),
+    new AssetCode(1L, "AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64", "Wheat"),
     5,
     Optional.empty(),
     Optional.empty(),

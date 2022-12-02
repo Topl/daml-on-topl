@@ -12,3 +12,6 @@ codegen:
     package-prefix: co.topl.daml.api.model
     output-directory: target/generated-sources/topl
     decoderClass: co.topl.daml.api.TemplateDecoder
+  js:
+    output-directory: ui/daml.js/topl-daml-api-0.1.0
+    npm-scope: daml.js

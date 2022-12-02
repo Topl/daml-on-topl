@@ -80,7 +80,10 @@ class TransferRequestProcessor(
   ): IO[stream.Stream[Command]] = (for {
     params         <- createParamsM(transferRequest)
     rawTransaction <- createRawTxM(params)
-    encodedTx      <- IO(ByteVector(PolyTransferSerializer.toBytes(rawTransaction)).toBase58)
+    encodedTx <- IO {
+      import io.circe.syntax._
+      rawTransaction.asJson.noSpaces
+    }
   } yield {
     import io.circe.syntax._
     logger.info("Successfully generated raw transaction for contract {}.", transferRequestContract.contractId)

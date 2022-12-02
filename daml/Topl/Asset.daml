@@ -15,6 +15,45 @@ module Topl.Asset where
     type SignedAssetTransferCid = ContractId SignedAssetTransfer
 
 
+    template AssetBalanceRequest
+        with
+            operator : Party
+            requestor : Party
+            assetCode : AssetCode
+            address: Text
+                where
+                    signatory operator, requestor
+
+                    choice AssetBalanceRequest_Accept: ContractId AssetBalanceResponse
+                        with 
+                            quantity: Int
+                        controller operator
+                            do
+                                create AssetBalanceResponse with ..
+                    choice AssetBalanceRequest_Reject : ()
+                        controller requestor
+                            do
+                                return ()
+
+    template AssetBalanceResponse
+        with
+            operator : Party
+            requestor : Party
+            assetCode : AssetCode
+            address: Text
+            quantity: Int
+                where 
+                signatory operator, requestor
+
+                key (requestor, address, assetCode): (Party, Text, AssetCode)
+
+                maintainer key._1
+
+                choice AssetBalanceResponse_Archive : ()
+                    controller requestor
+                        do
+                            return ()
+                    
 
     template AssetMintingRequest
         with 
@@ -158,11 +197,11 @@ module Topl.Asset where
                     signatory operator, requestor
                     choice AssetTransferRequest_Accept : UnsignedAssetTransferRequestCid with 
                             txToSign : Text
+                            msgToSign : Text
                             newBoxNonce : Int
                         controller operator
                             do
                                 create UnsignedAssetTransferRequest with 
-                                    txToSign = txToSign
                                     boxNonce = newBoxNonce
                                     ..
                     choice AssetTransferRequest_Reject : ()
@@ -190,6 +229,7 @@ module Topl.Asset where
             boxNonce             : Int
             fee                  : Int
             txToSign             : Text
+            msgToSign            : Text
                 where 
                     signatory operator, requestor
 

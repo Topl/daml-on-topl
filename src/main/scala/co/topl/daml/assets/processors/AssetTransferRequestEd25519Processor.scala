@@ -52,7 +52,7 @@ import co.topl.daml.algebras.AssetOperationsAlgebra
  * @param callback a function that performs operations before the processing is done. Its result is returned by the processor when there are no errors.
  * @param onError a function executed when there is an error sending the commands to the DAML server. Its result is returned by the processor when there are errors in the DAML.
  */
-class AssetTransferRequestProcessor(
+class AssetTransferRequestEd25519Processor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext,
   timeoutMillis:  Int,
@@ -83,14 +83,14 @@ class AssetTransferRequestProcessor(
     value         <- computeValueM(assetTransferRequest.fee, balance)
     tailList = assetTransferRequest.to.asScala.toList.map(t => (createToParamM(assetTransferRequest) _)(t._1, t._2))
     listOfToAddresses <- (IO((changeAddress, value)) :: tailList).sequence
-    assetTransfer <- createAssetTransferM(
+    assetTransfer <- createAssetEd25519TransferM(
       assetTransferRequest.fee,
       Some(assetTransferRequest.boxNonce),
       address,
       balance,
       listOfToAddresses
     )
-    encodedTx <- encodeTransferM(assetTransfer)
+    encodedTx <- encodeTransferEd25519M(assetTransfer)
     messageToSign <- IO(
       ByteVector(
         assetTransfer.messageToSign

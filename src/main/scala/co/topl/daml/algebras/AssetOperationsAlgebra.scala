@@ -1,6 +1,5 @@
 package co.topl.daml.algebras
 
-import co.topl.attestation.PublicKeyPropositionCurve25519._
 import co.topl.attestation._
 import co.topl.attestation.keyManagement.KeyRing
 import co.topl.attestation.keyManagement.KeyfileCurve25519
@@ -62,7 +61,7 @@ trait AssetOperationsAlgebra
   // evidence for AssetMintingRequest
   val assetMintingRequestEv = new TransferEv[AssetMintingRequest] {
 
-    def issuerAddress(assetMintingRequest: AssetMintingRequest): String = assetMintingRequest.from.get(0)
+    def issuerAddress(assetMintingRequest: AssetMintingRequest): String = assetMintingRequest.assetCode.issuerAddress
     def shortName(assetMintingRequest: AssetMintingRequest): String = assetMintingRequest.assetCode.shortName
 
     def someCommitRoot(assetMintingRequest: AssetMintingRequest): Option[String] =
@@ -76,7 +75,7 @@ trait AssetOperationsAlgebra
   // evidence for AssetTransferRequest
   val assetTransferRequestEv = new TransferEv[AssetTransferRequest] {
 
-    def issuerAddress(assetMintingRequest: AssetTransferRequest): String = assetMintingRequest.from.get(0)
+    def issuerAddress(assetMintingRequest: AssetTransferRequest): String = assetMintingRequest.assetCode.issuerAddress
 
     def shortName(assetMintingRequest: AssetTransferRequest): String = assetMintingRequest.assetCode.shortName
 
@@ -90,7 +89,11 @@ trait AssetOperationsAlgebra
 
   import toplContext.provider._
 
-  def parseTxM(msg2Sign: Array[Byte]) = IO.fromTry(AssetTransferSerializer.parseBytes(msg2Sign))
+  def parseTxM(msg2Sign: Array[Byte]) = IO.fromEither {
+    import io.circe.parser._
+    import co.topl.modifier.transaction.AssetTransfer.jsonDecoder
+    parse(new String(msg2Sign)).flatMap(jsonDecoder.decodeJson)
+  }
 
   def signTxM(rawTx: AssetTransfer[_ <: Proposition]) = IO {
     val signFunc = (addr: Address) => keyRing.generateAttestation(addr)(rawTx.messageToSign)
@@ -109,23 +112,73 @@ trait AssetOperationsAlgebra
     broadcast <- IO.fromEither(eitherBroadcast.left.map(x => new RpcClientFailureException(x)))
   } yield broadcast
 
-  def deserializeTransactionM(transactionAsBytes: Array[Byte]) = IO.fromTry(
-    AssetTransferSerializer
-      .parseBytes(transactionAsBytes)
-  )
+  def deserializeTransactionM(transactionAsBytes: Array[Byte]) = IO.fromEither {
+    import io.circe.parser._
+    import co.topl.modifier.transaction.AssetTransfer.jsonDecoder
+    println("The deserialized asset transaction: " + new String(transactionAsBytes))
+    parse(new String(transactionAsBytes)).flatMap(jsonDecoder.decodeJson)
+  }
 
   def encodeTransferM(assetTransfer: AssetTransfer[PublicKeyPropositionCurve25519]) = for {
-    transferRequest <- IO(
-      AssetTransferSerializer.toBytes(
-        assetTransfer
+    transferRequest <- IO {
+      import io.circe.syntax._
+      // import co.topl.modifier.transaction.AssetTransfer.jsonEncoder
+      assetTransfer.asJson.noSpaces
+    }
+    // encodedTx <- IO(
+    //   ByteVector(
+    //     transferRequest
+    //   ).toBase58
+  } yield transferRequest
+
+  def encodeTransferEd25519M(assetTransfer: AssetTransfer[PublicKeyPropositionEd25519]) = for {
+    transferRequest <- IO {
+      import io.circe.syntax._
+      // import co.topl.modifier.transaction.AssetTransfer.jsonEncoder
+      assetTransfer.asJson.noSpaces
+    }
+    // encodedTx <- IO(
+    //   ByteVector(
+    //     transferRequest
+    //   ).toBase58
+  } yield transferRequest
+
+  def createAssetEd25519TransferM(
+    fee:               Long,
+    someBoxNonce:      Option[Long],
+    address:           Seq[Address],
+    balance:           ToplRpc.NodeView.Balances.Response,
+    listOfToAddresses: List[(Address, TokenValueHolder)]
+  ) = {
+    import co.topl.attestation.PublicKeyPropositionEd25519._
+    IO(
+      AssetTransfer(
+        someBoxNonce
+          .map(boxNonce =>
+            balance.values.toList
+              .flatMap(_.Boxes.PolyBox)
+              .map(x => (address.head, x.nonce))
+              .toIndexedSeq
+              .++(
+                balance.values.toList
+                  .flatMap(_.Boxes.AssetBox)
+                  .filter(_.nonce == boxNonce)
+                  .map(x => (address.head, x.nonce))
+                  .toIndexedSeq
+              )
+          )
+          .getOrElse(balance.values.toList.flatMap(_.Boxes.PolyBox).map(x => (address.head, x.nonce)).toIndexedSeq),
+        listOfToAddresses.toIndexedSeq,
+        ListMap(),
+        Int128(
+          fee
+        ),
+        System.currentTimeMillis(),
+        None,
+        someBoxNonce.isEmpty // no box nonce means minting
       )
     )
-    encodedTx <- IO(
-      ByteVector(
-        transferRequest
-      ).toBase58
-    )
-  } yield encodedTx
+  }
 
   def createAssetTransferM(
     fee:               Long,
@@ -133,33 +186,36 @@ trait AssetOperationsAlgebra
     address:           Seq[Address],
     balance:           ToplRpc.NodeView.Balances.Response,
     listOfToAddresses: List[(Address, TokenValueHolder)]
-  ) = IO(
-    AssetTransfer(
-      someBoxNonce
-        .map(boxNonce =>
-          balance.values.toList
-            .flatMap(_.Boxes.PolyBox)
-            .map(x => (address.head, x.nonce))
-            .toIndexedSeq
-            .++(
-              balance.values.toList
-                .flatMap(_.Boxes.AssetBox)
-                .filter(_.nonce == boxNonce)
-                .map(x => (address.head, x.nonce))
-                .toIndexedSeq
-            )
-        )
-        .getOrElse(balance.values.toList.flatMap(_.Boxes.PolyBox).map(x => (address.head, x.nonce)).toIndexedSeq),
-      listOfToAddresses.toIndexedSeq,
-      ListMap(),
-      Int128(
-        fee
-      ),
-      System.currentTimeMillis(),
-      None,
-      someBoxNonce.isEmpty // no box nonce means minting
+  ) = {
+    import co.topl.attestation.PublicKeyPropositionCurve25519._
+    IO(
+      AssetTransfer(
+        someBoxNonce
+          .map(boxNonce =>
+            balance.values.toList
+              .flatMap(_.Boxes.PolyBox)
+              .map(x => (address.head, x.nonce))
+              .toIndexedSeq
+              .++(
+                balance.values.toList
+                  .flatMap(_.Boxes.AssetBox)
+                  .filter(_.nonce == boxNonce)
+                  .map(x => (address.head, x.nonce))
+                  .toIndexedSeq
+              )
+          )
+          .getOrElse(balance.values.toList.flatMap(_.Boxes.PolyBox).map(x => (address.head, x.nonce)).toIndexedSeq),
+        listOfToAddresses.toIndexedSeq,
+        ListMap(),
+        Int128(
+          fee
+        ),
+        System.currentTimeMillis(),
+        None,
+        someBoxNonce.isEmpty // no box nonce means minting
+      )
     )
-  )
+  }
 
   def createToParamM[T: TransferEv](
     assetTransferRequest: T

@@ -74,13 +74,14 @@ class AssetMintingRequestProcessor(
     mintingRequestContract: AssetMintingRequest.ContractId
   ) =
     (for {
-      address   <- decodeAddressesM(assetMintingRequest.from.asScala.toList)
-      params    <- getParamsM(address)
-      balance   <- getBalanceM(params)
-      toAddress <- decodeAddressM(assetMintingRequest.to.get(0)._1)
-      value     <- computeValueM(assetMintingRequest.fee, balance)
+      address       <- decodeAddressesM(assetMintingRequest.from.asScala.toList)
+      changeAddress <- decodeAddressM(assetMintingRequest.changeAddress)
+      params        <- getParamsM(address)
+      balance       <- getBalanceM(params)
+      toAddress     <- decodeAddressM(assetMintingRequest.to.get(0)._1)
+      value         <- computeValueM(assetMintingRequest.fee, balance)
       tailList = assetMintingRequest.to.asScala.toList.map(t => (createToParamM(assetMintingRequest) _)(t._1, t._2))
-      listOfToAddresses <- (IO((toAddress, value)) :: tailList).sequence
+      listOfToAddresses <- (IO((changeAddress, value)) :: tailList).sequence
       assetTransfer <- createAssetTransferM(
         assetMintingRequest.fee,
         None,

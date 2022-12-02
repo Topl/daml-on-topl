@@ -207,6 +207,7 @@ module Topl.Organization where
                     assert (requestor `elem` members)
                     let asset = AssetCode
                                     with
+                                        issuerAddress = address
                                         version = version
                                         shortName = shortName
                     create AssetCreator with

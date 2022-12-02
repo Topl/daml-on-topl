@@ -68,4 +68,6 @@ trait AssetSpecificOperationsAlgebra[Transfer[_ <: Proposition], F[_]] {
    */
   def encodeTransferM(assetTransfer: Transfer[PublicKeyPropositionCurve25519]): F[String]
 
+  def encodeTransferEd25519M(assetTransfer: Transfer[PublicKeyPropositionEd25519]): F[String]
+
 }
