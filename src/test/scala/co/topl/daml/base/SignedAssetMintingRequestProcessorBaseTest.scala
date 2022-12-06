@@ -54,7 +54,7 @@ trait SignedAssetMintingRequestProcessorBaseTest extends BaseTest {
     Optional.of("1"),
     ju.List.of("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64"),
     ju.List.of(new types.Tuple2("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64", java.lang.Long.valueOf(1L))),
-    "address",
+    "AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",
     new AssetCode(1L, "AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64", "Wheat"),
     5,
     Optional.empty(),
@@ -62,7 +62,7 @@ trait SignedAssetMintingRequestProcessorBaseTest extends BaseTest {
     1L,
     100L,
     "NpGKt2zHYNBqeidrSaTvGhtrwUTjqoTXKSpbtD7exMK3EZgZW2dG61sBixZED5fjh5CgAUHpLbpm4hsh4L7Eehf4SY59yU2hXTnXNPWistwCApDppTPqDiNr8RVQK4xy372NnPW8Yy9kJ4ne8GBi5eAJM5TpPn5oxFm7TTH1Wgc3DFvmsSZvjABG1fFTM3yWNSMYytTjhkbKeEb7qKYW6hGcHocDRbAFxtGSF2mHcYQHuP17f9z21b7vxXwQnckEajGF2jkswvrvtYdcEbJXiTAxdYeRFyERwVeKzKbgnM4gsdEecYfAQA4Xqu1jNcdYquuweFBW",
-    "C9ArQ3UPR2NdbEHatFGHDr1zKHD6MvwDBNHYpsZmhNCZmSDdSBWKW41s2qKMVji5JHZ5PLKJKr7CbUyFj4hYUW9oeQHMcSFe43wzyD8wG5Ch6PaJUXBaZc81FQ5om5LxeS2ozGZVgNbctsmjHyHf2Weo74yYd2n9NNDeyq3Y6kyHtKUTASBQqyn8oQjVaP821znyXiRih2tZGf5sjHiAun3TzGAGuRTvmYTbayZawmjZEozEEW5tv6hXVTxEeonNqGnNcm34HYcnirnNP7m7kJZbtaqc8n7Mr399P6oQdiNkqimBXQ2yxqGZ16xb1SqcyYSb8ZNmoQ7SfvrVZniz2cPrePHoHCdXprPrqe6wQcMnUin1R5atCFJxmeihBv5iGDb7K3GsZn8JGWk1uBR7wvoJLZiaezUBPBCEB1hEB66Exxic2zoqdsWn9ttz1G4TMyF2dGgwEunZvQ",
+    """{"txType":"AssetTransfer","timestamp":1670347196841,"signatures":{"STcQmmQvXTxU9MHDrvjXV8p2JDiCqHfLQSwzUfR1pMgX":"ATAZmA7kWPNkzXv4xtJzXmELab781DzNczJojFJ7XmtKJGctGb4iZWEhdUGbuHfzGQXWneUSQWNTMS3PUNUyKUKw"},"newBoxes":[{"nonce":"1868907209648347650","id":"F7RCsePqSshr21kD6yWoaU7bJ9YEecvsHhs4LF1aNHXM","evidence":"TjEmqLT7VnfsbSMTUptWXVTEms2sHfP5bXSZa9iue7Tq","type":"AssetBox","value":{"quantity":"1","assetCode":"6LmEme2MYkNpheCC3hWcNujUygr1aUfmzPH6F4naJDbvG6pfEkmDSarCvT","metadata":null,"type":"Asset","securityRoot":"11111111111111111111111111111111"}}],"data":null,"from":[["AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64","1"]],"minting":true,"txId":"iDCcr6KgtvVwYS93cirsK923v5PGhzrsgpaGiz6QsWCt","boxesToRemove":["8UoxAoDY48dbYNBunLSgufEJVvh3rKsN7GZ5PaDx2i19"],"fee":"100","to":[["AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",{"type":"Simple","quantity":"0"}],["AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",{"quantity":"1","assetCode":"6LmEme2MYkNpheCC3hWcNujUygr1aUfmzPH6F4naJDbvG6pfEkmDSarCvT","metadata":null,"type":"Asset","securityRoot":"11111111111111111111111111111111"}]],"propositionType":"PublicKeyCurve25519"}""",
     Pending.fromValue(new data.Variant("Pending", data.Unit.getInstance()))
   )
 

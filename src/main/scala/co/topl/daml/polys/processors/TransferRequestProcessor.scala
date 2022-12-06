@@ -87,7 +87,7 @@ class TransferRequestProcessor(
   } yield {
     import io.circe.syntax._
     logger.info("Successfully generated raw transaction for contract {}.", transferRequestContract.contractId)
-    logger.debug(
+    logger.info(
       "Encoded transaction: {}",
       encodedTx
     )

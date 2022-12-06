@@ -115,7 +115,6 @@ trait AssetOperationsAlgebra
   def deserializeTransactionM(transactionAsBytes: Array[Byte]) = IO.fromEither {
     import io.circe.parser._
     import co.topl.modifier.transaction.AssetTransfer.jsonDecoder
-    println("The deserialized asset transaction: " + new String(transactionAsBytes))
     parse(new String(transactionAsBytes)).flatMap(jsonDecoder.decodeJson)
   }
 

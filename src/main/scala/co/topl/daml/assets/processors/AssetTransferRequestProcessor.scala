@@ -89,20 +89,24 @@ class AssetTransferRequestProcessor(
       address,
       balance,
       listOfToAddresses
-    )
-    encodedTx <- encodeTransferM(assetTransfer)
-    messageToSign <- IO(
-      ByteVector(
-        assetTransfer.messageToSign
-      ).toBase58
-    )
-  } yield {
-    logger.info("Successfully generated raw transaction for contract {}.", assetTransferRequestContract.contractId)
-    import io.circe.syntax._
-    logger.debug("The returned json: {}", assetTransfer.asJson)
-    logger.debug(
+      )
+      encodedTx <- encodeTransferM(assetTransfer)
+      messageToSign <- IO(
+        ByteVector(
+          assetTransfer.messageToSign
+          ).toBase58
+          )
+        } yield {
+          logger.info("Successfully generated raw transaction for contract {}.", assetTransferRequestContract.contractId)
+          import io.circe.syntax._
+          logger.debug("The returned json: {}", assetTransfer.asJson)
+    logger.info(
       "Encoded transaction: {}",
       encodedTx
+    )
+    logger.info(
+      "Message to sign: {}",
+      messageToSign
     )
 
     stream.Stream.of(
@@ -114,7 +118,7 @@ class AssetTransferRequestProcessor(
     ): stream.Stream[Command]
   }).handleError { failure =>
     logger.info("Failed to obtain raw transaction from server.")
-    logger.debug("Error: {}", failure)
+    logger.info("Error: {}", failure)
 
     stream.Stream.of(
       assetTransferRequestContract

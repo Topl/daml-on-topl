@@ -83,7 +83,7 @@ class UnsignedAssetTransferRequestProcessor(
   } yield {
     logger.info("Successfully signed transaction for contract {}.", unsidgnedTransferRequestContract.contractId)
     logger.debug("signedTx = {}", signedTx)
-    logger.debug(
+    logger.info(
       "Encoded transaction: {}",
       signedTxString
     )

@@ -58,15 +58,15 @@ trait UnsignedAssetTransferRequestProcessorBaseTest extends BaseTest {
     Optional.of("1"),
     ju.List.of("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64"),
     ju.List.of(new types.Tuple2("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64", java.lang.Long.valueOf(1L))),
-    "address",
+    "AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",
     new AssetCode(1L, "AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64", "Wheat"),
     5,
     Optional.empty(),
     Optional.empty(),
     1L,
     100L,
-    "NpGKt2zHYNBqeidrSaTvGhtrwUTjqoTXKSpbtD7exMK3EZgZW2dG61sBixZED5fjh5CgAUHpLbpm4hsh4L7Eehf4SY59yU2hXTnXNPWistwCApDppTPqDiNr8RVQK4xy372NnPW8Yy9kJ4ne8GBi5eAJM5TpPn5oxFm7TTH1Wgc3DFvmsSZvjABG1fFTM3yWNSMYytTjhkbKeEb7qKYW6hGcHocDRbAFxtGSF2mHcYQHuP17f9z21b7vxXwQnckEajGF2jkswvrvtYdcEbJXiTAxdYeRFyERwVeKzKbgnM4gsdEecYfAQA4Xqu1jNcdYquuweFBW",
-    ""
+    """{"txType":"AssetTransfer","timestamp":1670346927771,"signatures":{},"newBoxes":[{"nonce":"-7210283914750651566","id":"8zjzVCNGbHhSC3U2Ptn4ZehF8V9DG8oY5KjZ1LrST1WA","evidence":"TjEmqLT7VnfsbSMTUptWXVTEms2sHfP5bXSZa9iue7Tq","type":"AssetBox","value":{"quantity":"1","assetCode":"6LmEme2MYkNpheCC3hWcNujUygr1aUfmzPH6F4naJDbvG6pfEkmDSarCvT","metadata":null,"type":"Asset","securityRoot":"11111111111111111111111111111111"}}],"data":null,"from":[["AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64","1"]],"minting":false,"txId":"hoFF6oZRx2tgxXu4U5B2y5uLKvPCcKBu8kdm3ZYbzpG4","boxesToRemove":["8UoxAoDY48dbYNBunLSgufEJVvh3rKsN7GZ5PaDx2i19"],"fee":"100","to":[["AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",{"type":"Simple","quantity":"0"}],["AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",{"quantity":"1","assetCode":"6LmEme2MYkNpheCC3hWcNujUygr1aUfmzPH6F4naJDbvG6pfEkmDSarCvT","metadata":null,"type":"Asset","securityRoot":"11111111111111111111111111111111"}]],"propositionType":"PublicKeyCurve25519"}""",
+    "3Ldzd2U4VzQGf8uTAm5dPeycYzUWGjXxFKMvz7euVKMt2iQiSdTXwPJEvkbouzeXYRrkqQBqQTb41uYEyHWptvC4sDYfJAbL2pjmwVMeNkiefEDGxK9nZg4Zkuc3ERgAvLTujtga6esdFwsHzFZyQTC2kdiRS75fUmFD5hZ8g33eH1aayw5yRRmn9Xt3NXzuU18tm5pa4DFEhq9ceEAggfrZaDh4WiZGaqCYFqJWDtzr65dTrBCv1CWqv9KsHDS1SJYVSW4DNf"
   )
 
   def dummyStandardProcessor =

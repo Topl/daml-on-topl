@@ -94,9 +94,9 @@ class AssetMintingRequestProcessor(
       logger.info("Successfully generated raw transaction for contract {}.", mintingRequestContract)
       import io.circe.syntax._
       logger.info("The returned json: {}", assetTransfer.asJson)
-      logger.debug(
+      logger.info(
         "Encoded transaction: {}",
-        assetTransfer
+        encodedTx
       )
 
       stream.Stream.of(

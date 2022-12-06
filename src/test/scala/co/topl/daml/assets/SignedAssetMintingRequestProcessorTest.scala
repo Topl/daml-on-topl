@@ -32,7 +32,7 @@ import co.topl.daml.api.model.topl.asset.SignedAssetTransfer
 
 class SignedAssetMintingRequestProcessorTest extends CatsEffectSuite with SignedAssetMintingRequestProcessorBaseTest {
 
-  test("SignedAssetTransferRequestProcessor should exercise UnsignedAssetTransfer_Sign") {
+  test("SignedAssetMintingProcessor should exercise UnsignedAssetTransfer_Sign") {
 
     dummyStandardProcessor
       .handlePendingM(assetTransferRequest, assetTransferRequestContract)
@@ -42,7 +42,7 @@ class SignedAssetMintingRequestProcessorTest extends CatsEffectSuite with Signed
       }
   }
 
-  test("SignedAssetTransferRequestProcessor should exercise SignedAssetTransfer_Fail") {
+  test("SignedAssetMintingProcessor should exercise SignedAssetTransfer_Fail") {
 
     dummyFailingWithException
       .handlePendingM(assetTransferRequest, assetTransferRequestContract)
@@ -52,7 +52,7 @@ class SignedAssetMintingRequestProcessorTest extends CatsEffectSuite with Signed
       }
   }
 
-  test("SignedAssetTransferRequestProcessor should return false if the error function returns false") {
+  test("SignedAssetMintingProcessor should return false if the error function returns false") {
 
     val event: data.Event =
       data.CreatedEvent.fromProto(
@@ -73,7 +73,7 @@ class SignedAssetMintingRequestProcessorTest extends CatsEffectSuite with Signed
       }
   }
 
-  test("SignedAssetTransferRequestProcessor should return false if the condition function return false") {
+  test("SignedAssetMintingProcessor should return false if the condition function return false") {
 
     val event =
       data.CreatedEvent.fromProto(

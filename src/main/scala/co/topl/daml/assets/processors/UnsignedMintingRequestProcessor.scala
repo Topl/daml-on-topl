@@ -80,7 +80,7 @@ class UnsignedMintingRequestProcessor(
     signedTxString <- encodeTransferM(signedTx)
   } yield {
     logger.info("Successfully signed transaction for contract {}.", unsidgnedMintingRequestContract.contractId)
-    logger.debug("signedTx = {}\nEncoded transaction: {}", signedTx, signedTxString)
+    logger.info("signedTx = {}\nEncoded transaction: {}", signedTx, signedTxString)
 
     stream.Stream.of(
       unsidgnedMintingRequestContract

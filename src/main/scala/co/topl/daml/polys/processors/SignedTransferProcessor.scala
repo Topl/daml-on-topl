@@ -100,7 +100,7 @@ class SignedTransferProcessor(
     ): stream.Stream[Command]
   }).handleError { failure =>
     logger.info("Failed to broadcast transaction to server.")
-    logger.debug("Error: {}", failure)
+    logger.info("Error: {}", failure)
     stream.Stream.of(
       signedTransferContract
         .exerciseSignedTransfer_Fail("Failed broadcast to server")

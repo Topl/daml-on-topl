@@ -31,7 +31,7 @@ import co.topl.daml.base.UnsignedAssetMintingRequestProcessorBaseTest
 
 class UnsignedMintingRequestProcessorTest extends CatsEffectSuite with UnsignedAssetMintingRequestProcessorBaseTest {
 
-  test("UnsignedAssetTransferRequestProcessor should exercise UnsignedMinting_Sign") {
+  test("UnsignedAssetMintingRequestProcessor should exercise UnsignedMinting_Sign") {
 
     dummyStandardProcessor
       .signOperationM(assetTransferRequest, assetTransferRequestContract)
@@ -41,7 +41,7 @@ class UnsignedMintingRequestProcessorTest extends CatsEffectSuite with UnsignedA
       }
   }
 
-  test("UnsignedAssetTransferRequestProcessor should exercise UnsignedMinting_Archive") {
+  test("UnsignedAssetMintingRequestProcessor should exercise UnsignedMinting_Archive") {
 
     dummyFailingWithException
       .signOperationM(assetTransferRequest, assetTransferRequestContract)
@@ -51,7 +51,7 @@ class UnsignedMintingRequestProcessorTest extends CatsEffectSuite with UnsignedA
       }
   }
 
-  test("UnsignedAssetTransferRequestProcessor should return false if the error function returns false") {
+  test("UnsignedAssetMintingRequestProcessor should return false if the error function returns false") {
 
     val event: data.Event =
       data.CreatedEvent.fromProto(
@@ -72,7 +72,7 @@ class UnsignedMintingRequestProcessorTest extends CatsEffectSuite with UnsignedA
       }
   }
 
-  test("UnsignedAssetTransferRequestProcessor should return false if the condition function return false") {
+  test("UnsignedAssetMintingRequestProcessor should return false if the condition function return false") {
 
     val event =
       data.CreatedEvent.fromProto(
