@@ -122,25 +122,15 @@ trait AssetOperationsAlgebra
   def encodeTransferM(assetTransfer: AssetTransfer[PublicKeyPropositionCurve25519]) = for {
     transferRequest <- IO {
       import io.circe.syntax._
-      // import co.topl.modifier.transaction.AssetTransfer.jsonEncoder
       assetTransfer.asJson.noSpaces
     }
-    // encodedTx <- IO(
-    //   ByteVector(
-    //     transferRequest
-    //   ).toBase58
   } yield transferRequest
 
   def encodeTransferEd25519M(assetTransfer: AssetTransfer[PublicKeyPropositionEd25519]) = for {
     transferRequest <- IO {
       import io.circe.syntax._
-      // import co.topl.modifier.transaction.AssetTransfer.jsonEncoder
       assetTransfer.asJson.noSpaces
     }
-    // encodedTx <- IO(
-    //   ByteVector(
-    //     transferRequest
-    //   ).toBase58
   } yield transferRequest
 
   def createAssetEd25519TransferM(

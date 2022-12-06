@@ -87,25 +87,15 @@ trait PolySpecificOperationsAlgebra
   def encodeTransferEd25519M(assetTransfer: PolyTransfer[PublicKeyPropositionEd25519]): IO[String] = for {
     transferRequest <- IO {
       import io.circe.syntax._
-      // import co.topl.modifier.transaction.AssetTransfer.jsonEncoder
       assetTransfer.asJson.noSpaces
     }
-    // encodedTx <- IO(
-    //   ByteVector(
-    //     transferRequest
-    //   ).toBase58
   } yield transferRequest
 
   def encodeTransferM(assetTransfer: PolyTransfer[PublicKeyPropositionCurve25519]): IO[String] = for {
     transferRequest <- IO {
       import io.circe.syntax._
-      // import co.topl.modifier.transaction.AssetTransfer.jsonEncoder
       assetTransfer.asJson.noSpaces
     }
-    // encodedTx <- IO(
-    //   ByteVector(
-    //     transferRequest
-    //   ).toBase58
   } yield transferRequest
 
   def createParamsM(transferRequest: TransferRequest): IO[RawPolyTransfer.Params] =

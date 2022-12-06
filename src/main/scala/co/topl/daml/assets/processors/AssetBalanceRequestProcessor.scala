@@ -44,6 +44,7 @@ import co.topl.modifier.box.TokenValueHolder
 import co.topl.daml.algebras.AssetOperationsAlgebra
 import co.topl.daml.api.model.topl.asset.AssetBalanceRequest
 import co.topl.daml.utf8StringToLatin1ByteArray
+import scala.concurrent.duration._
 
 /**
  * This processor processes the transfer requests.
@@ -91,17 +92,11 @@ class AssetBalanceRequestProcessor(
           .map(
             _.Boxes.AssetBox
               .filter({ x =>
-                logger.info("x.value.assetCode.issuer = {}", x.value.assetCode.issuer)
-                logger.info("x.value.assetCode.shortName = {}", x.value.assetCode.shortName)
-                logger.info("x.value.assetCode.version = {}", x.value.assetCode.version)
                 val genAssetCode = AssetCode(
                   1,
                   issuerAddress,
                   Latin1Data.fromData(utf8StringToLatin1ByteArray(assetBalanceRequest.assetCode.shortName))
                 )
-                logger.info("generatedAssetCode.version = {}", genAssetCode.version)
-                logger.info("generatedAssetCode.shortName = {}", genAssetCode.shortName)
-                logger.info("generatedAssetCode.version = {}", genAssetCode.version)
                 x.value.assetCode == genAssetCode
               })
               .map(_.value.quantity)
@@ -111,8 +106,8 @@ class AssetBalanceRequestProcessor(
           .longValue()
       )
     ): stream.Stream[Command]
-  }).handleError { failure =>
-    logger.info("Failed to obtain raw transaction from server.")
+  }).timeout(timeoutMillis.millis).handleError { failure =>
+    logger.info("Failed to obtain balance from from server.")
     logger.debug("Error: {}", failure)
 
     stream.Stream.of(

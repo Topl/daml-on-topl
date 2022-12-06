@@ -113,11 +113,7 @@ trait CommonBlockchainOpsAlgebraImpl extends CommonBlockchainOpsAlgebra[IO] {
     Base58Data.unsafe(address).decodeAddress.getOrThrow()
   )
 
-  def decodeTransactionM(tx: String) = IO {
-    // import io.circe.syntax._
-    // import co.topl.modifier.transaction.AssetTransfer.jsonDecoder
-    tx.getBytes()
-  }
+  def decodeTransactionM(tx: String) = IO(tx.getBytes())
 
   def createLatinDataM(data: String) = IO(
     StringDataTypes.Latin1Data.fromData(
