@@ -16,6 +16,7 @@ import io.reactivex.subjects.SingleSubject
 import scala.collection.JavaConverters._
 import java.util.function.BiFunction
 import cats.effect.IO
+import java.util.concurrent.TimeoutException
 
 package object daml {
 

@@ -47,7 +47,7 @@ trait AssetMintingRequestProcessorBaseTest extends BaseTest {
   )
 
   def dummyStandardProcessor =
-    new AssetMintingRequestProcessor(damlAppContext, toplContext, 1000, (x, y) => true, t => true) {
+    new AssetMintingRequestProcessor(damlAppContext, toplContext, 5000, (x, y) => true, t => true) {
 
       override def getBalanceM(param: ToplRpc.NodeView.Balances.Params) = IO(
         Map(
@@ -67,7 +67,7 @@ trait AssetMintingRequestProcessorBaseTest extends BaseTest {
     }
 
   def dummyStandardProcessorWithErrorReturningTrue =
-    new AssetMintingRequestProcessor(damlAppContext, toplContext, 1000, (x, y) => true, t => false) {
+    new AssetMintingRequestProcessor(damlAppContext, toplContext, 5000, (x, y) => true, t => false) {
 
       override def getBalanceM(param: ToplRpc.NodeView.Balances.Params) = IO(
         Map(
@@ -87,7 +87,7 @@ trait AssetMintingRequestProcessorBaseTest extends BaseTest {
     }
 
   val dummyFailCondition =
-    new AssetMintingRequestProcessor(damlAppContext, toplContext, 1000, (x, y) => false, t => true) {
+    new AssetMintingRequestProcessor(damlAppContext, toplContext, 5000, (x, y) => false, t => true) {
 
       override def getBalanceM(param: ToplRpc.NodeView.Balances.Params) = IO(
         Map(
@@ -107,7 +107,7 @@ trait AssetMintingRequestProcessorBaseTest extends BaseTest {
     }
 
   def dummyFailingWithException =
-    new AssetMintingRequestProcessor(damlAppContext, toplContext, 1000, (x, y) => true, t => true) {
+    new AssetMintingRequestProcessor(damlAppContext, toplContext, 5000, (x, y) => true, t => true) {
       override def getBalanceM(param: ToplRpc.NodeView.Balances.Params) = IO(throw new IllegalStateException())
     }
 

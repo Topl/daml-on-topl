@@ -1,6 +1,7 @@
 package co.topl.daml.assets.processors
 
 import cats.data.EitherT
+import cats.effect.IO
 import cats.implicits._
 import co.topl.akkahttprpc.InvalidParametersError
 import co.topl.akkahttprpc.RpcClientFailure
@@ -8,6 +9,7 @@ import co.topl.akkahttprpc.RpcErrorFailure
 import co.topl.akkahttprpc.implicits.client._
 import co.topl.attestation.Address
 import co.topl.attestation.AddressCodec.implicits._
+import co.topl.attestation.Proposition
 import co.topl.attestation.keyManagement.KeyRing
 import co.topl.attestation.keyManagement.KeyfileCurve25519
 import co.topl.attestation.keyManagement.KeyfileCurve25519Companion
@@ -15,7 +17,9 @@ import co.topl.attestation.keyManagement.PrivateKeyCurve25519
 import co.topl.client.Brambl
 import co.topl.daml.AbstractProcessor
 import co.topl.daml.DamlAppContext
+import co.topl.daml.RpcClientFailureException
 import co.topl.daml.ToplContext
+import co.topl.daml.algebras.AssetOperationsAlgebra
 import co.topl.daml.api.model.da.types
 import co.topl.daml.api.model.topl.asset.SignedAssetMinting
 import co.topl.daml.api.model.topl.asset.SignedAssetTransfer
@@ -28,6 +32,8 @@ import co.topl.daml.api.model.topl.utils.sendstatus.Confirmed
 import co.topl.daml.api.model.topl.utils.sendstatus.FailedToSend
 import co.topl.daml.api.model.topl.utils.sendstatus.Pending
 import co.topl.daml.api.model.topl.utils.sendstatus.Sent
+import co.topl.modifier.ModifierId
+import co.topl.modifier.transaction.AssetTransfer
 import co.topl.modifier.transaction.serialization.AssetTransferSerializer
 import co.topl.rpc.ToplRpc
 import co.topl.rpc.implicits.client._
@@ -46,14 +52,8 @@ import java.util.Optional
 import java.util.stream
 import scala.concurrent.Await
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.io.Source
-import cats.effect.IO
-
-import co.topl.daml.RpcClientFailureException
-import co.topl.modifier.transaction.AssetTransfer
-import co.topl.attestation.Proposition
-import co.topl.daml.algebras.AssetOperationsAlgebra
-import co.topl.modifier.ModifierId
 
 /**
  * This processor processes the broadcasting of signed transfer requests.
@@ -104,7 +104,7 @@ class SignedAssetTransferRequestProcessor(
         signedTransferRequestContract
           .exerciseSignedAssetTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, broadcast.id.toString()))
       ): stream.Stream[Command]
-    }).handleError { failure =>
+    }).timeout(timeoutMillis.millis).handleError { failure =>
       logger.info("Failed to broadcast transaction to server.")
       logger.debug("Error: {}", failure)
       stream.Stream.of(
@@ -118,7 +118,7 @@ class SignedAssetTransferRequestProcessor(
     signedTransferRequestContract: SignedAssetTransfer.ContractId,
     sentStatus:                    Sent
   ): IO[stream.Stream[Command]] = (for {
-    confirmationStatusMap <- getTransactionConfirmationStatusM(sentStatus.txId)
+    confirmationStatusMap <- getTransactionConfirmationStatusM(sentStatus.txId).timeout(timeoutMillis.millis)
   } yield {
     val confirmationStatus = confirmationStatusMap(ModifierId(sentStatus.txId))
     if (confirmationStatus.depthFromHead >= confirmationDepth) {
@@ -146,52 +146,53 @@ class SignedAssetTransferRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
-    SignedAssetTransfer.TEMPLATE_ID,
-    e => SignedAssetTransfer.fromValue(e.getArguments()),
-    e => SignedAssetTransfer.Contract.fromCreatedEvent(e).id,
-    callback.apply,
-    event
-  ) { (signedTransferRequest, signedTransferRequestContract) =>
-    if (signedTransferRequest.sendStatus.isInstanceOf[Pending]) {
-      handlePendingM(signedTransferRequest, signedTransferRequestContract)
-    } else if (signedTransferRequest.sendStatus.isInstanceOf[FailedToSend]) {
-      logger.error("Failed to send contract.")
+  ): IO[(Boolean, stream.Stream[Command])] =
+    processEventAux(
+      SignedAssetTransfer.TEMPLATE_ID,
+      e => SignedAssetTransfer.fromValue(e.getArguments()),
+      e => SignedAssetTransfer.Contract.fromCreatedEvent(e).id,
+      callback.apply,
+      event
+    ) { (signedTransferRequest, signedTransferRequestContract) =>
+      if (signedTransferRequest.sendStatus.isInstanceOf[Pending]) {
+        handlePendingM(signedTransferRequest, signedTransferRequestContract)
+      } else if (signedTransferRequest.sendStatus.isInstanceOf[FailedToSend]) {
+        logger.error("Failed to send contract.")
 
-      IO(
-        stream.Stream.of(
-          signedTransferRequestContract
-            .exerciseSignedAssetTransfer_Archive()
+        IO(
+          stream.Stream.of(
+            signedTransferRequestContract
+              .exerciseSignedAssetTransfer_Archive()
+          )
         )
-      )
-    } else if (signedTransferRequest.sendStatus.isInstanceOf[Sent]) {
-      logger.info("Successfully sent.")
+      } else if (signedTransferRequest.sendStatus.isInstanceOf[Sent]) {
+        logger.info("Successfully sent.")
 
-      handleSentM(
-        signedTransferRequest,
-        signedTransferRequestContract,
-        signedTransferRequest.sendStatus.asInstanceOf[Sent]
-      )
-    } else if (signedTransferRequest.sendStatus.isInstanceOf[Confirmed]) {
-      logger.info("Successfully confirmed.")
-
-      IO(
-        stream.Stream.of(
-          Organization
-            .byKey(new types.Tuple2(signedTransferRequest.operator, signedTransferRequest.someOrgId.get()))
-            .exerciseOrganization_AddSignedAssetTransfer(idGenerator.get(), signedTransferRequestContract)
+        handleSentM(
+          signedTransferRequest,
+          signedTransferRequestContract,
+          signedTransferRequest.sendStatus.asInstanceOf[Sent]
         )
-      )
-    } else {
+      } else if (signedTransferRequest.sendStatus.isInstanceOf[Confirmed]) {
+        logger.info("Successfully confirmed.")
 
-      IO(
-        stream.Stream.of(
-          signedTransferRequestContract
-            .exerciseSignedAssetTransfer_Archive()
+        IO(
+          stream.Stream.of(
+            Organization
+              .byKey(new types.Tuple2(signedTransferRequest.operator, signedTransferRequest.someOrgId.get()))
+              .exerciseOrganization_AddSignedAssetTransfer(idGenerator.get(), signedTransferRequestContract)
+          )
         )
-      )
+      } else {
+
+        IO(
+          stream.Stream.of(
+            signedTransferRequestContract
+              .exerciseSignedAssetTransfer_Archive()
+          )
+        )
+      }
+
     }
-
-  }
 
 }

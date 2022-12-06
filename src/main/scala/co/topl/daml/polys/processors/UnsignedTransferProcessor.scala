@@ -1,11 +1,13 @@
 package co.topl.daml.polys.processors
 
 import cats.data.EitherT
+import cats.effect.IO
 import co.topl.akkahttprpc.InvalidParametersError
 import co.topl.akkahttprpc.RpcClientFailure
 import co.topl.akkahttprpc.RpcErrorFailure
 import co.topl.attestation.Address
 import co.topl.attestation.AddressCodec.implicits._
+import co.topl.attestation.Proposition
 import co.topl.attestation.keyManagement.KeyRing
 import co.topl.attestation.keyManagement.KeyfileCurve25519
 import co.topl.attestation.keyManagement.KeyfileCurve25519Companion
@@ -13,7 +15,9 @@ import co.topl.attestation.keyManagement.PrivateKeyCurve25519
 import co.topl.client.Brambl
 import co.topl.daml.AbstractProcessor
 import co.topl.daml.DamlAppContext
+import co.topl.daml.RpcClientFailureException
 import co.topl.daml.ToplContext
+import co.topl.daml.algebras.PolySpecificOperationsAlgebra
 import co.topl.daml.api.model.topl.transfer.UnsignedTransfer
 import co.topl.modifier.transaction.PolyTransfer
 import co.topl.modifier.transaction.serialization.PolyTransferSerializer
@@ -21,6 +25,7 @@ import co.topl.utils.StringDataTypes
 import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
 import io.circe.DecodingFailure
+import io.circe.Json
 import io.circe.parser.parse
 import org.slf4j.LoggerFactory
 import scodec.bits._
@@ -29,12 +34,7 @@ import java.io.File
 import java.util.stream
 import scala.concurrent.Future
 import scala.io.Source
-import cats.effect.IO
 import scala.util.Try
-import io.circe.Json
-import co.topl.attestation.Proposition
-import co.topl.daml.RpcClientFailureException
-import co.topl.daml.algebras.PolySpecificOperationsAlgebra
 
 /**
  * This processor processes the signing of poly transfer requests.
@@ -51,7 +51,6 @@ class UnsignedTransferProcessor(
   toplContext:    ToplContext,
   fileName:       String,
   password:       String,
-  timeoutMillis:  Int,
   callback:       java.util.function.BiFunction[UnsignedTransfer, UnsignedTransfer.ContractId, Boolean],
   onError:        java.util.function.Function[Throwable, Boolean]
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
@@ -63,7 +62,7 @@ class UnsignedTransferProcessor(
     fileName:       String,
     password:       String
   ) =
-    this(damlAppContext, toplContext, fileName, password, 3000, (x, y) => true, x => true)
+    this(damlAppContext, toplContext, fileName, password, (x, y) => true, x => true)
 
   implicit val networkPrefix = toplContext.provider.networkPrefix
 
