@@ -27,7 +27,7 @@ Accepts the request for further processing by the operator.
 
 | Name     | Type | Description                                                  |
 | -------- | ---- | ------------------------------------------------------------ |
-| txToSign | Text | The transaction to be signed serialized by the `PolyTransferSerializer` and encoded in Base58. |
+| txToSign | Text | The transaction to be signed serialized by the `PolyTransferSerializer` and encoded in JSON. |
 | boxNonce | Int  | The nonce of the box where the asset is going to be stored.  |
 
 ##### `TransferRequest_Reject`
@@ -48,7 +48,7 @@ None.
 
 #### `UnsignedTransfer`
 
-An unsigned asset transfer. It is created when a `TransferRequest_Accept` is exercise in an `TransferRequest`. In includes all the data of the `AssetTransferRequest` and also the transaction to sign  encoded in Base58 and the box nonce. 
+An unsigned asset transfer. It is created when a `TransferRequest_Accept` is exercise in an `TransferRequest`. In includes all the data of the `AssetTransferRequest` and also the transaction to sign  encoded in JSON and the box nonce. 
 
 **Module:** Topl.Transfer
 
@@ -60,7 +60,7 @@ An unsigned asset transfer. It is created when a `TransferRequest_Accept` is exe
 | user     | Party          | The party that requested this transfer operation.            |
 | from     | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the polys are going to be transferred. |
 | to       | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
-| txToSign | Text           | The transaction to be signed serialized by the `PolyTransferSerializer` and encoded in Base58. |
+| txToSign | Text           | The transaction to be signed serialized by the `PolyTransferSerializer` and encoded in JSON. |
 
 ##### Choices
 
@@ -72,7 +72,7 @@ Signs the request for broadcasting to the network by the operator.
 
 | Name     | Type | Description                                                  |
 | -------- | ---- | ------------------------------------------------------------ |
-| signedTx | Text | The signed transfer transaction serialized by the `AssetTransferSerializer` and encoded in Base58. |
+| signedTx | Text | The signed transfer transaction serialized by the `AssetTransferSerializer` and encoded in JSON. |
 
 ##### `UnsignedTransfer_Archive`
 
@@ -84,7 +84,7 @@ None.
 
 #### `SignedTransfer`
 
-A signed transfer request. It is created when a `UnsignedTransfer_Sign` is exercised in an `UnsignedTransfer`. In includes all the data of the `UnsignedTransfer` and also the signed transaction encoded in Base58 and a send status. The send status informs the current status of the transfer request with respect to the network. 
+A signed transfer request. It is created when a `UnsignedTransfer_Sign` is exercised in an `UnsignedTransfer`. In includes all the data of the `UnsignedTransfer` and also the signed transaction encoded in JSON and a send status. The send status informs the current status of the transfer request with respect to the network. 
 
 **Module:** Topl.Transfer
 
@@ -96,8 +96,8 @@ A signed transfer request. It is created when a `UnsignedTransfer_Sign` is exerc
 | user       | Party          | The party that requested this transfer operation.            |
 | from       | [ Text ]       | A list of from addresses encoded in Base58. The addresses from where the polys or LVLs are going to be transferred. |
 | to         | [ (Text, Int)] | A list of pairs containing the addresses and the amounts to be transferred to the to addresses. |
-| txToSign   | Text           | The transfer transaction to be signed serialized by the `PolyTransferSerializer` and encoded in Base58. |
-| signedTx   | Text           | The signed transfer transaction serialized by the `AssetTransferSerializer` and encoded in Base58. |
+| txToSign   | Text           | The transfer transaction to be signed serialized by the `PolyTransferSerializer` and encoded in JSON. |
+| signedTx   | Text           | The signed transfer transaction serialized by the `AssetTransferSerializer` and encoded in JSON. |
 | sendStatus | SendStatus     | The status of the transaction. It can be: New, Pending, Sent, FailedToSend, and Confirmed. |
 
 ##### Choices
