@@ -1,12 +1,12 @@
 package co.topl.daml.base
 
-import akka.http.scaladsl.model.Uri
 import akka.actor.ActorSystem
-import co.topl.client.Provider
+import akka.http.scaladsl.model.Uri
 import co.topl.attestation.Evidence
-import co.topl.utils.NetworkType
+import co.topl.client.Provider
 import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
+import co.topl.utils.NetworkType
 
 trait BaseTest {
 
