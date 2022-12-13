@@ -80,7 +80,6 @@ class AssetTransferRequestProcessor(
     changeAddress <- decodeAddressM(assetTransferRequest.changeAddress)
     params        <- getParamsM(address)
     balance       <- getBalanceM(params)
-    toAddress     <- decodeAddressM(assetTransferRequest.to.get(0)._1)
     value         <- computeValueM(assetTransferRequest.fee, balance)
     tailList = assetTransferRequest.to.asScala.toList.map(t => (createToParamM(assetTransferRequest) _)(t._1, t._2))
     listOfToAddresses <- (IO((changeAddress, value)) :: tailList).sequence
