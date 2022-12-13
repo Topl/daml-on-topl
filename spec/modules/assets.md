@@ -40,7 +40,9 @@ None.
 
 #### `AssetBalanceResponse`
 
-The asset balance response models the answer to a balance request.
+The asset balance response models the answer to a balance request. It has the following fields as keys:
+`requestor`, `address`, `assetCode`. Since there can only be one response at a time for a given address, requestor
+and asset, we provide an archive choice to allow the user to query the balance from another contract.
 
 **Module:** Topl.Asset
 
@@ -58,7 +60,7 @@ The asset balance response models the answer to a balance request.
 
 ##### `AssetBalanceResponse_Archive `
 
-Archives the request the request after the user has obtained the requred values.
+Archives the request the request after the user has obtained the requred values. 
 
 ###### Parameters
 
