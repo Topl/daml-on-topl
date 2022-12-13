@@ -1,22 +1,24 @@
 package co.topl
 
-import cats.data.EitherT
-import scala.concurrent.Future
-import co.topl.akkahttprpc.RpcClientFailure
-import com.daml.ledger.javaapi.data.Identifier
-import com.daml.ledger.javaapi.data.CreatedEvent
+import java.util.UUID
+import java.util.concurrent.TimeoutException
+import java.util.function.BiFunction
 import java.util.stream
+
+import scala.collection.JavaConverters._
+import scala.concurrent.Future
+
+import cats.data.EitherT
+import cats.effect.IO
+import co.topl.akkahttprpc.RpcClientFailure
 import com.daml.ledger.javaapi.data.Command
-import io.reactivex.Single
-import com.google.protobuf.Empty
+import com.daml.ledger.javaapi.data.CreatedEvent
+import com.daml.ledger.javaapi.data.Identifier
 import com.daml.ledger.javaapi.data.Transaction
 import com.daml.ledger.rxjava.LedgerClient
-import java.util.UUID
+import com.google.protobuf.Empty
+import io.reactivex.Single
 import io.reactivex.subjects.SingleSubject
-import scala.collection.JavaConverters._
-import java.util.function.BiFunction
-import cats.effect.IO
-import java.util.concurrent.TimeoutException
 
 package object daml {
 

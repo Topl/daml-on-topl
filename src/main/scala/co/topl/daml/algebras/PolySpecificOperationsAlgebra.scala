@@ -1,5 +1,13 @@
 package co.topl.daml.algebras
 
+import java.io.File
+
+import scala.collection.JavaConverters._
+import scala.collection.immutable.ListMap
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.io.Source
+
 import cats.arrow.FunctionK
 import cats.data.EitherT
 import cats.data.NonEmptyChain
@@ -34,13 +42,6 @@ import co.topl.utils.StringDataTypes
 import co.topl.utils.StringDataTypes.Base58Data
 import io.circe.Json
 import scodec.bits.ByteVector
-
-import java.io.File
-import scala.collection.JavaConverters._
-import scala.collection.immutable.ListMap
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import scala.io.Source
 
 trait PolySpecificOperationsAlgebra
     extends AssetSpecificOperationsAlgebra[PolyTransfer, IO]

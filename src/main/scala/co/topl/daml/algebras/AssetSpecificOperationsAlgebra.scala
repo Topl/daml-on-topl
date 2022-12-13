@@ -1,5 +1,11 @@
 package co.topl.daml.algebras
 
+import java.io.File
+
+import scala.collection.immutable.ListMap
+import scala.concurrent.ExecutionContext
+import scala.io.Source
+
 import co.topl.attestation.PublicKeyPropositionCurve25519._
 import co.topl.attestation._
 import co.topl.attestation.keyManagement.KeyRing
@@ -21,11 +27,6 @@ import co.topl.utils.StringDataTypes
 import co.topl.utils.StringDataTypes.Base58Data
 import io.circe.Json
 import scodec.bits.ByteVector
-
-import java.io.File
-import scala.collection.immutable.ListMap
-import scala.concurrent.ExecutionContext
-import scala.io.Source
 
 /**
  * Algebra for asset specific operations.

@@ -1,5 +1,11 @@
 package co.topl.daml
 
+import java.util.UUID
+import java.util.stream
+
+import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext
+
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import com.daml.ledger.javaapi.data.Command
@@ -11,11 +17,6 @@ import com.google.protobuf.Empty
 import io.reactivex.Single
 import io.reactivex.subjects.SingleSubject
 import org.slf4j.LoggerFactory
-
-import java.util.UUID
-import java.util.stream
-import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext
 
 abstract class AbstractProcessor[T, U, V](
   val damlAppContext: DamlAppContext,

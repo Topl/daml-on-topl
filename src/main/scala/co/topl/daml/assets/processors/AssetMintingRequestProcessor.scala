@@ -1,5 +1,13 @@
 package co.topl.daml.assets.processors
 
+import java.util.concurrent.TimeoutException
+import java.util.stream
+
+import scala.collection.JavaConverters._
+import scala.collection.immutable.ListMap
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 import cats.data.EitherT
 import cats.data.NonEmptyChain
 import cats.effect.IO
@@ -33,13 +41,6 @@ import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
 import org.slf4j.LoggerFactory
 import scodec.bits.ByteVector
-
-import java.util.concurrent.TimeoutException
-import java.util.stream
-import scala.collection.JavaConverters._
-import scala.collection.immutable.ListMap
-import scala.concurrent.Await
-import scala.concurrent.duration._
 
 import ToplRpc.Transaction.RawAssetTransfer
 

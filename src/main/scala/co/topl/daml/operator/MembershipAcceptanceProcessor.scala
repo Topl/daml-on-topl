@@ -1,5 +1,7 @@
 package co.topl.daml.operator
 
+import java.util.stream
+
 import cats.effect.IO
 import co.topl.daml.AbstractProcessor
 import co.topl.daml.DamlAppContext
@@ -7,8 +9,6 @@ import co.topl.daml.ToplContext
 import co.topl.daml.api.model.topl.organization.MembershipAcceptance
 import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
-
-import java.util.stream
 
 class MembershipAcceptanceProcessor(
   damlAppContext: DamlAppContext,

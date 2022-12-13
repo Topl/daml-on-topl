@@ -1,5 +1,11 @@
 package co.topl.daml.algebras
 
+import java.io.File
+
+import scala.collection.immutable.ListMap
+import scala.concurrent.ExecutionContext
+import scala.io.Source
+
 import akka.actor.ActorSystem
 import cats.effect.IO
 import cats.syntax.traverse._
@@ -35,11 +41,6 @@ import co.topl.utils.StringDataTypes
 import co.topl.utils.StringDataTypes.Base58Data
 import io.circe.Json
 import scodec.bits.ByteVector
-
-import java.io.File
-import scala.collection.immutable.ListMap
-import scala.concurrent.ExecutionContext
-import scala.io.Source
 
 trait CommonBlockchainOpsAlgebraImpl extends CommonBlockchainOpsAlgebra[IO] {
 

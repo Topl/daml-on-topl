@@ -1,5 +1,15 @@
 package co.topl.daml.assets.processors
 
+import java.io.File
+import java.time.Instant
+import java.util.Optional
+import java.util.stream
+
+import scala.concurrent.Await
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.io.Source
+
 import cats.data.EitherT
 import cats.effect.IO
 import cats.implicits._
@@ -45,15 +55,6 @@ import io.circe.parser.parse
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
 import scodec.bits._
-
-import java.io.File
-import java.time.Instant
-import java.util.Optional
-import java.util.stream
-import scala.concurrent.Await
-import scala.concurrent.Future
-import scala.concurrent.duration._
-import scala.io.Source
 
 /**
  * This processor processes the broadcasting of signed transfer requests.

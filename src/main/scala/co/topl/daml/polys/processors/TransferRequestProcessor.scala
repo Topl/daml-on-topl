@@ -1,5 +1,15 @@
 package co.topl.daml.polys.processors
 
+import java.util.UUID
+import java.util.stream
+
+import scala.collection.JavaConverters._
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
+
 import akka.actor.ActorSystem
 import cats.arrow.FunctionK
 import cats.data.EitherT
@@ -46,15 +56,6 @@ import io.reactivex.Single
 import io.reactivex.subjects.SingleSubject
 import org.slf4j.LoggerFactory
 import scodec.bits._
-
-import java.util.UUID
-import java.util.stream
-import scala.collection.JavaConverters._
-import scala.concurrent.Await
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import scala.concurrent.duration.Duration
-import scala.concurrent.duration._
 
 /**
  * This processor processes the transfer requests.
