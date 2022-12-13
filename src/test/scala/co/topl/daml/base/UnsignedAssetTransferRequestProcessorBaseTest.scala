@@ -1,35 +1,37 @@
 package co.topl.daml.base
 
-import cats.effect.{IO, SyncIO}
-import munit.CatsEffectSuite
-import co.topl.daml.api.model.topl.asset.AssetMintingRequest
-import java.util.Optional
-import java.{util => ju}
-import co.topl.daml.api.model.da.types
-import co.topl.daml.api.model.topl.utils.AssetCode
+import akka.actor.ActorSystem
+import akka.http.scaladsl.model.Uri
+import cats.effect.IO
+import cats.effect.SyncIO
+import co.topl.attestation.Address
+import co.topl.attestation.Evidence
+import co.topl.client.Provider
 import co.topl.daml.DamlAppContext
 import co.topl.daml.ToplContext
-import co.topl.daml.assets.processors.AssetMintingRequestProcessor
-import com.daml.ledger.javaapi.data.Command
-import akka.http.scaladsl.model.Uri
-import co.topl.client.Provider
-import akka.actor.ActorSystem
-import co.topl.rpc.ToplRpc
-import co.topl.attestation.Address
-import co.topl.utils.Int128
-import co.topl.attestation.Evidence
-import co.topl.utils.NetworkType
-import co.topl.modifier.box.PolyBox
-import co.topl.modifier.box.SimpleValue
-import com.daml.ledger.api.v1.EventOuterClass.CreatedEvent
-import com.daml.ledger.javaapi.data
-import com.daml.ledger.api.v1.TransactionOuterClass.Transaction
-import com.daml.ledger.api.v1.EventOuterClass.Event
-import co.topl.daml.assets.processors.AssetTransferRequestProcessor
+import co.topl.daml.api.model.da.types
+import co.topl.daml.api.model.topl.asset.AssetMintingRequest
 import co.topl.daml.api.model.topl.asset.AssetTransferRequest
 import co.topl.daml.api.model.topl.asset.SignedAssetTransfer
 import co.topl.daml.api.model.topl.asset.UnsignedAssetTransferRequest
+import co.topl.daml.api.model.topl.utils.AssetCode
+import co.topl.daml.assets.processors.AssetMintingRequestProcessor
+import co.topl.daml.assets.processors.AssetTransferRequestProcessor
 import co.topl.daml.assets.processors.UnsignedAssetTransferRequestProcessor
+import co.topl.modifier.box.PolyBox
+import co.topl.modifier.box.SimpleValue
+import co.topl.rpc.ToplRpc
+import co.topl.utils.Int128
+import co.topl.utils.NetworkType
+import com.daml.ledger.api.v1.EventOuterClass.CreatedEvent
+import com.daml.ledger.api.v1.EventOuterClass.Event
+import com.daml.ledger.api.v1.TransactionOuterClass.Transaction
+import com.daml.ledger.javaapi.data
+import com.daml.ledger.javaapi.data.Command
+import munit.CatsEffectSuite
+
+import java.util.Optional
+import java.{util => ju}
 
 trait UnsignedAssetTransferRequestProcessorBaseTest extends BaseTest {
 
@@ -58,14 +60,15 @@ trait UnsignedAssetTransferRequestProcessorBaseTest extends BaseTest {
     Optional.of("1"),
     ju.List.of("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64"),
     ju.List.of(new types.Tuple2("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64", java.lang.Long.valueOf(1L))),
-    "address",
-    new AssetCode(1L, "Wheat"),
+    "AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",
+    new AssetCode(1L, "AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64", "Wheat"),
     5,
     Optional.empty(),
     Optional.empty(),
     1L,
     100L,
-    "NpGKt2zHYNBqeidrSaTvGhtrwUTjqoTXKSpbtD7exMK3EZgZW2dG61sBixZED5fjh5CgAUHpLbpm4hsh4L7Eehf4SY59yU2hXTnXNPWistwCApDppTPqDiNr8RVQK4xy372NnPW8Yy9kJ4ne8GBi5eAJM5TpPn5oxFm7TTH1Wgc3DFvmsSZvjABG1fFTM3yWNSMYytTjhkbKeEb7qKYW6hGcHocDRbAFxtGSF2mHcYQHuP17f9z21b7vxXwQnckEajGF2jkswvrvtYdcEbJXiTAxdYeRFyERwVeKzKbgnM4gsdEecYfAQA4Xqu1jNcdYquuweFBW"
+    """{"txType":"AssetTransfer","timestamp":1670346927771,"signatures":{},"newBoxes":[{"nonce":"-7210283914750651566","id":"8zjzVCNGbHhSC3U2Ptn4ZehF8V9DG8oY5KjZ1LrST1WA","evidence":"TjEmqLT7VnfsbSMTUptWXVTEms2sHfP5bXSZa9iue7Tq","type":"AssetBox","value":{"quantity":"1","assetCode":"6LmEme2MYkNpheCC3hWcNujUygr1aUfmzPH6F4naJDbvG6pfEkmDSarCvT","metadata":null,"type":"Asset","securityRoot":"11111111111111111111111111111111"}}],"data":null,"from":[["AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64","1"]],"minting":false,"txId":"hoFF6oZRx2tgxXu4U5B2y5uLKvPCcKBu8kdm3ZYbzpG4","boxesToRemove":["8UoxAoDY48dbYNBunLSgufEJVvh3rKsN7GZ5PaDx2i19"],"fee":"100","to":[["AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",{"type":"Simple","quantity":"0"}],["AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",{"quantity":"1","assetCode":"6LmEme2MYkNpheCC3hWcNujUygr1aUfmzPH6F4naJDbvG6pfEkmDSarCvT","metadata":null,"type":"Asset","securityRoot":"11111111111111111111111111111111"}]],"propositionType":"PublicKeyCurve25519"}""",
+    "3Ldzd2U4VzQGf8uTAm5dPeycYzUWGjXxFKMvz7euVKMt2iQiSdTXwPJEvkbouzeXYRrkqQBqQTb41uYEyHWptvC4sDYfJAbL2pjmwVMeNkiefEDGxK9nZg4Zkuc3ERgAvLTujtga6esdFwsHzFZyQTC2kdiRS75fUmFD5hZ8g33eH1aayw5yRRmn9Xt3NXzuU18tm5pa4DFEhq9ceEAggfrZaDh4WiZGaqCYFqJWDtzr65dTrBCv1CWqv9KsHDS1SJYVSW4DNf"
   )
 
   def dummyStandardProcessor =

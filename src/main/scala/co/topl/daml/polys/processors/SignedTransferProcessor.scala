@@ -1,5 +1,15 @@
 package co.topl.daml.polys.processors
 
+import java.io.File
+import java.time.Instant
+import java.util.Optional
+import java.util.stream
+
+import scala.concurrent.Await
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.io.Source
+
 import cats.arrow.FunctionK
 import cats.data.EitherT
 import cats.effect.IO
@@ -45,15 +55,6 @@ import io.circe.syntax._
 import org.slf4j.LoggerFactory
 import scodec.bits._
 
-import java.io.File
-import java.time.Instant
-import java.util.Optional
-import java.util.stream
-import scala.concurrent.Await
-import scala.concurrent.Future
-import scala.concurrent.duration._
-import scala.io.Source
-
 /**
  * This processor processes the broadcasting of signed transfer requests.
  *
@@ -85,29 +86,28 @@ class SignedTransferProcessor(
   def handlePendingM(
     signedTransfer:         SignedTransfer,
     signedTransferContract: SignedTransfer.ContractId
-  ): IO[stream.Stream[Command]] =
-    (for {
-      transactionAsBytes <- decodeTransactionM(signedTransfer.signedTx)
-      signedTx           <- parseTxM(transactionAsBytes)
-      success            <- broadcastTransactionM(signedTx)
-    } yield {
-      logger.info("Successfully broadcasted transaction to network.")
-      logger.debug(
-        "Server answer: {}",
-        success.asJson
-      )
-      stream.Stream.of(
-        signedTransferContract
-          .exerciseSignedTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, success.id.toString()))
-      ): stream.Stream[Command]
-    }).timeout(timeoutMillis.millis).handleError { failure =>
-      logger.info("Failed to broadcast transaction to server.")
-      logger.debug("Error: {}", failure)
-      stream.Stream.of(
-        signedTransferContract
-          .exerciseSignedTransfer_Fail("Failed broadcast to server")
-      )
-    }
+  ): IO[stream.Stream[Command]] = (for {
+    transactionAsBytes <- decodeTransactionM(signedTransfer.signedTx)
+    signedTx           <- parseTxM(transactionAsBytes)
+    success            <- broadcastTransactionM(signedTx)
+  } yield {
+    logger.info("Successfully broadcasted transaction to network.")
+    logger.debug(
+      "Server answer: {}",
+      success.asJson
+    )
+    stream.Stream.of(
+      signedTransferContract
+        .exerciseSignedTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, success.id.toString()))
+    ): stream.Stream[Command]
+  }).timeout(timeoutMillis.millis).handleError { failure =>
+    logger.info("Failed to broadcast transaction to server.")
+    logger.debug("Error: {}", failure)
+    stream.Stream.of(
+      signedTransferContract
+        .exerciseSignedTransfer_Fail("Failed broadcast to server")
+    )
+  }
 
   private def handleSentM(
     signedTransfer:         SignedTransfer,
@@ -124,7 +124,7 @@ class SignedTransferProcessor(
             .exerciseSignedTransfer_Confirm(
               new SignedTransfer_Confirm(
                 (signedTransfer.sendStatus.asInstanceOf[Sent]).txId,
-                confirmationDepth
+                confirmationStatus.depthFromHead
               )
             )
         ): stream.Stream[Command]
@@ -133,6 +133,7 @@ class SignedTransferProcessor(
       import scala.concurrent.duration._
       IO.sleep(10.second)
         .flatMap { _ =>
+          logger.info("Transaction id: {}.", sentStatus.txId)
           logger.info("Transaction depth: {}. Retrying.", confirmationStatus.depthFromHead)
           handleSentM(signedTransfer, signedTransferContract, sentStatus)
         }

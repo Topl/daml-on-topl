@@ -5,7 +5,6 @@ import java.util.stream
 import scala.collection.JavaConverters._
 import scala.collection.immutable.ListMap
 import scala.concurrent.Await
-import scala.concurrent.duration._
 
 import cats.data.EitherT
 import cats.data.NonEmptyChain
@@ -53,7 +52,7 @@ import ToplRpc.Transaction.RawAssetTransfer
  * @param callback a function that performs operations before the processing is done. Its result is returned by the processor when there are no errors.
  * @param onError a function executed when there is an error sending the commands to the DAML server. Its result is returned by the processor when there are errors in the DAML.
  */
-class AssetTransferRequestProcessor(
+class AssetTransferRequestEd25519Processor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext,
   timeoutMillis:  Int,
@@ -84,30 +83,26 @@ class AssetTransferRequestProcessor(
     value         <- computeValueM(assetTransferRequest.fee, balance)
     tailList = assetTransferRequest.to.asScala.toList.map(t => (createToParamM(assetTransferRequest) _)(t._1, t._2))
     listOfToAddresses <- (IO((changeAddress, value)) :: tailList).sequence
-    assetTransfer <- createAssetTransferM(
+    assetTransfer <- createAssetEd25519TransferM(
       assetTransferRequest.fee,
       Some(assetTransferRequest.boxNonce),
       address,
       balance,
       listOfToAddresses
-      )
-      encodedTx <- encodeTransferM(assetTransfer)
-      messageToSign <- IO(
-        ByteVector(
-          assetTransfer.messageToSign
-          ).toBase58
-          )
-        } yield {
-          logger.info("Successfully generated raw transaction for contract {}.", assetTransferRequestContract.contractId)
-          import io.circe.syntax._
-          logger.debug("The returned json: {}", assetTransfer.asJson)
-    logger.info(
+    )
+    encodedTx <- encodeTransferEd25519M(assetTransfer)
+    messageToSign <- IO(
+      ByteVector(
+        assetTransfer.messageToSign
+      ).toBase58
+    )
+  } yield {
+    logger.info("Successfully generated raw transaction for contract {}.", assetTransferRequestContract.contractId)
+    import io.circe.syntax._
+    logger.debug("The returned json: {}", assetTransfer.asJson)
+    logger.debug(
       "Encoded transaction: {}",
       encodedTx
-    )
-    logger.info(
-      "Message to sign: {}",
-      messageToSign
     )
 
     stream.Stream.of(
@@ -119,7 +114,7 @@ class AssetTransferRequestProcessor(
     ): stream.Stream[Command]
   }).handleError { failure =>
     logger.info("Failed to obtain raw transaction from server.")
-    logger.info("Error: {}", failure)
+    logger.debug("Error: {}", failure)
 
     stream.Stream.of(
       assetTransferRequestContract
@@ -130,13 +125,12 @@ class AssetTransferRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] =
-    processEventAux(
-      AssetTransferRequest.TEMPLATE_ID,
-      e => AssetTransferRequest.fromValue(e.getArguments()),
-      e => AssetTransferRequest.Contract.fromCreatedEvent(e).id,
-      callback.apply,
-      event
-    )(processTransferRequestM).timeout(timeoutMillis.millis)
+  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
+    AssetTransferRequest.TEMPLATE_ID,
+    e => AssetTransferRequest.fromValue(e.getArguments()),
+    e => AssetTransferRequest.Contract.fromCreatedEvent(e).id,
+    callback.apply,
+    event
+  )(processTransferRequestM)
 
 }

@@ -68,6 +68,10 @@ module Topl.Onboarding where
         where
             signatory operator, user
 
+            key (operator, user): (Party, Party)
+
+            maintainer key._1
+
             nonconsuming choice User_SendPolys : TransferRequestCid
                 with
                     from                 : [Text]

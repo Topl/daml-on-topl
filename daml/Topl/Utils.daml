@@ -23,6 +23,7 @@ data SendStatus = New
 
 data AssetCode =  AssetCode with 
     version : Int
+    issuerAddress: Text
     shortName : Text
   deriving (Eq, Show)
 

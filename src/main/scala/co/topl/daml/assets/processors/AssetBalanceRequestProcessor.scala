@@ -20,6 +20,7 @@ import co.topl.daml.DamlAppContext
 import co.topl.daml.RpcClientFailureException
 import co.topl.daml.ToplContext
 import co.topl.daml.algebras.AssetOperationsAlgebra
+import co.topl.daml.api.model.topl.asset.AssetBalanceRequest
 import co.topl.daml.api.model.topl.asset.AssetTransferRequest
 import co.topl.daml.utf8StringToLatin1ByteArray
 import co.topl.modifier.box.AssetCode
@@ -53,11 +54,11 @@ import ToplRpc.Transaction.RawAssetTransfer
  * @param callback a function that performs operations before the processing is done. Its result is returned by the processor when there are no errors.
  * @param onError a function executed when there is an error sending the commands to the DAML server. Its result is returned by the processor when there are errors in the DAML.
  */
-class AssetTransferRequestProcessor(
+class AssetBalanceRequestProcessor(
   damlAppContext: DamlAppContext,
   toplContext:    ToplContext,
   timeoutMillis:  Int,
-  callback:       java.util.function.BiFunction[AssetTransferRequest, AssetTransferRequest.ContractId, Boolean],
+  callback:       java.util.function.BiFunction[AssetBalanceRequest, AssetBalanceRequest.ContractId, Boolean],
   onError:        java.util.function.Function[Throwable, Boolean]
 ) extends AbstractProcessor(damlAppContext, toplContext, callback, onError)
     with AssetOperationsAlgebra {
@@ -72,71 +73,56 @@ class AssetTransferRequestProcessor(
 
   import toplContext.provider._
 
-  def processTransferRequestM(
-    assetTransferRequest:         AssetTransferRequest,
-    assetTransferRequestContract: AssetTransferRequest.ContractId
+  def processAssetBalanceRequest(
+    assetBalanceRequest:         AssetBalanceRequest,
+    assetBalanceRequestContract: AssetBalanceRequest.ContractId
   ): IO[stream.Stream[Command]] = (for {
-    address       <- decodeAddressesM(assetTransferRequest.from.asScala.toList)
-    changeAddress <- decodeAddressM(assetTransferRequest.changeAddress)
-    params        <- getParamsM(address)
+    address       <- decodeAddressM(assetBalanceRequest.address)
+    issuerAddress <- decodeAddressM(assetBalanceRequest.assetCode.issuerAddress)
+    params        <- getParamsM(Seq(address))
     balance       <- getBalanceM(params)
-    toAddress     <- decodeAddressM(assetTransferRequest.to.get(0)._1)
-    value         <- computeValueM(assetTransferRequest.fee, balance)
-    tailList = assetTransferRequest.to.asScala.toList.map(t => (createToParamM(assetTransferRequest) _)(t._1, t._2))
-    listOfToAddresses <- (IO((changeAddress, value)) :: tailList).sequence
-    assetTransfer <- createAssetTransferM(
-      assetTransferRequest.fee,
-      Some(assetTransferRequest.boxNonce),
-      address,
-      balance,
-      listOfToAddresses
-      )
-      encodedTx <- encodeTransferM(assetTransfer)
-      messageToSign <- IO(
-        ByteVector(
-          assetTransfer.messageToSign
-          ).toBase58
-          )
-        } yield {
-          logger.info("Successfully generated raw transaction for contract {}.", assetTransferRequestContract.contractId)
-          import io.circe.syntax._
-          logger.debug("The returned json: {}", assetTransfer.asJson)
-    logger.info(
-      "Encoded transaction: {}",
-      encodedTx
-    )
-    logger.info(
-      "Message to sign: {}",
-      messageToSign
-    )
+  } yield {
+    import io.circe.syntax._
 
     stream.Stream.of(
-      assetTransferRequestContract.exerciseAssetTransferRequest_Accept(
-        encodedTx,
-        messageToSign,
-        assetTransfer.newBoxes.toList.reverse.head.nonce
+      assetBalanceRequestContract.exerciseAssetBalanceRequest_Accept(
+        balance
+          .get(address)
+          .map(
+            _.Boxes.AssetBox
+              .filter({ x =>
+                val genAssetCode = AssetCode(
+                  1,
+                  issuerAddress,
+                  Latin1Data.fromData(utf8StringToLatin1ByteArray(assetBalanceRequest.assetCode.shortName))
+                )
+                x.value.assetCode == genAssetCode
+              })
+              .map(_.value.quantity)
+              .fold(Int128(0))(_ + _)
+          )
+          .getOrElse(Int128(0))
+          .longValue()
       )
     ): stream.Stream[Command]
-  }).handleError { failure =>
-    logger.info("Failed to obtain raw transaction from server.")
-    logger.info("Error: {}", failure)
+  }).timeout(timeoutMillis.millis).handleError { failure =>
+    logger.info("Failed to obtain balance from from server.")
+    logger.debug("Error: {}", failure)
 
     stream.Stream.of(
-      assetTransferRequestContract
-        .exerciseAssetTransferRequest_Reject()
+      assetBalanceRequestContract.exerciseAssetBalanceRequest_Reject()
     )
   }
 
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] =
-    processEventAux(
-      AssetTransferRequest.TEMPLATE_ID,
-      e => AssetTransferRequest.fromValue(e.getArguments()),
-      e => AssetTransferRequest.Contract.fromCreatedEvent(e).id,
-      callback.apply,
-      event
-    )(processTransferRequestM).timeout(timeoutMillis.millis)
+  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
+    AssetBalanceRequest.TEMPLATE_ID,
+    e => AssetBalanceRequest.fromValue(e.getArguments()),
+    e => AssetBalanceRequest.Contract.fromCreatedEvent(e).id,
+    callback.apply,
+    event
+  )(processAssetBalanceRequest)
 
 }

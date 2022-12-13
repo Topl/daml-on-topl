@@ -1,5 +1,11 @@
 package co.topl.daml.algebras
 
+import java.io.File
+
+import scala.collection.immutable.ListMap
+import scala.concurrent.ExecutionContext
+import scala.io.Source
+
 import akka.actor.ActorSystem
 import cats.effect.IO
 import cats.syntax.traverse._
@@ -35,11 +41,6 @@ import co.topl.utils.StringDataTypes
 import co.topl.utils.StringDataTypes.Base58Data
 import io.circe.Json
 import scodec.bits.ByteVector
-
-import java.io.File
-import scala.collection.immutable.ListMap
-import scala.concurrent.ExecutionContext
-import scala.io.Source
 
 trait CommonBlockchainOpsAlgebraImpl extends CommonBlockchainOpsAlgebra[IO] {
 
@@ -92,7 +93,7 @@ trait CommonBlockchainOpsAlgebraImpl extends CommonBlockchainOpsAlgebra[IO] {
     balance: ToplRpc.NodeView.Balances.Response
   ): IO[TokenValueHolder] = IO(
     SimpleValue(
-      balance.values.map(_.Boxes.PolyBox.head.value.quantity).head - Int128(fee)
+      balance.values.map(_.Boxes.PolyBox.map(_.value.quantity).fold(Int128(0))(_ + _)).head - Int128(fee)
     )
   )
 
@@ -113,12 +114,7 @@ trait CommonBlockchainOpsAlgebraImpl extends CommonBlockchainOpsAlgebra[IO] {
     Base58Data.unsafe(address).decodeAddress.getOrThrow()
   )
 
-  def decodeTransactionM(tx: String) = IO(
-    ByteVector
-      .fromBase58(tx)
-      .map(_.toArray)
-      .getOrElse(throw new IllegalArgumentException())
-  )
+  def decodeTransactionM(tx: String) = IO(tx.getBytes())
 
   def createLatinDataM(data: String) = IO(
     StringDataTypes.Latin1Data.fromData(

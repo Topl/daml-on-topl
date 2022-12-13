@@ -1,5 +1,13 @@
 package co.topl.daml.algebras
 
+import java.io.File
+
+import scala.collection.JavaConverters._
+import scala.collection.immutable.ListMap
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.io.Source
+
 import cats.arrow.FunctionK
 import cats.data.EitherT
 import cats.data.NonEmptyChain
@@ -35,20 +43,17 @@ import co.topl.utils.StringDataTypes.Base58Data
 import io.circe.Json
 import scodec.bits.ByteVector
 
-import java.io.File
-import scala.collection.JavaConverters._
-import scala.collection.immutable.ListMap
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import scala.io.Source
-
 trait PolySpecificOperationsAlgebra
     extends AssetSpecificOperationsAlgebra[PolyTransfer, IO]
     with CommonBlockchainOpsAlgebraImpl {
 
   import toplContext.provider._
 
-  def parseTxM(msg2Sign: Array[Byte]) = IO.fromTry(PolyTransferSerializer.parseBytes(msg2Sign))
+  def parseTxM(msg2Sign: Array[Byte]) = IO.fromEither {
+    import io.circe.parser._
+    import co.topl.modifier.transaction.PolyTransfer.jsonDecoder
+    parse(new String(msg2Sign)).flatMap(jsonDecoder.decodeJson)
+  }
 
   def signTxM(rawTx: PolyTransfer[_ <: Proposition]) = IO {
     val signFunc = (addr: Address) => keyRing.generateAttestation(addr)(rawTx.messageToSign)
@@ -74,14 +79,25 @@ trait PolySpecificOperationsAlgebra
     broadcast <- IO.fromEither(eitherBroadcast)
   } yield broadcast
 
-  def deserializeTransactionM(transactionAsBytes: Array[Byte]): IO[PolyTransfer[_ <: Proposition]] = IO.fromTry(
-    PolyTransferSerializer
-      .parseBytes(transactionAsBytes)
-  )
+  def deserializeTransactionM(transactionAsBytes: Array[Byte]): IO[PolyTransfer[_ <: Proposition]] = IO.fromEither {
+    import io.circe.parser._
+    import co.topl.modifier.transaction.PolyTransfer.jsonDecoder
+    parse(new String(transactionAsBytes)).flatMap(jsonDecoder.decodeJson)
+  }
 
-  def encodeTransferM(assetTransfer: PolyTransfer[PublicKeyPropositionCurve25519]): IO[String] = IO(
-    ByteVector(PolyTransferSerializer.toBytes(assetTransfer)).toBase58
-  )
+  def encodeTransferEd25519M(assetTransfer: PolyTransfer[PublicKeyPropositionEd25519]): IO[String] = for {
+    transferRequest <- IO {
+      import io.circe.syntax._
+      assetTransfer.asJson.noSpaces
+    }
+  } yield transferRequest
+
+  def encodeTransferM(assetTransfer: PolyTransfer[PublicKeyPropositionCurve25519]): IO[String] = for {
+    transferRequest <- IO {
+      import io.circe.syntax._
+      assetTransfer.asJson.noSpaces
+    }
+  } yield transferRequest
 
   def createParamsM(transferRequest: TransferRequest): IO[RawPolyTransfer.Params] =
     IO(

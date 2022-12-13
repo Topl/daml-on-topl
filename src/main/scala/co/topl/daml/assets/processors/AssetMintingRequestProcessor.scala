@@ -1,5 +1,13 @@
 package co.topl.daml.assets.processors
 
+import java.util.concurrent.TimeoutException
+import java.util.stream
+
+import scala.collection.JavaConverters._
+import scala.collection.immutable.ListMap
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 import cats.data.EitherT
 import cats.data.NonEmptyChain
 import cats.effect.IO
@@ -33,13 +41,6 @@ import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
 import org.slf4j.LoggerFactory
 import scodec.bits.ByteVector
-
-import java.util.concurrent.TimeoutException
-import java.util.stream
-import scala.collection.JavaConverters._
-import scala.collection.immutable.ListMap
-import scala.concurrent.Await
-import scala.concurrent.duration._
 
 import ToplRpc.Transaction.RawAssetTransfer
 
@@ -76,13 +77,14 @@ class AssetMintingRequestProcessor(
     mintingRequestContract: AssetMintingRequest.ContractId
   ) =
     (for {
-      address   <- decodeAddressesM(assetMintingRequest.from.asScala.toList)
-      params    <- getParamsM(address)
-      balance   <- getBalanceM(params)
-      toAddress <- decodeAddressM(assetMintingRequest.to.get(0)._1)
-      value     <- computeValueM(assetMintingRequest.fee, balance)
+      address       <- decodeAddressesM(assetMintingRequest.from.asScala.toList)
+      changeAddress <- decodeAddressM(assetMintingRequest.changeAddress)
+      params        <- getParamsM(address)
+      balance       <- getBalanceM(params)
+      toAddress     <- decodeAddressM(assetMintingRequest.to.get(0)._1)
+      value         <- computeValueM(assetMintingRequest.fee, balance)
       tailList = assetMintingRequest.to.asScala.toList.map(t => (createToParamM(assetMintingRequest) _)(t._1, t._2))
-      listOfToAddresses <- (IO((toAddress, value)) :: tailList).sequence
+      listOfToAddresses <- (IO((changeAddress, value)) :: tailList).sequence
       assetTransfer <- createAssetTransferM(
         assetMintingRequest.fee,
         None,
@@ -95,9 +97,9 @@ class AssetMintingRequestProcessor(
       logger.info("Successfully generated raw transaction for contract {}.", mintingRequestContract)
       import io.circe.syntax._
       logger.info("The returned json: {}", assetTransfer.asJson)
-      logger.debug(
+      logger.info(
         "Encoded transaction: {}",
-        assetTransfer
+        encodedTx
       )
 
       stream.Stream.of(

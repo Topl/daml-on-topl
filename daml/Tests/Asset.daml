@@ -101,6 +101,7 @@ module Tests.Asset where
         unsignedAssetTransferCid <- submit operator do
             exerciseCmd assetTransferRequestCid AssetTransferRequest_Accept with
                 txToSign = "ZZZZ"
+                msgToSign = "AAAA"
                 newBoxNonce = 1234
         signedAssetTransferCreated <- submit operator do
             exerciseCmd unsignedAssetTransferCid UnsignedAssetTransfer_Sign with

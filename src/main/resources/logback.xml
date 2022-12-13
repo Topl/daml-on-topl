@@ -13,5 +13,6 @@
     </root>
 
     <logger level="DEBUG" name="co.topl.daml.assets.processors" />
+    <logger level="DEBUG" name="co.topl.daml.polys.processors" />
 
 </configuration>
