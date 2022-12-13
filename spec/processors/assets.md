@@ -6,13 +6,13 @@ Asset processors handle and process contracts related with the minting and trans
 
 This processor processes the minting requests. It reacts to the creation of the `AssetMintingRequest` contract in the DAML participant node. If the creation of a transaction succeeds it exercises the `MintingRequest_Accept` choice on the `AssetMintingRequest` contract. If the processor does not succeed in the creation of the transaction it exercises the `TransferRequest_Reject` choice.
 
-The transaction is serialized and then encoded in Base58 before being passed to the `MintingRequest_Accept` choice. Also, this processor computes the new box nonce where the asset to be minted is stored.
+The transaction is serialized and then encoded in JSON before being passed to the `MintingRequest_Accept` choice. Also, this processor computes the new box nonce where the asset to be minted is stored.
 
 #### `AssetTransferRequestProcessor`
 
 This processor processes the transfer requests. It reacts to the creation of the `AssetTransferRequest` contract in the DAML participant node. If the creation of a transaction succeeds it exercises the `AssetTransferRequest_Accept` choice on the `AssetTransferRequest` contract.  If the processor does not succeed in the creation of the transaction it exercises the `TransferRequest_Reject` choice.
 
-The transaction is serialized and then encoded in Base58 before being passed to the `AssetTransferRequest_Accept` choice. Also, this processor computes the new box nonce where the asset to be transferred is stored.
+The transaction is serialized and then encoded in JSON before being passed to the `AssetTransferRequest_Accept` choice. Also, this processor computes the new box nonce where the asset to be transferred is stored.
 
 #### `SignedAssetTransferRequestProcessor`
 
@@ -42,10 +42,10 @@ Errors during the broadcast exercise the `SignedAssetMinting_Fail` choice.
 
 This processor processes the unsigned transfer requests. It reacts to the creation of the `UnsignedAssetTransferRequest` contract. It takes the transaction created and serialized by the `AssetTransferRequestProcessor` , signs it and exercises `UnsignedAssetTransfer_Sign` choice on the contract, which creates `SignedAssetTransfer`.
 
-The signed transaction is serialized and encoded in Base58 to be passed to the  `UnsignedAssetTransfer_Sign` choice.
+The signed transaction is serialized and encoded in JSON to be passed to the  `UnsignedAssetTransfer_Sign` choice.
 
 #### `UnsignedMintingRequestProcessor`
 
 This processor processes the unsigned minting requests. It reacts to the creation of the `UnsignedAssetMinting` contract. It takes the transaction created and serialized by the `AssetTransferRequestProcessor` , signs it and exercises `UnsignedMinting_Sign` choice on the contract, which creates `SignedAssetMinting`.
 
-The signed transaction is serialized and encoded in Base58 to be passed to the  `UnsignedMinting_Sign` choice.
+The signed transaction is serialized and encoded in JSON to be passed to the  `UnsignedMinting_Sign` choice.

@@ -12,11 +12,11 @@ If the `SignedTransfer` is in `Sent` state, the processor verifies its depth unt
 
 This processor processes the transfer requests. It reacts to the creation of the `TransferRequest` contract in the DAML participant node. If the creation of a transaction succeeds it exercises the `TransferRequest_Accept` choice on the `TransferRequest` contract.  If the processor does not succeed in the creation of the transaction it exercises the `TransferRequest_Reject` choice.
 
-The transaction is serialized and then encoded in Base58 before being passed to the `TransferRequest_Accept` choice. 
+The transaction is serialized and then encoded in JSON before being passed to the `TransferRequest_Accept` choice. 
 
 #### `UnsignedTransferProcessor`
 
 This processor processes the unsigned transfer requests. It reacts to the creation of the `UnsignedTransfer` contract. It takes the transaction created and serialized by the `TransferRequestProcessor` , signs it and exercises `UnsignedAssetTransfer_Sign` choice on the contract, which creates `SignedTransfer`.
 
-The signed transaction is serialized and encoded in Base58 to be passed to the  `UnsignedAssetTransfer_Sign` choice.
+The signed transaction is serialized and encoded in JSON to be passed to the  `UnsignedAssetTransfer_Sign` choice.
 
