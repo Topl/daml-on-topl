@@ -1,5 +1,11 @@
 package co.topl.daml.assets.processors
 
+import java.io.File
+import java.util.stream
+
+import scala.concurrent.Future
+import scala.io.Source
+
 import cats.data.EitherT
 import cats.effect.IO
 import co.topl.akkahttprpc.InvalidParametersError
@@ -26,11 +32,6 @@ import io.circe.DecodingFailure
 import io.circe.parser.parse
 import org.slf4j.LoggerFactory
 import scodec.bits._
-
-import java.io.File
-import java.util.stream
-import scala.concurrent.Future
-import scala.io.Source
 
 /**
  * This processor processes the signing of transfer requests.

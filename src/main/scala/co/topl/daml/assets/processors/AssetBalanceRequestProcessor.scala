@@ -1,20 +1,36 @@
 package co.topl.daml.assets.processors
 
+import java.util.stream
+
+import scala.collection.JavaConverters._
+import scala.collection.immutable.ListMap
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 import cats.data.EitherT
 import cats.data.NonEmptyChain
+import cats.effect.IO
+import cats.syntax.traverse._
 import co.topl.akkahttprpc.implicits.client.rpcToClient
 import co.topl.attestation.AddressCodec.implicits._
 import co.topl.attestation.PublicKeyPropositionEd25519._
 import co.topl.attestation._
 import co.topl.daml.AbstractProcessor
 import co.topl.daml.DamlAppContext
+import co.topl.daml.RpcClientFailureException
 import co.topl.daml.ToplContext
+import co.topl.daml.algebras.AssetOperationsAlgebra
+import co.topl.daml.api.model.topl.asset.AssetBalanceRequest
+import co.topl.daml.api.model.topl.asset.AssetTransferRequest
 import co.topl.daml.utf8StringToLatin1ByteArray
 import co.topl.modifier.box.AssetCode
 import co.topl.modifier.box.AssetValue
 import co.topl.modifier.box.SecurityRoot
+import co.topl.modifier.box.SimpleValue
+import co.topl.modifier.box.TokenValueHolder
 import co.topl.modifier.transaction.AssetTransfer
 import co.topl.modifier.transaction.builder.BoxSelectionAlgorithms
+import co.topl.modifier.transaction.serialization.AssetTransferSerializer
 import co.topl.rpc.ToplRpc
 import co.topl.rpc.implicits.client._
 import co.topl.utils.IdiomaticScalaTransition.implicits.toValidatedOps
@@ -27,24 +43,7 @@ import com.daml.ledger.javaapi.data.CreatedEvent
 import org.slf4j.LoggerFactory
 import scodec.bits.ByteVector
 
-import java.util.stream
-import scala.collection.JavaConverters._
-import scala.collection.immutable.ListMap
-import scala.concurrent.Await
-
 import ToplRpc.Transaction.RawAssetTransfer
-import co.topl.modifier.transaction.serialization.AssetTransferSerializer
-import co.topl.modifier.box.SimpleValue
-import co.topl.daml.api.model.topl.asset.AssetTransferRequest
-import cats.effect.IO
-import cats.syntax.traverse._
-
-import co.topl.daml.RpcClientFailureException
-import co.topl.modifier.box.TokenValueHolder
-import co.topl.daml.algebras.AssetOperationsAlgebra
-import co.topl.daml.api.model.topl.asset.AssetBalanceRequest
-import co.topl.daml.utf8StringToLatin1ByteArray
-import scala.concurrent.duration._
 
 /**
  * This processor processes the transfer requests.
