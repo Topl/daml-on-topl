@@ -12,6 +12,7 @@ jobs:
       - name: Download and install
         run: |
                 wget https://github.com/digital-asset/daml/releases/download/v2.3.2/daml-sdk-2.3.2-linux.tar.gz
+                tar xzf daml-sdk-2.3.2-linux.tar.gz
                 cd sdk-2.3.2
                 ./install.sh
       - name: Generate Java code
