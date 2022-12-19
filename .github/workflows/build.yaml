@@ -15,7 +15,10 @@ jobs:
                 tar xzf daml-sdk-2.3.2-linux.tar.gz
                 cd sdk-2.3.2
                 ./install.sh
+                echo "/home/runner/.daml/bin" >> $GITHUB_PATH
       - name: Generate Java code
-        run: daml codegen java
+        run: |
+                daml build
+                daml codegen java
       - name: Run tests and publish locally
         run: maven clean install
