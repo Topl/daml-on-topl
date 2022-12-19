@@ -1,0 +1,17 @@
+name: build
+
+on : [push, pull_request]
+
+jobs:
+  build:
+    name: Build library
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install daml
+        run: curl -sSL https://get.daml.com/ | sh
+      - name: Generate Java Code
+        run: daml codegen java
+      - name: Run and
+        run: maven clean install
