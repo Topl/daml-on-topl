@@ -26,4 +26,4 @@ jobs:
                 daml build
                 daml codegen java
       - name: Run tests and publish locally
-        run: mvn --batch-mode clean install
+        run: mvn --batch-mode install
