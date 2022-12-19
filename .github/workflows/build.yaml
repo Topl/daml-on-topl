@@ -9,11 +9,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Download SDK daml
-        run: wget https://github.com/digital-asset/daml/releases/download/v2.3.2/daml-sdk-2.3.2-linux.tar.gz
-      - name: Install SDK
-        run: cd sdk-2.3.2 && ./install.sh
-      - name: Generate Java Code
+      - name: Download and install
+        run: |
+                wget https://github.com/digital-asset/daml/releases/download/v2.3.2/daml-sdk-2.3.2-linux.tar.gz
+                cd sdk-2.3.2
+                ./install.sh
+      - name: Generate Java code
         run: daml codegen java
-      - name: Run and
+      - name: Run tests and publish locally
         run: maven clean install
