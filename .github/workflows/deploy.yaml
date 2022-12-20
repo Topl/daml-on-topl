@@ -32,7 +32,8 @@ jobs:
       - if: github.event.release
         name: Update version in pom.xml (Release only)
         run: mvn -B versions:set -DnewVersion=${{ github.event.release.tag_name }} -DgenerateBackupPoms=false
-      - name: Deploy
+      - if: github.event.release
+        name: Deploy (release only)
         run: mvn -B clean deploy -Pci-cd
         env:
           MAVEN_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
