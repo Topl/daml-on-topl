@@ -2,7 +2,7 @@ name: deploy
 
 on:
   release:
-    types: [released]
+    types: [created]
 
 jobs:
   build:
@@ -29,6 +29,9 @@ jobs:
         run: |
                 daml build
                 daml codegen java
+      - if: github.event.release
+        name: Update version in pom.xml (Release only)
+        run: mvn -B versions:set -DnewVersion=${{ github.event.release.tag_name }} -DgenerateBackupPoms=false
       - name: Deploy
         run: mvn -B clean deploy -Pci-cd
         env:
