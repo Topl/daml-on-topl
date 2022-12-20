@@ -1,6 +1,6 @@
-# daml-topl-lib-java
+# daml-bifrost-module
 
-daml-topl-lib is a set of [DAML Modules](https://www.digitalasset.com/developers) for interfacing with the Topl blockchain and the DAML ledger. It includes a reference application. The App is implemented in Java using DAML's Java bindings for interaction with the DAML ledger, and brambl for using bifrost gRPC API. The code, design and documentation of this library is heavily inspired by [Hemera](https://github.com/liakakos/hemera), a DAML Library for Ethereum integration.
+daml-bifrost-module is a set of [DAML Modules](https://www.digitalasset.com/developers) for interfacing with the Topl blockchain and the DAML ledger. It includes a reference application. The App is implemented in Java using DAML's Java bindings for interaction with the DAML ledger, and brambl for using bifrost gRPC API. The code, design and documentation of this library is heavily inspired by [Hemera](https://github.com/liakakos/hemera), a DAML Library for Ethereum integration.
 
 ## The DAML Topl Library
 
@@ -25,7 +25,7 @@ If the user wants to send polys to an address they use the Transfer module. The 
 
 ### 1. Environment
 
-To run the daml-topl-lib, the DAML SDK (version >  2.3.2) must be installed on your system. The Java app is a mixed Java and Scala project, that uses Maven as the build tool. You need Maven installed to compile and execute the various targets.
+To run the daml-bifrost-module, the DAML SDK (version >  2.3.2) must be installed on your system. The Java app is a mixed Java and Scala project, that uses Maven as the build tool. You need Maven installed to compile and execute the various targets.
 
 ### 2. Compile
 
