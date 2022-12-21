@@ -29,9 +29,11 @@ jobs:
         run: |
                 daml build
                 daml codegen java
+      - name: Set env
+        run: echo "VERSION=$(echo ${{ github.event.release.tag_name }} | cut -c 2-)" >> $GITHUB_ENV
       - if: github.event.release
         name: Update version in pom.xml (Release only)
-        run: mvn -B versions:set -DnewVersion=${{ github.event.release.tag_name }} -DgenerateBackupPoms=false
+        run: mvn -B versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
       - if: github.event.release
         name: Deploy (release only)
         run: mvn -B clean deploy -Pci-cd
