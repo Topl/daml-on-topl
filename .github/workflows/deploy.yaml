@@ -16,8 +16,8 @@ jobs:
         with:
           java-version: '11'
           distribution: 'adopt'
-        gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}  
-        gpg-passphrase: MAVEN_GPG_PASSPHRASE
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}  
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
       - name: Download and install
         run: |
                 wget https://github.com/digital-asset/daml/releases/download/v2.3.2/daml-sdk-2.3.2-linux.tar.gz
