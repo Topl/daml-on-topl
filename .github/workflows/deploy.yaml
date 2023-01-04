@@ -16,8 +16,11 @@ jobs:
         with:
           java-version: '11'
           distribution: 'adopt'
-        gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}  
-        gpg-passphrase: MAVEN_GPG_PASSPHRASE
+          gpg-private-key: ${{ secrets.PGP_SECRET }}  
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+          server-id: ossrh
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
       - name: Download and install
         run: |
                 wget https://github.com/digital-asset/daml/releases/download/v2.3.2/daml-sdk-2.3.2-linux.tar.gz
@@ -35,9 +38,18 @@ jobs:
         name: Update version in pom.xml (Release only)
         run: mvn -B versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
       - if: github.event.release
+        name: Upload DAR file to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: .daml/dist/daml-bifrost-module-*.dar
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true
+      - if: github.event.release
         name: Deploy (release only)
-        run: mvn -B clean deploy -Pci-cd
+        run: mvn -B deploy  -DskipTests -Pci-cd -Dgpg.passphrase=${{ secrets.PGP_PASSPHRASE }}
         env:
           MAVEN_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }} 
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}      
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}

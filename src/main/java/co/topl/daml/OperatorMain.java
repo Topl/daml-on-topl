@@ -34,14 +34,12 @@ public class OperatorMain {
 	private static final Logger logger = LoggerFactory.getLogger(OperatorMain.class);
 
 	public static void main(String[] args) {
-		if (args.length < 4) {
-			System.err.println("Usage: HOST PORT PROJECTID APIKEY");
+		if (args.length < 2) {
+			System.err.println("Usage: HOST PORT");
 			System.exit(-1);
 		}
 		String host = args[0];
 		int port = Integer.parseInt(args[1]);
-		String projectId = args[2];
-		String apiKey = args[3];
 		DamlLedgerClient client = DamlLedgerClient.newBuilder(host, port).build();
 		client.connect();
 		UserManagementClient userManagementClient = client.getUserManagementClient();

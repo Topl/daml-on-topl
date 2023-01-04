@@ -9,7 +9,9 @@
     <artifactId>daml-bifrost-module</artifactId>
     <packaging>jar</packaging>
     <version>0.1.0-SNAPSHOT</version>
-
+    <name>DAML Bifrost Module</name>
+    <description>daml-bifrost-module is a set of DAML Modules for interfacing with the Topl blockchain and the DAML ledger. It includes a reference application. The App is implemented in Java using DAML's Java bindings for interaction with the DAML ledger, and brambl for using bifrost gRPC API. The code, design and documentation of this library is heavily inspired by Hemera, a DAML Library for Ethereum integration.</description>
+    <url>https://github.com/Topl/daml-bifrost-module</url>
     <licenses>
         <license>
             <name>MPL2.0</name>
@@ -35,7 +37,7 @@
         </snapshotRepository>
         <repository>
             <id>ossrh</id>
-            <url>https://s01.lsoss.sonatype.org/service/local/staging/deploy/maven2</url>
+            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2</url>
         </repository>
     </distributionManagement>
     <scm>
@@ -53,8 +55,6 @@
         <party>Alice</party>
         <keyfilename>keyfile.json</keyfilename>
         <keyfilepassword>${env.KEY_PASSWORD}</keyfilepassword>
-        <topl.projectid>${env.TOPL_PROJECT_ID}</topl.projectid>
-        <topl.apikey>${env.TOPL_API_KEY}</topl.apikey>
         <restport>8080</restport>
     </properties>
 
@@ -132,6 +132,23 @@
                     <groupId>net.alchim31.maven</groupId>
                     <artifactId>scala-maven-plugin</artifactId>
                     <version>4.7.1</version>
+                    <executions>
+                        <execution>
+                            <id>scala-compile-first</id>
+                            <phase>process-resources</phase>
+                            <goals>
+                                <goal>add-source</goal>
+                                <goal>doc-jar</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>attach-javadocs</id>
+                            <goals>
+                              <goal>add-source</goal>
+                              <goal>doc-jar</goal>
+                            </goals>
+                          </execution>
+                    </executions>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -253,19 +270,6 @@
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-javadoc-plugin</artifactId>
-                        <version>3.2.0</version>
-                        <executions>
-                            <execution>
-                                <id>attach-javadocs</id>
-                                <goals>
-                                    <goal>jar</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
                         <version>1.6</version>
                         <executions>
@@ -311,8 +315,6 @@
                             <arguments>
                                 <argument>${ledgerhost}</argument>
                                 <argument>${ledgerport}</argument>
-                                <argument>${topl.projectid}</argument>
-                                <argument>${topl.apikey}</argument>
                             </arguments>
                         </configuration>
                         <executions>

@@ -1,8 +1,8 @@
 sdk-version: 2.3.2
-name: topl-daml-api
+name: daml-bifrost-module
 source: daml
 init-script: Main:initialize
-version: 0.0.1
+version: 0.1.0
 dependencies:
   - daml-prim
   - daml-stdlib
@@ -13,5 +13,5 @@ codegen:
     output-directory: target/generated-sources/topl
     decoderClass: co.topl.daml.api.TemplateDecoder
   js:
-    output-directory: ui/daml.js/topl-daml-api-0.1.0
+    output-directory: ui/daml.js/daml-bifrost-module-0.1.0
     npm-scope: daml.js

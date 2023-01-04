@@ -35,7 +35,7 @@ public class AliceMain {
 
 	public static void main(String[] args) {
 		if (args.length < MIN_ARG_COUNT) {
-			System.err.println("Usage: HOST PORT PROJECTID APIKEY KEYFILENAME KEYFILEPASSWORD");
+			System.err.println("Usage: HOST PORT KEYFILENAME KEYFILEPASSWORD");
 			System.exit(-1);
 		}
 		String host = args[0];
