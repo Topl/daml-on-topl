@@ -38,9 +38,18 @@ jobs:
         name: Update version in pom.xml (Release only)
         run: mvn -B versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
       - if: github.event.release
+        name: Upload DAR file to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: .daml/dist/daml-bifrost-module-*.dar
+          asset_name: daml-bifrost-module.dar
+          tag: ${{ github.ref }}
+          overwrite: true
+      - if: github.event.release
         name: Deploy (release only)
         run: mvn -B deploy  -DskipTests -Pci-cd -Dgpg.passphrase=${{ secrets.PGP_PASSPHRASE }}
         env:
           MAVEN_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }} 
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}      
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
