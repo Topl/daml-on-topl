@@ -46,6 +46,7 @@ jobs:
           asset_name: daml-bifrost-module.dar
           tag: ${{ github.ref }}
           overwrite: true
+          file_glob: true
       - if: github.event.release
         name: Deploy (release only)
         run: mvn -B deploy  -DskipTests -Pci-cd -Dgpg.passphrase=${{ secrets.PGP_PASSPHRASE }}
