@@ -48,7 +48,7 @@ jobs:
           file_glob: true
       - if: github.event.release
         name: Deploy (release only)
-        run: mvn -B deploy  -DskipTests -Pci-cd -Dgpg.passphrase=${{ secrets.PGP_PASSPHRASE }}
+        run: mvn -B deploy -Pci-cd -Dgpg.passphrase=${{ secrets.PGP_PASSPHRASE }}
         env:
           MAVEN_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }} 
