@@ -55,8 +55,6 @@
         <party>Alice</party>
         <keyfilename>keyfile.json</keyfilename>
         <keyfilepassword>${env.KEY_PASSWORD}</keyfilepassword>
-        <topl.projectid>${env.TOPL_PROJECT_ID}</topl.projectid>
-        <topl.apikey>${env.TOPL_API_KEY}</topl.apikey>
         <restport>8080</restport>
     </properties>
 
@@ -317,8 +315,6 @@
                             <arguments>
                                 <argument>${ledgerhost}</argument>
                                 <argument>${ledgerport}</argument>
-                                <argument>${topl.projectid}</argument>
-                                <argument>${topl.apikey}</argument>
                             </arguments>
                         </configuration>
                         <executions>
