@@ -1,0 +1,404 @@
+-- A DAML File implementing ERC20
+
+module Standard.ERC20 where
+
+import DA.Text qualified as T
+import DA.Map qualified as M
+import Topl.Asset
+import Topl.Utils
+import DA.Optional
+
+-- We define a contract as response type for the BalanceOf choice (BalanceOf_Response).
+-- The signatory  is the issuer of the token and the requestor.
+-- It has a choice that allows the requestor to archive the contract (BalanceOf_Response_Archive).
+-- It has a choice that allows the issuer to archive the contract.
+-- It has the following parameters:
+-- - The requestor, a Party
+-- - The operator, a Party
+-- - The balance, an integer
+-- - The token symbol, a string
+template BalanceOf_Response
+  with
+    requestor : Party
+    operator : Party
+    address: Text
+    balance : Int
+    symbol : Text
+  where
+    signatory operator, requestor
+
+    -- We define a choice that allows the requestor to archive the contract
+    choice BalanceOf_Response_Archive_Requestor : ()
+      controller requestor
+      do
+        return ()
+
+    -- We define a choice that allows the operator to archive the contract
+    choice BalanceOf_Response_Archive_Operator : ()
+      controller operator
+      do
+        return ()
+
+-- We define a contract as response type for the AllowanceOf choice (AllowanceOf_Response).
+-- The signatory is the issuer of the token and the requestor.
+-- It has the same choices as BalanceOf_Response.
+-- It has the same parameters as BalanceOf_Response.
+template AllowanceOf_Response
+  with
+    requestor : Party
+    operator : Party
+    allowance : Int
+    symbol : Text
+  where
+    signatory operator, requestor
+
+    -- We define a choice that allows the requestor to archive the contract
+    choice AllowanceOf_Response_Archive_Requestor : ()
+      controller requestor
+      do
+        return ()
+
+    -- We define a choice that allows the operator to archive the contract
+    choice AllowanceOf_Response_Archive_Operator : ()
+      controller operator
+      do
+        return ()
+
+
+-- We define a contract as response type for the TotalSuply choice (TotalSuply_Response).
+template TotalSuply_Response
+  with
+    requestor : Party
+    issuer : Party
+    totalSupply : Int
+    symbol : Text
+  where
+    signatory issuer, requestor
+
+    -- We define a choice that allows the requestor to archive the contract
+    choice TotalSuply_Response_Archive_Requestor : ()
+      controller requestor
+      do
+        return ()
+
+    -- We define a choice that allows the issuer to archive the contract
+    choice TotalSuply_Response_Archive_Issuer : ()
+      controller issuer
+      do
+        return ()
+
+
+-- We define a contract that is the root of our ERC20 implementation
+-- in includes a parameter for the following fields
+-- - The issuer of the token, a Party
+-- - The issuer address, a string
+-- - The public party, a Party
+-- - The name of the token (e.g. "Ethereum"), an optional string of maximum 32 characters
+-- - The symbol for the token (e.g. "ETH")
+-- - The total supply of the token, an integer
+template ERC20
+  with
+    issuer : Party
+    operator : Party
+    operatorAddress : Text
+    public : Party
+    name : Optional Text
+    symbol : Text
+    totalSupply : Int
+  where
+    -- the operator is a signatory so that you cannot
+    -- create an ERC20 contract without the operator's approval
+    signatory issuer, operator
+
+    observer public
+    -- define an index by symbol
+    key (issuer, symbol): (Party, Text)
+
+    maintainer key._1
+
+    ensure
+      totalSupply > 0 && -- validate the total supply
+      T.length symbol > 0 -- validate the symbol
+
+    -- We define a choice that allows to check the balance of an account by address
+    nonconsuming choice ERC20_BalanceOf : ContractId BalanceOf_Response
+      with
+        requestor : Party
+        address : Text
+      controller requestor
+      do
+        -- We use the `fetchByKey` function to get the account by address
+        someAccountCid <- lookupByKey @Account (operator, address)
+        case someAccountCid of
+          None -> do
+            -- if the account does not exist, we create it
+            create BalanceOf_Response with
+                  balance = 0
+                  ..
+          Some accountCid -> do
+            -- if the account exists, we exercise the choice Account_BalanceOf
+            exercise accountCid Account_BalanceOf with ..
+
+    -- We define a choice that allows to check the total supply of the token
+    nonconsuming choice ERC20_TotalSupply : ContractId TotalSuply_Response
+      with
+        requestor : Party
+      controller requestor
+      do
+        create TotalSuply_Response with ..
+
+    -- Define the choice ERC20_Transfer, takes the following parameters
+    -- - the requestor, a Party
+    -- - the address of the account to transfer to, a string
+    -- - the value to transfer, an integer
+    -- the choice returns a ContractId ForgetfulAssetTransferRequest
+    -- the body finds an Account contract by key and exercises the choice Account_Transfer
+    nonconsuming choice ERC20_Transfer: ContractId ForgetfulAssetTransferRequest
+      with
+        requestId : Text
+        requestor : Party
+        from: Text
+        to : Text
+        value : Int
+      controller requestor
+      do
+        (accountCid, _) <- fetchByKey @Account (issuer, from)
+        exercise accountCid Account_Transfer with ..
+
+    -- We define a choice that allows to check the allowance of an account by address
+    nonconsuming choice ERC20_Allowance : ContractId AllowanceOf_Response
+      with
+        requestor : Party
+        ownerAddress : Text
+        spenderAddress : Text
+      controller requestor
+      do
+        -- this works because only the owner can see an account
+        (accountCid, _) <- fetchByKey @Account (issuer, ownerAddress)
+        exercise accountCid Account_Allowance with ..
+
+    -- We define a choice that
+    -- - allow the owner to approve a spender to transfer assets from the owner's account
+    -- - takes the following parameters
+    --   - the requestor, a Party
+    --   - the address of the account to approve, a string
+    --   - the spender, a Party
+    --   - the spenderAddress, a string
+    --   - the amount to approve, an integer
+    -- - the choice returns a ContractId ApprovalEvent
+    -- - the body finds an Account contract by key and exercises the choice Account_Approve
+    nonconsuming choice ERC20_Approve : ContractId ApprovalEvent
+      with
+        requestor : Party
+        ownerAddress : Text
+        spender: Party
+        spenderAddress : Text
+        value : Int
+      controller requestor
+      do
+        (accountCid, _) <- fetchByKey @Account (issuer, ownerAddress)
+        exercise accountCid Account_Approve with ..
+
+    -- We define a choice that allows to transfer assets from an account to another account
+    -- - takes the following parameters
+    --   - the requestor, a Party
+    --   - the address of ther requestor, a string
+    --   - the address of the account to transfer from, a string
+    --   - the address of the account to transfer to, a string
+    --   - the value to transfer, an integer
+    -- - the choice returns a ContractId ForgetfulAssetTransferRequest
+    nonconsuming choice ERC20_TransferFrom : ContractId ForgetfulAssetTransferRequest
+      with
+        requestId : Text
+        requestor : Party
+        requestorAddress : Text
+        from: Text
+        to : Text
+        value : Int
+      controller requestor
+      do
+        let assetCode = AssetCode
+                        with
+                            issuerAddress = operatorAddress
+                            version = 1
+                            shortName = "AUTH"
+        -- we send the token to the issuer
+        create ForgetfulAssetTransferRequest with
+                          operator = issuer
+                          from = [ requestorAddress ]
+                          to = [ (operatorAddress, 1) ]
+                          changeAddress = requestorAddress
+                          quantity = value
+                          someCommitRoot = None
+                          someMetadata = None
+                          fee = 100
+                          requestor = requestor
+                          ..
+
+-- We define the ApprovalEvent contract
+-- It includes a parameter for the following fields
+-- - The operator of the token, a Party
+-- - The owner of the account, a Party
+-- - The spender of the account, a Party
+-- - The token symbol, a string
+-- - The fromAddress of the account
+-- - The address of the spender
+-- - The amount of the approval
+template ApprovalEvent
+  with
+    operator : Party
+    owner : Party
+    spender : Party
+    symbol : Text
+    address : Text
+    spenderAddress : Text
+    value : Int
+  where
+    signatory operator, owner
+
+    observer spender
+
+    -- define an index by owner
+    key (operator, symbol, address, spenderAddress) : (Party, Text, Text, Text)
+    maintainer key._1
+
+    -- validate the address
+    ensure  ((T.length address) > 0)
+
+    -- We define a choice that allows the issuer to archive the contract
+    choice ApprovalEvent_Archive_Issuer : ()
+      controller operator
+      do
+        return ()
+
+-- We defien the TransferEvent contract
+-- It includes a parameter for the following fields
+-- - The issuer of the token, a Party
+-- - The from of the transfer, a Party
+-- - The recipient of the transfer, a Party
+-- - The token symbol, a string
+-- - The fromAddress of the account
+-- - The toAddress of the recipient
+-- - The amount transfered
+template TransferEvent
+  with
+    issuer : Party
+    from : Party
+    to : Party
+    symbol : Text
+    fromAddress : Text
+    toAddress : Text
+    value : Int
+  where
+    signatory issuer, from
+
+    observer to
+
+    -- define an index by owner
+    key (issuer, symbol, fromAddress, toAddress) : (Party, Text, Text, Text)
+    maintainer key._1
+
+    -- validate the address
+    ensure  ((T.length fromAddress) > 0) && ((T.length toAddress) > 0)
+
+    -- We define a choice that allows the issuer to archive the contract
+    choice TransferEvent_Archive_Issuer : ()
+      controller issuer
+      do
+        return ()
+
+
+-- We define a contract that represents an account for a token
+-- It includes a parameter for the following fields
+-- - The operator, a Party
+-- - The owner of the account, a Party
+-- - The token symbol, a string
+-- - The balance of the account, an integer
+-- - The address of the account
+-- - A map for the allowances of the account
+template Account
+  with
+    operator : Party
+    owner : Party
+    symbol : Text
+    balance : Int
+    address : Text
+    allowances : M.Map Text Int
+  where
+    signatory owner, operator
+
+    -- define an index by owner
+    key (operator, address) : (Party, Text)
+    maintainer key._1
+
+    -- validate the address
+    ensure  ((T.length address) > 0)
+
+    -- We define a choice to return the balance of the account
+    -- we have a requestor paramenter because this choice can be exercised by anyone
+    choice Account_BalanceOf : ContractId BalanceOf_Response
+      with
+        requestor : Party
+      controller requestor
+      do
+        create BalanceOf_Response with ..
+
+    -- We define a choice to transfer assets to another account
+    -- We don't have requestor parameter because this choice can only be exercised by the owner
+    choice Account_Transfer : ContractId ForgetfulAssetTransferRequest
+      with
+        requestId : Text
+        to : Text
+        value : Int
+      controller owner
+      do
+        let assetCode = AssetCode
+                        with
+                            issuerAddress = address
+                            version = 1
+                            shortName = symbol
+        create ForgetfulAssetTransferRequest with
+                          from = [ address ]
+                          to = [ (to, value) ]
+                          changeAddress = address
+                          quantity = value
+                          someCommitRoot = None
+                          someMetadata = None
+                          fee = 100
+                          requestor = owner
+                          ..
+
+
+    -- We define a choice Allowance to return the allowance of a given account
+    -- The body looks up the allowance in the map and returns it
+    -- We have a requestor paramenter because this choice can be exercised by anyone
+    choice Account_Allowance : ContractId AllowanceOf_Response
+      with
+        requestor : Party
+        spenderAddress : Text
+      controller requestor
+      do
+        let allowance = M.lookup spenderAddress allowances
+        create AllowanceOf_Response with 
+              allowance = (fromOptional 0 allowance)
+              ..
+
+    -- We define a choice to approve a spender to transfer assets from the owner's account
+    -- The controller is the owner of the account
+    -- requestor is not a parameter
+    -- The body updates the allowances map with the new allowance
+    -- and creates a new Account contract with the updated allowances map
+    -- and returns the new approval event
+    choice Account_Approve : ContractId ApprovalEvent
+      with
+        spender: Party
+        spenderAddress : Text
+        value : Int
+      controller owner
+      do
+        let newAllowances = M.insert spenderAddress value allowances
+        create Account with
+          allowances = newAllowances
+          ..
+        create ApprovalEvent with
+          ..

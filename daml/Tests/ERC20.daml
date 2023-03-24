@@ -1,0 +1,104 @@
+module Tests.ERC20 where
+
+    import Standard.ERC20
+    import Standard.ERC20FixedSupply
+    import Daml.Script
+    import Tests.Util
+    import Topl.Asset
+    import DA.Optional
+    import DA.Assert
+
+    util_create_parties: Party -> Script ((User, Text), (User, Text), (User, Text))
+    util_create_parties publicM = script do
+        alice <- getOrCreateUser "Alice" $ Some publicM
+        let aliceAddress = "AUAZ51ZhQhhHsMVjUNoKNL3DVwJ5ydq3Mko9eGB5GqGohgpCDXDM"
+        bob <- getOrCreateUser "Bob" $ Some publicM
+        let bobAddress = "AU9nPPtEv1U25nF1TGJFQecU8phhgFZhJHFxBPGKqynHcgFUSD9g"
+        eve <- getOrCreateUser "Eve" $ Some publicM
+        let eveAddress = "AUA3s5ruiEq6TKpbV5d8hLqUHAQhrkoL1mnuj1WAGm13hpXBmTQL"
+        return ((alice, aliceAddress), (bob, bobAddress), (eve, eveAddress))
+
+    util_create_operator = script do
+        public <- createPublic
+        operator <- getOrCreateUser "Operator" (Some public)
+        let operatorAddress = "AUAsTFYGip2QNigMGrAxiJAn3MaktMyUFqeJGRuvKmM6G7jE5EQX"
+        return (operator, public, operatorAddress)
+
+    util_create_fixed_supply_minter = script do
+        (operatorUser, public, operatorAddress)  <- util_create_operator
+        let operator = getPrimaryParty operatorUser
+        submit operator do
+            createCmd ERC20FixedSupplyMinter with ..
+
+
+
+    create_erc20_without_authorization = script do
+        (operatorUser, public, operatorAddress) <- util_create_operator
+        ((aliceUser, aliceAddress), _, _) <- util_create_parties public
+        let issuer = getPrimaryParty aliceUser
+        let operator = getPrimaryParty operatorUser
+        -- this must fail because you need authorization from the operator
+        submitMustFail issuer do
+            createCmd ERC20 with 
+                name = None
+                operator = fromSome operatorUser.primaryParty
+                symbol = "USDTOPL"
+                totalSupply = 10
+                ..
+    create_erc20 = script do
+        (operatorUser, public, _) <- util_create_operator
+        ((aliceUser, aliceAddress), _, _) <- util_create_parties public
+        let issuer = getPrimaryParty aliceUser
+        let operator = getPrimaryParty operatorUser
+        fixedSupplyMinter <- util_create_fixed_supply_minter
+        request <- submitUser aliceUser.userId do
+            exerciseCmd fixedSupplyMinter Issue with
+                    requestId = "1"
+                    symbol = "USDTOPL"
+                    totalSupply = 10
+                    name = None
+                    issuerAddress = aliceAddress
+                    ..
+        someMintingRequest <- queryContractKey @UniqueAssetMintingRequest operator (operator, "1")
+        signedAssetMintingCid <- (\x ->   
+                    submit operator do
+                        exerciseCmd  (fst x) UniqueAssetMintingRequest_Accept with 
+                            txToSign = "xxx"
+                            signedMintTx = "yyy"
+                            issuerAddress = "someAddress"
+                            from = [ "someNewAddress" ]
+                            boxNonce = 1) 
+            (fromSome someMintingRequest)
+        submitUser operatorUser.userId do
+            exerciseCmd request Tokens_To_ERC_20
+
+    test_total_supply = script do
+        publicUser <- getOrCreateUser "Public" None
+        -- we can reuse previous tests, this one creates two users in an organization
+        ((aliceUser, _), _, _) <- util_create_parties $ getPrimaryParty publicUser
+        erc20 <- create_erc20
+        let aliceParty = getPrimaryParty aliceUser
+        response <- submitUser aliceUser.userId do
+            exerciseCmd erc20 ERC20_TotalSupply with requestor = aliceParty
+        someResponse <- queryContractId @TotalSuply_Response aliceParty response
+        (fromSome someResponse).totalSupply === 10
+
+    test_balance_of_non_existing_account = script do
+        publicUser <- getOrCreateUser "Public" None
+        (_, (bobUser, bobAddress), _) <- util_create_parties $ getPrimaryParty publicUser
+        erc20 <- create_erc20
+        let aliceParty = getPrimaryParty bobUser
+        response <- submitUser bobUser.userId do
+            exerciseCmd erc20 ERC20_BalanceOf with requestor = aliceParty, address = bobAddress
+        someResponse <- queryContractId @BalanceOf_Response aliceParty response
+        (fromSome someResponse).balance === 0
+
+    test_balance_of_existing_account = script do
+        publicUser <- getOrCreateUser "Public" None
+        ((aliceUser, aliceAddress), _, _) <- util_create_parties $ getPrimaryParty publicUser
+        erc20 <- create_erc20
+        let aliceParty = getPrimaryParty aliceUser
+        responseCid <- submitUser aliceUser.userId do
+            exerciseCmd erc20 ERC20_BalanceOf with requestor = aliceParty, address = aliceAddress
+        response <- queryContractId @BalanceOf_Response aliceParty responseCid
+        (fromSome response).balance === 10

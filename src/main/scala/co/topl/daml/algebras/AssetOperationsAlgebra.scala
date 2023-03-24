@@ -1,6 +1,5 @@
 package co.topl.daml.algebras
 
-
 import java.io.File
 
 import scala.collection.JavaConverters._
@@ -24,6 +23,7 @@ import co.topl.attestation.keyManagement.PrivateKeyCurve25519
 import co.topl.daml.RpcClientFailureException
 import co.topl.daml.api.model.topl.asset.AssetMintingRequest
 import co.topl.daml.api.model.topl.asset.AssetTransferRequest
+import co.topl.daml.api.model.topl.asset.ForgetfulAssetTransferRequest
 import co.topl.modifier.ModifierId
 import co.topl.modifier.box.AssetCode
 import co.topl.modifier.box.AssetValue
@@ -89,6 +89,23 @@ trait AssetOperationsAlgebra
     def assetCodeVersion(t: AssetTransferRequest): Byte = t.assetCode.version.toByte
   }
 
+  // evidence for ForgetfulAssetTransferRequest
+  val forgetfulAssetTransferRequestEv = new TransferEv[ForgetfulAssetTransferRequest] {
+
+    def issuerAddress(assetMintingRequest: ForgetfulAssetTransferRequest): String =
+      assetMintingRequest.assetCode.issuerAddress
+
+    def shortName(assetMintingRequest: ForgetfulAssetTransferRequest): String =
+      assetMintingRequest.assetCode.shortName
+
+    def someCommitRoot(assetMintingRequest: ForgetfulAssetTransferRequest): Option[String] =
+      Option(assetMintingRequest.someCommitRoot).flatMap(x => Option(x.orElseGet(() => null)))
+
+    def someMetadata(assetMintingRequest: ForgetfulAssetTransferRequest): Option[String] =
+      Option(assetMintingRequest.someMetadata).flatMap(x => Option(x.orElseGet(() => null)))
+    def assetCodeVersion(t: ForgetfulAssetTransferRequest): Byte = t.assetCode.version.toByte
+  }
+
   import toplContext.provider._
 
   def parseTxM(msg2Sign: Array[Byte]) = IO.fromEither {
@@ -133,6 +150,39 @@ trait AssetOperationsAlgebra
       assetTransfer.asJson.noSpaces
     }
   } yield transferRequest
+
+  def createForgetfulAssetEd25519TransferM(
+    assetCode:         AssetCode,
+    fee:               Long,
+    address:           Seq[Address],
+    balance:           ToplRpc.NodeView.Balances.Response,
+    listOfToAddresses: List[(Address, TokenValueHolder)]
+  ) = {
+    import co.topl.attestation.PublicKeyPropositionEd25519._
+    IO(
+      AssetTransfer(
+        balance.values.toList
+          .flatMap(_.Boxes.PolyBox)
+          .map(x => (address.head, x.nonce))
+          .toIndexedSeq
+          .++(
+            balance.values.toList
+              .flatMap(_.Boxes.AssetBox)
+              .filter(_.value.assetCode == assetCode)
+              .map(x => (address.head, x.nonce))
+              .toIndexedSeq
+          ),
+        listOfToAddresses.toIndexedSeq,
+        ListMap(),
+        Int128(
+          fee
+        ),
+        System.currentTimeMillis(),
+        None,
+        false
+      )
+    )
+  }
 
   def createAssetEd25519TransferM(
     fee:               Long,

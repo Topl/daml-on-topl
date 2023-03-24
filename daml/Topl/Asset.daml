@@ -53,13 +53,56 @@ module Topl.Asset where
                     controller requestor
                         do
                             return ()
+
+    template UniqueAssetMintingRequest
+        with 
+            operator             : Party
+            requestor            : Party
+            requestId            : Text    
+            to                   : [(Text, Int)]
+            shortName            : Text
+            quantity             : Int
+            someCommitRoot       : Optional Text
+            someMetadata         : Optional Text
+            fee                  : Int
+                where 
+                    signatory operator, requestor
+
+                    key (operator, requestId): (Party, Text)
+
+                    maintainer key._1
+
+                    choice UniqueAssetMintingRequest_Accept : SignedAssetMintingCid with 
+                            txToSign : Text
+                            signedMintTx : Text
+                            issuerAddress : Text
+                            from     : [Text]
+                            boxNonce : Int
+                        controller operator
+                            do
+                                let assetCode = AssetCode with 
+                                        version = 1
+                                        ..
+                                create SignedAssetMinting with 
+                                    mintTxToSign = signedMintTx
+                                    sendStatus = Pending
+                                    changeAddress = issuerAddress
+                                    ..
+                    choice UniqueAssetMintingRequest_Reject : ()
+                        controller operator
+                            do
+                                return ()
+                    choice UniqueAssetMintingRequest_Archive : ()
+                        controller operator
+                            do
+                                return ()
                     
 
     template AssetMintingRequest
         with 
             operator             : Party
             requestor            : Party
-            someOrgId            : Optional Text
+            requestId            : Text    
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
@@ -70,6 +113,9 @@ module Topl.Asset where
             fee                  : Int
                 where 
                     signatory operator, requestor
+
+                    key (operator, requestId) : (Party, Text)
+                    maintainer key._1
 
                     choice MintingRequest_Accept : UnsignedAssetMintingCid with 
                             txToSign : Text
@@ -92,7 +138,7 @@ module Topl.Asset where
         with 
             operator             : Party
             requestor            : Party
-            someOrgId            : Optional Text
+            requestId            : Text    
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
@@ -105,6 +151,10 @@ module Topl.Asset where
             mintTxToSign         : Text
                 where 
                     signatory operator, requestor
+
+                    key (operator, requestId) : (Party, Text)
+                    maintainer key._1
+
                     choice UnsignedMinting_Sign : SignedAssetMintingCid with 
                             signedMintTx : Text
                         controller operator
@@ -126,7 +176,7 @@ module Topl.Asset where
         with 
             operator             : Party
             requestor            : Party
-            someOrgId            : Optional Text
+            requestId            : Text    
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
@@ -141,6 +191,9 @@ module Topl.Asset where
             sendStatus           : SendStatus
                 where 
                     signatory operator, requestor
+
+                    key (operator, requestId) : (Party, Text)
+                    maintainer key._1
 
                     choice SignedAssetMinting_Send : SignedAssetMintingCid
                         controller operator
@@ -178,12 +231,59 @@ module Topl.Asset where
                             do
                                 return ()
 
+    -- ForgetfulAssetTransfer is an AssetTransfer  that modifies multiple boxes (possibly squashing metadata and commit root)
+    -- and does not return the new boxes. There is no boxNonce.
+    -- The choices are the same as AssetTransferRequest, but prefixed with Forgetful
+    -- The Accept's choice body and parameters are the same as AssetTransferRequest_Accept. 
+    -- The parameters include a newBoxNonce, of type Int
+    -- It also uses UnsignedAssetTransferRequest.
+    -- Other choices are the same as AssetTransferRequest
+    template ForgetfulAssetTransferRequest
+        with 
+            operator             : Party
+            requestor            : Party
+            requestId            : Text    
+            from                 : [Text]
+            to                   : [(Text, Int)]
+            changeAddress        : Text
+            assetCode            : AssetCode
+            quantity             : Int
+            someCommitRoot       : Optional Text
+            someMetadata         : Optional Text
+            fee                  : Int
+                where 
+                    signatory operator, requestor
 
+                    key (operator, requestId) : (Party, Text)
+                    maintainer key._1
+
+                    choice ForgetfulAssetTransferRequest_Accept : UnsignedAssetTransferRequestCid with 
+                            txToSign : Text
+                            msgToSign : Text
+                            newBoxNonce : Int
+                        controller operator
+                            do
+                                create UnsignedAssetTransferRequest with 
+                                    boxNonce = newBoxNonce
+                                    ..
+                    choice ForgetfulAssetTransferRequest_Reject : ()
+                        controller operator
+                            do
+                                return ()
+                    choice ForgetfulAssetTransferRequest_Archive : ()
+                        controller operator
+                            do
+                                return ()
+
+
+
+
+    -- Asset Transfer that modifies only one box
     template AssetTransferRequest
         with 
             operator             : Party
             requestor            : Party
-            someOrgId            : Optional Text
+            requestId            : Text    
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
@@ -195,6 +295,10 @@ module Topl.Asset where
             fee                  : Int
                 where 
                     signatory operator, requestor
+
+                    key (operator, requestId) : (Party, Text)
+                    maintainer key._1
+
                     choice AssetTransferRequest_Accept : UnsignedAssetTransferRequestCid with 
                             txToSign : Text
                             msgToSign : Text
@@ -218,7 +322,7 @@ module Topl.Asset where
         with 
             operator             : Party
             requestor            : Party
-            someOrgId            : Optional Text
+            requestId            : Text    
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
@@ -232,6 +336,9 @@ module Topl.Asset where
             msgToSign            : Text
                 where 
                     signatory operator, requestor
+
+                    key (operator, requestId) : (Party, Text)
+                    maintainer key._1
 
                     choice UnsignedAssetTransfer_Sign : SignedAssetTransferCid
                              with 
@@ -255,7 +362,7 @@ module Topl.Asset where
         with 
             operator             : Party
             requestor            : Party
-            someOrgId          : Optional Text
+            requestId            : Text    
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
@@ -270,6 +377,9 @@ module Topl.Asset where
             sendStatus           : SendStatus
                 where 
                     signatory operator, requestor
+
+                    key (operator, requestId) : (Party, Text)
+                    maintainer key._1
 
                     choice SignedAssetTransfer_Send : SignedAssetTransferCid
                         controller operator

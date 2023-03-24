@@ -31,6 +31,7 @@ module Tests.Asset where
         let assetCreatorCid = (fromSome someAssetCreator)._1
         assetMintingRequestCid <- submit alice do 
             exerciseCmd assetCreatorCid MintAsset with
+                requestId = "1"
                 requestor = alice
                 quantity = 10
                 someCommitRoot = Some "XXXX"
@@ -59,6 +60,7 @@ module Tests.Asset where
         assetIou <- submit operator do
             exerciseCmd orgId Organization_AddSignedAssetMinting with
                 iouIdentifier         = "1"
+                requestId             = "1"
                 signedAssetMintingCid = signedAssetMintingCid
         someAssetIou <- queryContractId @AssetIou operator assetIou
         (fromSome someAssetIou).someMetadata === (Some "YYYY")
@@ -81,6 +83,7 @@ module Tests.Asset where
         submit eve do
             exerciseCmd (fromSome someAssetIou)._1 AssetIou_UpdateAsset with
                 requestor = eve
+                requestId             = "1"
                 newCommitRoot = Some "WWWW"
                 newMetadata = Some "VVVVV"
                 someFee = None
@@ -95,6 +98,7 @@ module Tests.Asset where
         assetTransferRequestCid <- submit alice do
             exerciseCmd assetIou AssetIou_UpdateAsset with
                 requestor = alice
+                requestId = "1"
                 newCommitRoot = Some "WWWW"
                 newMetadata = Some "VVVVV"
                 someFee = None
@@ -125,6 +129,7 @@ module Tests.Asset where
         assetIou <- submit operator do
             exerciseCmd orgId Organization_AddSignedAssetTransfer with
                 iouIdentifier         = "1"
+                requestId             = "1"
                 signedAssetTransferCid = signedAssetTransferCid
         someAssetIou <- queryContractId @AssetIou operator assetIou
         (fromSome someAssetIou).someMetadata === (Some "VVVVV")
@@ -136,6 +141,7 @@ module Tests.Asset where
         submitMustFail operator do
             exerciseCmd assetIou AssetIou_UpdateAsset with
                 requestor = operator
+                requestId             = "1"
                 newCommitRoot = Some "WWWW"
                 newMetadata = Some "VVVVV"
                 someFee = None
@@ -144,6 +150,7 @@ module Tests.Asset where
         submitMustFail operator do
             exerciseCmd assetIou AssetIou_UpdateAsset with
                 requestor = alice
+                requestId             = "1"
                 newCommitRoot = Some "WWWW"
                 newMetadata = Some "VVVVV"
                 someFee = None

@@ -5,6 +5,7 @@ module Topl.Organization where
     import DA.Optional
     import DA.List
     import DA.Text
+    import DA.Assert
 
     orElse: Optional a -> Optional a -> Optional a
     orElse None (Some b) = Some b
@@ -41,6 +42,7 @@ module Topl.Organization where
                         with
                             requestor            : Party
                             quantity             : Int
+                            requestId            : Text    
                             someCommitRoot       : Optional Text
                             someMetadata         : Optional Text
                             someFee              : Optional Int
@@ -51,7 +53,6 @@ module Topl.Organization where
                                         -- thus guaranteeing that I cannot request a Minting request
                                         -- on behalf of someone else
                                         create AssetMintingRequest with 
-                                            someOrgId     = Some orgId
                                             from          = [ address ]
                                             to            = [ (address, quantity)]
                                             changeAddress = address
@@ -93,6 +94,7 @@ module Topl.Organization where
                         ..
             choice Organization_AddSignedAssetMinting: AssetIouCid with
                     iouIdentifier         : Text
+                    requestId             : Text    
                     signedAssetMintingCid : SignedAssetMintingCid
                 controller operator
                 do
@@ -100,7 +102,7 @@ module Topl.Organization where
                     -- we make sure that the asset minting was requested by a member of the organization
                     assert (signedAssetMinting.requestor `elem` members)
                     -- we check that the org name for this minting is the same as the current org
-                    assert (optional True  ( == this.orgId) signedAssetMinting.someOrgId)
+                    requestId === signedAssetMinting.requestId
                     archive signedAssetMintingCid
 
                     resultIou <- create  AssetIou with
@@ -117,6 +119,7 @@ module Topl.Organization where
 
             choice Organization_AddSignedAssetTransfer: AssetIouCid with
                     iouIdentifier          : Text
+                    requestId              : Text
                     signedAssetTransferCid : SignedAssetTransferCid
                 controller operator
                 do
@@ -124,7 +127,7 @@ module Topl.Organization where
                     -- we make sure that the asset minting was requested by a member of the organization
                     assert (signedAssetTransfer.requestor `elem` members)
                     -- we check that the org name for this minting is the same as the current org
-                    assert (optional True ( == this.orgId) signedAssetTransfer.someOrgId)
+                    requestId === signedAssetTransfer.requestId
                     archive signedAssetTransferCid
                     resultIou <- create  AssetIou with
                         assetCode       = signedAssetTransfer.assetCode
@@ -291,6 +294,7 @@ module Topl.Organization where
                     choice AssetIou_UpdateAsset: AssetTransferRequestCid
                         with 
                             requestor       : Party
+                            requestId            : Text    
                             newCommitRoot   : Optional Text
                             newMetadata     : Optional Text
                             someFee         : Optional Int
@@ -300,7 +304,6 @@ module Topl.Organization where
                             create AssetTransferRequest with 
                                 from           = [ address ]
                                 to             = [ (address, quantity)]
-                                someOrgId      = Some orgId
                                 changeAddress  = address
                                 someCommitRoot =  orElse newCommitRoot someCommitRoot 
                                 someMetadata   = orElse newMetadata someMetadata 
