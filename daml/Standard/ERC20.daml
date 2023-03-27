@@ -106,6 +106,7 @@ template ERC20
     public : Party
     name : Optional Text
     symbol : Text
+    assetCode: AssetCode
     totalSupply : Int
   where
     -- the operator is a signatory so that you cannot
@@ -204,16 +205,17 @@ template ERC20
     --   - the amount to approve, an integer
     -- - the choice returns a ContractId ApprovalEvent
     -- - the body finds an Account contract by key and exercises the choice Account_Approve
-    nonconsuming choice ERC20_Approve : ContractId ApprovalEvent
+    nonconsuming choice ERC20_Approve : ContractId ForgetfulAssetTransferRequest
       with
         requestor : Party
+        requestId: Text
         ownerAddress : Text
         spender: Party
         spenderAddress : Text
         value : Int
       controller requestor
       do
-        (accountCid, _) <- fetchByKey @Account (issuer, ownerAddress, symbol)
+        (accountCid, _) <- fetchByKey @Account (operator, ownerAddress, symbol)
         exercise accountCid Account_Approve with ..
 
     -- We define a choice that allows to transfer assets from an account to another account
@@ -266,6 +268,7 @@ template ApprovalEvent
     operator : Party
     owner : Party
     spender : Party
+    public: Party
     symbol : Text
     address : Text
     spenderAddress : Text
@@ -273,7 +276,7 @@ template ApprovalEvent
   where
     signatory operator, owner
 
-    observer spender
+    observer spender, public
 
     -- define an index by owner
     key (operator, symbol, address, spenderAddress) : (Party, Text, Text, Text)
@@ -488,7 +491,6 @@ template Account
   with
     operator : Party
     owner : Party
-    public: Party
     symbol : Text
     balance : Int
     address : Text
@@ -511,13 +513,16 @@ template Account
         requestor : Party
       controller requestor
       do
-        create BalanceOf_Response with ..
+        create BalanceOf_Response with 
+            balance = sum (M.values allowances) + balance
+            ..
     
     choice Account_Complete_Reception: ContractId TransferEvent
       with
         from: Party
         fromAddress : Text
         value : Int
+        public: Party
       controller operator
       do
         create Account with
@@ -527,9 +532,28 @@ template Account
           to = Some owner
           toAddress = address
           ..
+    choice Account_Complete_Approval: ContractId ApprovalEvent
+      with
+        from: Party
+        fromAddress : Text
+        spender: Party
+        spenderAddress: Text
+        value : Int
+        newAllowances : M.Map Text Int
+        public: Party
+      controller operator
+      do
+        create Account with
+          allowances = newAllowances
+          balance = balance - value
+          someTransferringTo = None
+          ..
+        create ApprovalEvent with
+          ..
 
     choice Account_Complete_Transfer : ContractId TransferEvent
       with
+        public: Party
         toAddress : Text
         value : Int
       controller operator
@@ -570,6 +594,7 @@ template Account
     choice Account_Transfer : ContractId ForgetfulAssetTransferRequest
       with
         requestId : Text
+        public: Party
         to : Text
         value : Int
       controller owner
@@ -583,7 +608,10 @@ template Account
         create Account with
           someTransferringTo = Some to
           ..
-        create AccountTransferInProgress with fromAddress = address, toAddress = to, ..
+        create AccountTransferInProgress with 
+              fromAddress = address
+              toAddress = to
+              ..
         create ForgetfulAssetTransferRequest with
                           from = [ address ]
                           to = [ (to, value) ]
@@ -616,19 +644,35 @@ template Account
     -- The body updates the allowances map with the new allowance
     -- and creates a new Account contract with the updated allowances map
     -- and returns the new approval event
-    choice Account_Approve : ContractId ApprovalEvent
+    choice Account_Approve : ContractId ForgetfulAssetTransferRequest
       with
         spender: Party
+        requestId : Text
+        public: Party
+        assetCode: AssetCode
+        operatorAddress : Text
         spenderAddress : Text
         value : Int
       controller owner
       do
         let newAllowances = M.insert spenderAddress value allowances
         create Account with
-          allowances = newAllowances
+          someTransferringTo = Some operatorAddress
           ..
-        create ApprovalEvent with
-          ..
+        create ApprovalTransferInProgress with 
+              fromAddress = address
+              ..
+        create ForgetfulAssetTransferRequest with
+                          requestor = owner
+                          from = [ address ]
+                          to = [ (operatorAddress, value) ]
+                          changeAddress = address
+                          quantity = value
+                          someCommitRoot = None
+                          someMetadata = None
+                          fee = 100
+                          ..
+
 
 
 template AccountTransferInProgress with
@@ -681,3 +725,31 @@ template UnclaimedAccountTransferInProgress with
             allowances = M.empty
             ..
           exercise accountCid UnclaimedAccount_Complete_Transfer with ..
+
+
+
+template ApprovalTransferInProgress with
+      operator : Party
+      owner: Party
+      public: Party
+      requestId : Text
+      fromAddress: Text
+      spender: Party
+      spenderAddress: Text
+      value: Int
+      symbol : Text
+      newAllowances : M.Map Text Int
+    where
+      signatory operator, owner
+      key (operator, requestId) : (Party, Text)
+      maintainer key._1
+
+      choice ApprovalTransferInProgress_Complete : ContractId ApprovalEvent
+        controller operator
+        do
+          (accountCid, account) <- fetchByKey @Account (operator, fromAddress, symbol)
+          (assetTransferCid, _) <- fetchByKey @SignedAssetTransfer (operator, requestId)
+          exercise assetTransferCid SignedAssetTransfer_Archive
+          exercise accountCid Account_Complete_Approval with
+                            from = owner
+                            ..

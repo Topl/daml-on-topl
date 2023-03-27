@@ -60,6 +60,7 @@ template ERC20FixedSupplyRequest with
                        public = public
                        symbol = assetMinting.assetCode.shortName
                        totalSupply = assetMinting.quantity
+                       assetCode = assetMinting.assetCode
                        ..
                     exercise assetMintingCid SignedAssetMinting_Archive
                     -- we create the initial account where the tokens are
