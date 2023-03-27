@@ -74,6 +74,7 @@ module Topl.Onboarding where
 
             nonconsuming choice User_SendPolys : TransferRequestCid
                 with
+                    requestId           : Text
                     from                 : [Text]
                     to                   : [(Text, Int)]
                     changeAddress        : Text

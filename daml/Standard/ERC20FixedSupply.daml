@@ -2,6 +2,7 @@ module Standard.ERC20FixedSupply where
 
 import Standard.ERC20
 import Topl.Asset
+import Topl.Utils
 import DA.List
 import DA.Map qualified as M
 
@@ -52,6 +53,7 @@ template ERC20FixedSupplyRequest with
                 controller operator
                 do
                     (assetMintingCid, assetMinting) <- fetchByKey @SignedAssetMinting (operator, requestId)
+                    assert $ isConfirmed assetMinting.sendStatus
                     let issuerAddress = fst $ head assetMinting.to
                     erc20 <- create ERC20 with
                        issuer = assetMinting.requestor
@@ -68,5 +70,6 @@ template ERC20FixedSupplyRequest with
                         balance = assetMinting.quantity
                         address = issuerAddress
                         allowances = M.empty
+                        someTransferringTo = None
                         ..
                     return erc20

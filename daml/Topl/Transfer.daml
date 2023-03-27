@@ -13,12 +13,17 @@ module Topl.Transfer where
         with 
             operator             : Party
             user                 : Party
+            requestId            : Text    
             from                 : [Text]
             to                   : [(Text, Int)]
             changeAddress        : Text
             fee                  : Int
                 where 
                     signatory operator, user
+
+                    key (operator, requestId) : (Party, Text)
+                    maintainer key._1
+
                     choice TransferRequest_Accept : UnsignedTransferCid with 
                             txToSign : Text
                         controller operator
@@ -37,11 +42,16 @@ module Topl.Transfer where
         with
             operator : Party
             user     : Party
+            requestId: Text    
             from     : [Text]
             to       : [(Text, Int)]
             txToSign : Text
         where
             signatory operator, user
+
+            key (operator, requestId) : (Party, Text)
+            maintainer key._1
+            
 
             choice UnsignedTransfer_Sign : SignedTransferCid
                     with
@@ -59,6 +69,7 @@ module Topl.Transfer where
         with
             operator   : Party
             user       : Party
+            requestId: Text   
             from       : [Text]
             to       : [(Text, Int)]
             txToSign   : Text
@@ -66,6 +77,10 @@ module Topl.Transfer where
             sendStatus : SendStatus
         where
             signatory operator, user
+
+            key (operator, requestId) : (Party, Text)
+            maintainer key._1
+            
 
             choice SignedTransfer_Send : SignedTransferCid
                 controller operator

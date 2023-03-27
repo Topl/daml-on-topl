@@ -7,6 +7,8 @@ import DA.Map qualified as M
 import Topl.Asset
 import Topl.Utils
 import DA.Optional
+import DA.Assert
+import Topl.Transfer
 
 -- We define a contract as response type for the BalanceOf choice (BalanceOf_Response).
 -- The signatory  is the issuer of the token and the requestor.
@@ -128,7 +130,7 @@ template ERC20
       controller requestor
       do
         -- We use the `fetchByKey` function to get the account by address
-        someAccountCid <- lookupByKey @Account (operator, address)
+        someAccountCid <- lookupByKey @Account (operator, address, symbol)
         case someAccountCid of
           None -> do
             -- if the account does not exist, we create it
@@ -162,7 +164,7 @@ template ERC20
         value : Int
       controller requestor
       do
-        (accountCid, _) <- fetchByKey @Account (issuer, from)
+        (accountCid, _) <- fetchByKey @Account (operator, from, symbol)
         exercise accountCid Account_Transfer with ..
 
     -- We define a choice that allows to check the allowance of an account by address
@@ -174,7 +176,7 @@ template ERC20
       controller requestor
       do
         -- this works because only the owner can see an account
-        (accountCid, _) <- fetchByKey @Account (issuer, ownerAddress)
+        (accountCid, _) <- fetchByKey @Account (issuer, ownerAddress, symbol)
         exercise accountCid Account_Allowance with ..
 
     -- We define a choice that
@@ -196,7 +198,7 @@ template ERC20
         value : Int
       controller requestor
       do
-        (accountCid, _) <- fetchByKey @Account (issuer, ownerAddress)
+        (accountCid, _) <- fetchByKey @Account (issuer, ownerAddress, symbol)
         exercise accountCid Account_Approve with ..
 
     -- We define a choice that allows to transfer assets from an account to another account
@@ -273,7 +275,7 @@ template ApprovalEvent
 
 -- We defien the TransferEvent contract
 -- It includes a parameter for the following fields
--- - The issuer of the token, a Party
+-- - The operator of the token, a Party
 -- - The from of the transfer, a Party
 -- - The recipient of the transfer, a Party
 -- - The token symbol, a string
@@ -282,30 +284,190 @@ template ApprovalEvent
 -- - The amount transfered
 template TransferEvent
   with
-    issuer : Party
+    operator : Party
     from : Party
-    to : Party
+    to : Optional Party
+    public: Party
     symbol : Text
     fromAddress : Text
     toAddress : Text
     value : Int
   where
-    signatory issuer, from
+    signatory operator
 
-    observer to
+    observer from, to, public
 
     -- define an index by owner
-    key (issuer, symbol, fromAddress, toAddress) : (Party, Text, Text, Text)
+    key (operator, symbol, fromAddress, toAddress) : (Party, Text, Text, Text)
     maintainer key._1
 
     -- validate the address
     ensure  ((T.length fromAddress) > 0) && ((T.length toAddress) > 0)
 
-    -- We define a choice that allows the issuer to archive the contract
+    -- We define a choice that allows the operator to archive the contract
     choice TransferEvent_Archive_Issuer : ()
-      controller issuer
+      controller operator
       do
         return ()
+
+template ClaimAccountInvitation
+  with 
+    requestId : Text
+    operator : Party
+    operatorAddress : Text
+    address : Text
+    symbol : Text
+    claimant: Party
+  where
+    signatory operator
+
+    key (operator, claimant, address, symbol) : (Party, Party, Text, Text)
+    maintainer key._1
+
+    observer claimant
+
+    ensure ((T.length address) > 0)
+
+    choice ClaimAccountInvitation_Claim : ContractId TransferRequest
+      controller claimant
+      do
+        create TransferRequest with
+          user = claimant
+          from = [ address ]
+          to = [ (operatorAddress, 100) ]
+          changeAddress = address
+          fee = 100
+          ..
+
+    choice ClaimAccountInvitation_Archive : ()
+      controller operator
+      do
+        return ()
+
+template UnclaimedAccount
+  with
+    operator : Party
+    public : Party
+    symbol : Text
+    balance : Int
+    address : Text
+    someTransferringTo: Optional Text
+  where
+    signatory operator
+
+    observer public
+
+    -- define an index by owner
+    key (operator, address, symbol) : (Party, Text, Text)
+    maintainer key._1
+
+    choice UnclaimedAccount_Claim_Invite : ContractId ClaimAccountInvitation
+      with
+        requestId : Text
+        operatorAddress : Text
+        owner : Party
+      controller operator
+        do
+          create ClaimAccountInvitation with
+            address = address
+            symbol = symbol
+            claimant = owner
+            ..
+
+    -- We define a choice to return the balance of the account
+    -- we have a requestor paramenter because this choice can be exercised by anyone
+    nonconsuming choice UnclaimedAccount_BalanceOf : ContractId BalanceOf_Response
+      with
+        requestor : Party
+      controller requestor
+      do
+        create BalanceOf_Response with ..
+    
+    choice UnclaimedAccount_Transfer : ContractId ForgetfulAssetTransferRequest
+      with
+        requestId : Text
+        requestor : Party
+        to : Text
+        value : Int
+      controller requestor
+      do
+        someTransferringTo === None
+        let assetCode = AssetCode
+                        with
+                            issuerAddress = address
+                            version = 1
+                            shortName = symbol
+        create Account with
+          owner = requestor
+          someTransferringTo = Some to
+          allowances = M.empty
+          ..
+        create TransferInProgress with 
+                owner = requestor
+                fromAddress = address
+                toAddress = to
+                ..
+        create ForgetfulAssetTransferRequest with
+                          from = [ address ]
+                          to = [ (to, value) ]
+                          changeAddress = address
+                          quantity = value
+                          someCommitRoot = None
+                          someMetadata = None
+                          fee = 100
+                          ..
+
+    choice UnclaimedAccount_Complete_Reception: ContractId TransferEvent
+      with
+        from: Party
+        fromAddress : Text
+        value : Int
+      controller operator
+      do
+        create UnclaimedAccount with
+          balance = balance + value
+          ..
+        create TransferEvent with
+          to = None
+          toAddress = address
+          ..
+    choice UnclaimedAccount_Complete_Transfer : ContractId TransferEvent
+      with
+        owner: Party
+        toAddress : Text
+        value : Int
+      controller operator
+      do
+        assert $ isSome someTransferringTo
+        create Account with
+          someTransferringTo = None
+          balance = balance - value
+          allowances = M.empty
+          ..
+        someAccountCid <- lookupByKey @Account (operator, toAddress, symbol)
+        case someAccountCid of
+          None -> do 
+                    someUnclaimedAccountCid <- lookupByKey @UnclaimedAccount (operator, address, symbol)
+                    case someUnclaimedAccountCid of
+                      Some unclaimedAccount -> do
+                        exercise unclaimedAccount UnclaimedAccount_Complete_Reception with
+                          from = owner
+                          fromAddress = address
+                          ..
+                      None -> do
+                          newAccount <- create UnclaimedAccount with
+                            balance = value
+                            ..
+                          exercise newAccount UnclaimedAccount_Complete_Reception with
+                            from = owner
+                            fromAddress = address
+                            value = value
+                            ..
+          Some accountCid -> exercise accountCid Account_Complete_Reception with
+                              from = owner
+                              fromAddress = address
+                              value = value
+                              ..
 
 
 -- We define a contract that represents an account for a token
@@ -320,15 +482,17 @@ template Account
   with
     operator : Party
     owner : Party
+    public: Party
     symbol : Text
     balance : Int
     address : Text
     allowances : M.Map Text Int
+    someTransferringTo: Optional Text
   where
     signatory owner, operator
 
     -- define an index by owner
-    key (operator, address) : (Party, Text)
+    key (operator, address, symbol) : (Party, Text, Text)
     maintainer key._1
 
     -- validate the address
@@ -336,12 +500,63 @@ template Account
 
     -- We define a choice to return the balance of the account
     -- we have a requestor paramenter because this choice can be exercised by anyone
-    choice Account_BalanceOf : ContractId BalanceOf_Response
+    nonconsuming choice Account_BalanceOf : ContractId BalanceOf_Response
       with
         requestor : Party
       controller requestor
       do
         create BalanceOf_Response with ..
+    
+    choice Account_Complete_Reception: ContractId TransferEvent
+      with
+        from: Party
+        fromAddress : Text
+        value : Int
+      controller operator
+      do
+        create Account with
+          balance = balance + value
+          ..
+        create TransferEvent with
+          to = Some owner
+          toAddress = address
+          ..
+
+    choice Account_Complete_Transfer : ContractId TransferEvent
+      with
+        toAddress : Text
+        value : Int
+      controller operator
+      do
+        assert $ isSome someTransferringTo
+        create Account with
+          someTransferringTo = None
+          balance = balance - value
+          ..
+        someAccountCid <- lookupByKey @Account (operator, toAddress, symbol)
+        case someAccountCid of
+          None -> do 
+                    someUnclaimedAccountCid <- lookupByKey @UnclaimedAccount (operator, address, symbol)
+                    case someUnclaimedAccountCid of
+                      Some unclaimedAccount -> do
+                        exercise unclaimedAccount UnclaimedAccount_Complete_Reception with
+                          from = owner
+                          fromAddress = address
+                          ..
+                      None -> do
+                          newAccount <- create UnclaimedAccount with
+                            balance = 0
+                            ..
+                          exercise newAccount UnclaimedAccount_Complete_Reception with
+                            from = owner
+                            fromAddress = address
+                            value = value
+                            ..
+          Some accountCid -> exercise accountCid Account_Complete_Reception with
+                              from = owner
+                              fromAddress = address
+                              value = value
+                              ..
 
     -- We define a choice to transfer assets to another account
     -- We don't have requestor parameter because this choice can only be exercised by the owner
@@ -352,11 +567,16 @@ template Account
         value : Int
       controller owner
       do
+        someTransferringTo === None
         let assetCode = AssetCode
                         with
                             issuerAddress = address
                             version = 1
                             shortName = symbol
+        create Account with
+          someTransferringTo = Some to
+          ..
+        create TransferInProgress with fromAddress = address, toAddress = to, ..
         create ForgetfulAssetTransferRequest with
                           from = [ address ]
                           to = [ (to, value) ]
@@ -402,3 +622,26 @@ template Account
           ..
         create ApprovalEvent with
           ..
+
+-- We define a contract 
+template TransferInProgress with
+      operator : Party
+      owner: Party
+      public: Party
+      requestId : Text
+      fromAddress: Text
+      toAddress: Text
+      value: Int
+      symbol : Text
+    where
+      signatory operator, owner
+      key (operator, requestId) : (Party, Text)
+      maintainer key._1
+
+      choice TransferInProgress_Complete : ContractId TransferEvent
+        controller operator
+        do
+          (accountCid, _) <- fetchByKey @Account (operator, fromAddress, symbol)
+          (assetTransferCid, _) <- fetchByKey @SignedAssetTransfer (operator, requestId)
+          exercise assetTransferCid SignedAssetTransfer_Archive
+          exercise accountCid Account_Complete_Transfer with ..
