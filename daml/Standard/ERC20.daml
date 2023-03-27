@@ -164,8 +164,23 @@ template ERC20
         value : Int
       controller requestor
       do
-        (accountCid, _) <- fetchByKey @Account (operator, from, symbol)
-        exercise accountCid Account_Transfer with ..
+        someAccount <- lookupByKey @Account (operator, from, symbol)
+        case someAccount of
+          None -> do
+            someUnclaimedAccount <- lookupByKey @UnclaimedAccount (operator, from, symbol)
+            case someUnclaimedAccount of
+              None -> do
+                unclaimedAccountCid <- create UnclaimedAccount with 
+                  balance = 0
+                  address = from
+                  someTransferringTo = None
+                  ..
+                exercise unclaimedAccountCid UnclaimedAccount_Transfer with ..
+              Some unclaimedAccountCid -> do
+                exercise unclaimedAccountCid UnclaimedAccount_Transfer with ..
+          Some accountCid -> do
+            exercise accountCid Account_Transfer with ..
+
 
     -- We define a choice that allows to check the allowance of an account by address
     nonconsuming choice ERC20_Allowance : ContractId AllowanceOf_Response
@@ -297,9 +312,6 @@ template TransferEvent
 
     observer from, to, public
 
-    -- define an index by owner
-    key (operator, symbol, fromAddress, toAddress) : (Party, Text, Text, Text)
-    maintainer key._1
 
     -- validate the address
     ensure  ((T.length fromAddress) > 0) && ((T.length toAddress) > 0)
@@ -397,12 +409,10 @@ template UnclaimedAccount
                             issuerAddress = address
                             version = 1
                             shortName = symbol
-        create Account with
-          owner = requestor
+        create UnclaimedAccount with
           someTransferringTo = Some to
-          allowances = M.empty
           ..
-        create TransferInProgress with 
+        create UnclaimedAccountTransferInProgress with 
                 owner = requestor
                 fromAddress = address
                 toAddress = to
@@ -426,6 +436,7 @@ template UnclaimedAccount
       do
         create UnclaimedAccount with
           balance = balance + value
+          someTransferringTo = None
           ..
         create TransferEvent with
           to = None
@@ -439,11 +450,6 @@ template UnclaimedAccount
       controller operator
       do
         assert $ isSome someTransferringTo
-        create Account with
-          someTransferringTo = None
-          balance = balance - value
-          allowances = M.empty
-          ..
         someAccountCid <- lookupByKey @Account (operator, toAddress, symbol)
         case someAccountCid of
           None -> do 
@@ -536,7 +542,7 @@ template Account
         someAccountCid <- lookupByKey @Account (operator, toAddress, symbol)
         case someAccountCid of
           None -> do 
-                    someUnclaimedAccountCid <- lookupByKey @UnclaimedAccount (operator, address, symbol)
+                    someUnclaimedAccountCid <- lookupByKey @UnclaimedAccount (operator, toAddress, symbol)
                     case someUnclaimedAccountCid of
                       Some unclaimedAccount -> do
                         exercise unclaimedAccount UnclaimedAccount_Complete_Reception with
@@ -546,6 +552,7 @@ template Account
                       None -> do
                           newAccount <- create UnclaimedAccount with
                             balance = 0
+                            address = toAddress
                             ..
                           exercise newAccount UnclaimedAccount_Complete_Reception with
                             from = owner
@@ -576,7 +583,7 @@ template Account
         create Account with
           someTransferringTo = Some to
           ..
-        create TransferInProgress with fromAddress = address, toAddress = to, ..
+        create AccountTransferInProgress with fromAddress = address, toAddress = to, ..
         create ForgetfulAssetTransferRequest with
                           from = [ address ]
                           to = [ (to, value) ]
@@ -623,8 +630,8 @@ template Account
         create ApprovalEvent with
           ..
 
--- We define a contract 
-template TransferInProgress with
+
+template AccountTransferInProgress with
       operator : Party
       owner: Party
       public: Party
@@ -645,3 +652,32 @@ template TransferInProgress with
           (assetTransferCid, _) <- fetchByKey @SignedAssetTransfer (operator, requestId)
           exercise assetTransferCid SignedAssetTransfer_Archive
           exercise accountCid Account_Complete_Transfer with ..
+
+
+template UnclaimedAccountTransferInProgress with
+      operator : Party
+      owner: Party
+      public: Party
+      requestId : Text
+      fromAddress: Text
+      toAddress: Text
+      value: Int
+      symbol : Text
+    where
+      signatory operator, owner
+      key (operator, requestId) : (Party, Text)
+      maintainer key._1
+
+      choice UnclaimedTransferInProgress_Complete : ContractId TransferEvent
+        controller operator
+        do
+          (accountCid, account) <- fetchByKey @UnclaimedAccount (operator, fromAddress, symbol)
+          (assetTransferCid, _) <- fetchByKey @SignedAssetTransfer (operator, requestId)
+          exercise assetTransferCid SignedAssetTransfer_Archive
+          create Account with
+            address = fromAddress
+            someTransferringTo = None
+            balance = account.balance - value
+            allowances = M.empty
+            ..
+          exercise accountCid UnclaimedAccount_Complete_Transfer with ..

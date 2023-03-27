@@ -150,7 +150,86 @@ module Tests.ERC20 where
             exerciseCmd signedTransferCid SignedAssetTransfer_Confirm with
                 txId = "txId"
                 depth = 1
-        someTransferInProgress <- queryContractKey @TransferInProgress operator (operator, "2")
+        someTransferInProgress <- queryContractKey @AccountTransferInProgress operator (operator, "2")
+        transferEvent <-  (\x -> do
+                        submit operator do
+                        exerciseCmd (fst x) TransferInProgress_Complete)
+                    (fromSome someTransferInProgress)
+        return erc20
+
+    test_transfer_from_unknown_account = script do
+        erc20 <- test_transfer_to_unknown_account
+        publicUser <- getOrCreateUser "Public" None
+        ((aliceUser, aliceAddress), (bobUser, bobAddress), _) <- util_create_parties $ getPrimaryParty publicUser
+        let bobParty = getPrimaryParty bobUser
+        (operatorUser, public, _) <- util_create_operator
+        let operator = getPrimaryParty operatorUser
+        transferRequest <- submitUser bobUser.userId do
+            exerciseCmd erc20 ERC20_Transfer with 
+                requestId = "3"
+                requestor = bobParty
+                from = bobAddress
+                to = aliceAddress
+                value = 5
+        unsignedTransferRequest <- submit operator do
+            exerciseCmd transferRequest ForgetfulAssetTransferRequest_Accept with  
+                txToSign = "txToSign"
+                msgToSign = "msgToSign"
+                newBoxNonce = 1
+        nowTime <- getTime     
+        signedTransferCid <- submit operator do
+            exerciseCmd unsignedTransferRequest UnsignedAssetTransfer_Sign with
+                    signedTx = "signedTx"
+        signedTransferCid <- submit operator do 
+            exerciseCmd signedTransferCid SignedAssetTransfer_Sent with
+                newSendStatus = Sent with 
+                        when = nowTime
+                        from = ""
+                        txId = "2"
+        submit operator do 
+            exerciseCmd signedTransferCid SignedAssetTransfer_Confirm with
+                txId = "txId"
+                depth = 1
+        someTransferInProgress <- queryContractKey @UnclaimedAccountTransferInProgress operator (operator, "3")
+        transferEvent <-  (\x -> do
+                        submit operator do
+                        exerciseCmd (fst x) UnclaimedTransferInProgress_Complete)
+                    (fromSome someTransferInProgress)
+        return erc20
+    test_transfer_from_known_to_known = script do
+        erc20 <- test_transfer_from_unknown_account
+        publicUser <- getOrCreateUser "Public" None
+        ((aliceUser, aliceAddress), (bobUser, bobAddress), _) <- util_create_parties $ getPrimaryParty publicUser
+        let aliceParty = getPrimaryParty aliceUser
+        (operatorUser, public, _) <- util_create_operator
+        let operator = getPrimaryParty operatorUser
+        transferRequest <- submitUser aliceUser.userId do
+            exerciseCmd erc20 ERC20_Transfer with 
+                requestId = "4"
+                requestor = aliceParty
+                from = aliceAddress
+                to = bobAddress
+                value = 5
+        unsignedTransferRequest <- submit operator do
+            exerciseCmd transferRequest ForgetfulAssetTransferRequest_Accept with  
+                txToSign = "txToSign"
+                msgToSign = "msgToSign"
+                newBoxNonce = 1
+        nowTime <- getTime     
+        signedTransferCid <- submit operator do
+            exerciseCmd unsignedTransferRequest UnsignedAssetTransfer_Sign with
+                    signedTx = "signedTx"
+        signedTransferCid <- submit operator do 
+            exerciseCmd signedTransferCid SignedAssetTransfer_Sent with
+                newSendStatus = Sent with 
+                        when = nowTime
+                        from = ""
+                        txId = "2"
+        submit operator do 
+            exerciseCmd signedTransferCid SignedAssetTransfer_Confirm with
+                txId = "txId"
+                depth = 1
+        someTransferInProgress <- queryContractKey @AccountTransferInProgress operator (operator, "4")
         transferEvent <-  (\x -> do
                         submit operator do
                         exerciseCmd (fst x) TransferInProgress_Complete)
