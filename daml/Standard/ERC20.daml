@@ -131,7 +131,7 @@ template ERC20
       controller requestor
       do
         -- We use the `fetchByKey` function to get the account by address
-        someAccountCid <- lookupByKey @Account (operator, address, symbol)
+        someAccountCid <- lookupByKey @Account (operator, address, assetCode.issuerAddress, symbol)
         case someAccountCid of
           None -> do
             -- if the account does not exist, we create it
@@ -165,7 +165,7 @@ template ERC20
         value : Int
       controller requestor
       do
-        someAccount <- lookupByKey @Account (operator, from, symbol)
+        someAccount <- lookupByKey @Account (operator, from, assetCode.issuerAddress, symbol)
         case someAccount of
           None -> do
             someUnclaimedAccount <- lookupByKey @UnclaimedAccount (operator, from, symbol)
@@ -175,6 +175,7 @@ template ERC20
                   balance = 0
                   address = from
                   someTransferringTo = None
+                  issuerAddress = assetCode.issuerAddress
                   ..
                 exercise unclaimedAccountCid UnclaimedAccount_Transfer with ..
               Some unclaimedAccountCid -> do
@@ -192,7 +193,7 @@ template ERC20
       controller requestor
       do
         -- this works because only the owner can see an account
-        (accountCid, _) <- fetchByKey @Account (issuer, ownerAddress, symbol)
+        (accountCid, _) <- fetchByKey @Account (issuer, ownerAddress, assetCode.issuerAddress, symbol)
         exercise accountCid Account_Allowance with ..
 
     -- We define a choice that
@@ -215,7 +216,17 @@ template ERC20
         value : Int
       controller requestor
       do
-        (accountCid, _) <- fetchByKey @Account (operator, ownerAddress, symbol)
+        (accountCid, _) <- fetchByKey @Account (operator, ownerAddress, assetCode.issuerAddress, symbol)
+        -- we send an NFT to the spender so that they can transfer the assets
+        create UniqueAssetMintingRequest with
+            requestor = issuer
+            to = [ (spenderAddress, 1) ]
+            quantity = 1
+            someCommitRoot = None
+            someMetadata = None
+            shortName = "ALLOW"
+            fee = 100
+            ..
         exercise accountCid Account_Approve with ..
 
     -- We define a choice that allows to transfer assets from an account to another account
@@ -236,22 +247,25 @@ template ERC20
         value : Int
       controller requestor
       do
-        let assetCode = AssetCode
-                        with
-                            issuerAddress = operatorAddress
-                            version = 1
-                            shortName = "AUTH"
-        -- we send the token to the issuer
+        -- we get the NFT from the allowance map
+        (_, fromAccount) <- fetchByKey @Account (operator, from, assetCode.issuerAddress, symbol)
+        
+        let someAsset = (M.lookup requestorAddress fromAccount.allowances)
+        assert $ isSome someAsset
+        create AssetTransferFromInProgress with 
+              issuerAddress = assetCode.issuerAddress
+              status = NotAuthorized
+              ..
+        -- we send the NFT that
         create ForgetfulAssetTransferRequest with
-                          operator = issuer
                           from = [ requestorAddress ]
-                          to = [ (operatorAddress, 1) ]
+                          to = [ (to, 1) ]
                           changeAddress = requestorAddress
-                          quantity = value
+                          quantity = 1
                           someCommitRoot = None
                           someMetadata = None
                           fee = 100
-                          requestor = requestor
+                          assetCode = fst $ fromSome someAsset
                           ..
 
 -- We define the ApprovalEvent contract
@@ -363,9 +377,10 @@ template UnclaimedAccount
   with
     operator : Party
     public : Party
-    symbol : Text
     balance : Int
     address : Text
+    issuerAddress: Text
+    symbol : Text
     someTransferringTo: Optional Text
   where
     signatory operator
@@ -409,9 +424,9 @@ template UnclaimedAccount
         someTransferringTo === None
         let assetCode = AssetCode
                         with
-                            issuerAddress = address
                             version = 1
                             shortName = symbol
+                            ..
         create UnclaimedAccount with
           someTransferringTo = Some to
           ..
@@ -453,7 +468,7 @@ template UnclaimedAccount
       controller operator
       do
         assert $ isSome someTransferringTo
-        someAccountCid <- lookupByKey @Account (operator, toAddress, symbol)
+        someAccountCid <- lookupByKey @Account (operator, toAddress, issuerAddress, symbol)
         case someAccountCid of
           None -> do 
                     someUnclaimedAccountCid <- lookupByKey @UnclaimedAccount (operator, address, symbol)
@@ -491,16 +506,20 @@ template Account
   with
     operator : Party
     owner : Party
+    public: Party
     symbol : Text
     balance : Int
+    issuerAddress: Text
     address : Text
-    allowances : M.Map Text Int
+    allowances : M.Map Text (AssetCode, Int)
     someTransferringTo: Optional Text
   where
     signatory owner, operator
 
+    observer public
+
     -- define an index by owner
-    key (operator, address, symbol) : (Party, Text, Text)
+    key (operator, address, issuerAddress, symbol) : (Party, Text, Text, Text)
     maintainer key._1
 
     -- validate the address
@@ -514,7 +533,7 @@ template Account
       controller requestor
       do
         create BalanceOf_Response with 
-            balance = sum (M.values allowances) + balance
+            balance = (sum (fmap (\x -> snd x) $ M.values allowances)) + balance
             ..
     
     choice Account_Complete_Reception: ContractId TransferEvent
@@ -522,7 +541,6 @@ template Account
         from: Party
         fromAddress : Text
         value : Int
-        public: Party
       controller operator
       do
         create Account with
@@ -534,13 +552,11 @@ template Account
           ..
     choice Account_Complete_Approval: ContractId ApprovalEvent
       with
-        from: Party
         fromAddress : Text
         spender: Party
         spenderAddress: Text
         value : Int
-        newAllowances : M.Map Text Int
-        public: Party
+        newAllowances : M.Map Text (AssetCode, Int)
       controller operator
       do
         create Account with
@@ -553,7 +569,6 @@ template Account
 
     choice Account_Complete_Transfer : ContractId TransferEvent
       with
-        public: Party
         toAddress : Text
         value : Int
       controller operator
@@ -563,7 +578,48 @@ template Account
           someTransferringTo = None
           balance = balance - value
           ..
-        someAccountCid <- lookupByKey @Account (operator, toAddress, symbol)
+        someAccountCid <- lookupByKey @Account (operator, toAddress, issuerAddress, symbol)
+        case someAccountCid of
+          None -> do 
+                    someUnclaimedAccountCid <- lookupByKey @UnclaimedAccount (operator, toAddress, symbol)
+                    case someUnclaimedAccountCid of
+                      Some unclaimedAccount -> do
+                        exercise unclaimedAccount UnclaimedAccount_Complete_Reception with
+                          from = owner
+                          fromAddress = address
+                          ..
+                      None -> do
+                          newAccount <- create UnclaimedAccount with
+                            balance = 0
+                            address = toAddress
+                            ..
+                          exercise newAccount UnclaimedAccount_Complete_Reception with
+                            from = owner
+                            fromAddress = address
+                            value = value
+                            ..
+          Some accountCid -> exercise accountCid Account_Complete_Reception with
+                              from = owner
+                              fromAddress = address
+                              value = value
+                              ..
+
+    choice Account_Complete_TransferFrom : ContractId TransferEvent
+      with
+        spenderAddress: Text
+        nftToken: AssetCode
+        toAddress : Text
+        value : Int
+      controller operator
+      do
+        let currentAllowanceForSpender = snd (fromSome $ M.lookup spenderAddress allowances)
+        assert $ currentAllowanceForSpender >= value
+        let newAllowances = M.insert spenderAddress (nftToken, currentAllowanceForSpender - value) allowances
+        create Account with
+          someTransferringTo = None
+          allowances = newAllowances
+          ..
+        someAccountCid <- lookupByKey @Account (operator, toAddress, issuerAddress, symbol)
         case someAccountCid of
           None -> do 
                     someUnclaimedAccountCid <- lookupByKey @UnclaimedAccount (operator, toAddress, symbol)
@@ -594,7 +650,6 @@ template Account
     choice Account_Transfer : ContractId ForgetfulAssetTransferRequest
       with
         requestId : Text
-        public: Party
         to : Text
         value : Int
       controller owner
@@ -635,7 +690,7 @@ template Account
       do
         let allowance = M.lookup spenderAddress allowances
         create AllowanceOf_Response with 
-              allowance = (fromOptional 0 allowance)
+              allowance = (optional 0 snd allowance)
               ..
 
     -- We define a choice to approve a spender to transfer assets from the owner's account
@@ -648,19 +703,17 @@ template Account
       with
         spender: Party
         requestId : Text
-        public: Party
         assetCode: AssetCode
         operatorAddress : Text
         spenderAddress : Text
         value : Int
       controller owner
       do
-        let newAllowances = M.insert spenderAddress value allowances
-        create Account with
-          someTransferringTo = Some operatorAddress
-          ..
         create ApprovalTransferInProgress with 
               fromAddress = address
+              ..
+        create Account with
+              someTransferringTo = Some operatorAddress
               ..
         create ForgetfulAssetTransferRequest with
                           requestor = owner
@@ -680,6 +733,7 @@ template AccountTransferInProgress with
       owner: Party
       public: Party
       requestId : Text
+      issuerAddress: Text
       fromAddress: Text
       toAddress: Text
       value: Int
@@ -692,7 +746,7 @@ template AccountTransferInProgress with
       choice TransferInProgress_Complete : ContractId TransferEvent
         controller operator
         do
-          (accountCid, _) <- fetchByKey @Account (operator, fromAddress, symbol)
+          (accountCid, _) <- fetchByKey @Account (operator, fromAddress, issuerAddress, symbol)
           (assetTransferCid, _) <- fetchByKey @SignedAssetTransfer (operator, requestId)
           exercise assetTransferCid SignedAssetTransfer_Archive
           exercise accountCid Account_Complete_Transfer with ..
@@ -706,6 +760,7 @@ template UnclaimedAccountTransferInProgress with
       fromAddress: Text
       toAddress: Text
       value: Int
+      issuerAddress: Text
       symbol : Text
     where
       signatory operator, owner
@@ -726,7 +781,90 @@ template UnclaimedAccountTransferInProgress with
             ..
           exercise accountCid UnclaimedAccount_Complete_Transfer with ..
 
+data AssetTransferFromInProgress_Status = 
+        NotAuthorized | 
+        Authorized | 
+        AssetTransferInProgressSent
+      deriving (Eq, Show)
 
+template AssetTransferFromInProgress with
+        operator: Party
+        requestor : Party
+        public: Party
+        requestId : Text
+        issuerAddress: Text
+        operatorAddress: Text
+        requestorAddress : Text
+        from: Text
+        to : Text
+        symbol: Text
+        value : Int
+        status : AssetTransferFromInProgress_Status
+    where
+      signatory operator, requestor
+
+      key (operator, requestId) : (Party, Text)
+      maintainer key._1
+
+      choice AssetTransferFromInProgress_Authorization_Complete : ContractId AssetTransferFromInProgress
+        controller operator
+        do
+          status === NotAuthorized
+          (accountCid, account) <- fetchByKey @Account (operator, from, issuerAddress, symbol)
+          (assetTransferCid, assetTransfer) <- fetchByKey @SignedAssetTransfer (operator, requestId)
+          exercise assetTransferCid SignedAssetTransfer_Archive
+          let assetCode = AssetCode
+                with
+                    version = 1
+                    shortName = symbol
+                    ..
+          create ForgetfulAssetTransferRequest with
+                            requestor = operator
+                            from = [ operatorAddress ]
+                            to = [ (to, value) ]
+                            changeAddress = operatorAddress
+                            quantity = value
+                            someCommitRoot = None
+                            someMetadata = None
+                            fee = 100
+                            ..
+          create AssetTransferFromInProgress with status = Authorized, ..
+
+      choice AssetTransferFromInProgress_Sent_Confirmed : ContractId TransferEvent
+        controller operator
+        do
+          status === Authorized
+          (accountCid, account) <- fetchByKey @Account (operator, from, issuerAddress, symbol)
+          (assetTransferCid, assetTransfer) <- fetchByKey @SignedAssetTransfer (operator, requestId)
+          exercise assetTransferCid SignedAssetTransfer_Archive
+          create AssetTransferFromInProgress with status = AssetTransferInProgressSent, ..
+          let assetCode = AssetCode
+                with
+                    version = 1
+                    shortName = "ALLOW"
+                    ..
+          create ForgetfulAssetTransferRequest with
+                            requestor = operator
+                            from = [ operatorAddress ]
+                            to = [ (requestorAddress, 1) ]
+                            changeAddress = operatorAddress
+                            quantity = 1
+                            someCommitRoot = None
+                            someMetadata = None
+                            fee = 100
+                            ..
+          exercise accountCid Account_Complete_TransferFrom with
+                            spenderAddress = requestorAddress
+                            toAddress = to
+                            nftToken = assetTransfer.assetCode
+                            ..
+      choice AssetTransferFromInProgress_ReturnedToken : ()
+        controller operator
+        do
+          status === AssetTransferInProgressSent
+          (accountCid, account) <- fetchByKey @Account (operator, from, issuerAddress, symbol)
+          (assetTransferCid, assetTransfer) <- fetchByKey @SignedAssetTransfer (operator, requestId)
+          exercise assetTransferCid SignedAssetTransfer_Archive
 
 template ApprovalTransferInProgress with
       operator : Party
@@ -738,7 +876,7 @@ template ApprovalTransferInProgress with
       spenderAddress: Text
       value: Int
       symbol : Text
-      newAllowances : M.Map Text Int
+      issuerAddress: Text
     where
       signatory operator, owner
       key (operator, requestId) : (Party, Text)
@@ -747,9 +885,11 @@ template ApprovalTransferInProgress with
       choice ApprovalTransferInProgress_Complete : ContractId ApprovalEvent
         controller operator
         do
-          (accountCid, account) <- fetchByKey @Account (operator, fromAddress, symbol)
+          (accountCid, account) <- fetchByKey @Account (operator, fromAddress, issuerAddress, symbol)
           (assetTransferCid, _) <- fetchByKey @SignedAssetTransfer (operator, requestId)
+          (assetMintingCid, assetMinting) <- fetchByKey @SignedAssetMinting (operator, requestId)
+          let newAllowances = M.insert spenderAddress (assetMinting.assetCode, value) account.allowances
           exercise assetTransferCid SignedAssetTransfer_Archive
+          exercise assetMintingCid SignedAssetMinting_Archive
           exercise accountCid Account_Complete_Approval with
-                            from = owner
                             ..

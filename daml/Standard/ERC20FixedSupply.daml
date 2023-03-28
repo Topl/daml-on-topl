@@ -19,7 +19,7 @@ template ERC20FixedSupplyMinter with
                 with
                     requestId : Text
                     issuer : Party
-                    issuerAddress : Text
+                    minterAddress : Text
                     name : Optional Text
                     symbol : Text
                     totalSupply : Int
@@ -28,7 +28,7 @@ template ERC20FixedSupplyMinter with
                     -- this will launch the asset minting process
                     create UniqueAssetMintingRequest with
                         requestor = issuer
-                        to = [ (issuerAddress, totalSupply) ]
+                        to = [ (minterAddress, totalSupply) ]
                         quantity = totalSupply
                         someCommitRoot = None
                         someMetadata = None
@@ -54,7 +54,8 @@ template ERC20FixedSupplyRequest with
                 do
                     (assetMintingCid, assetMinting) <- fetchByKey @SignedAssetMinting (operator, requestId)
                     assert $ isConfirmed assetMinting.sendStatus
-                    let issuerAddress = fst $ head assetMinting.to
+                    let minterAddress = fst $ head assetMinting.to
+                    let issuerAddress = head assetMinting.from
                     erc20 <- create ERC20 with
                        issuer = assetMinting.requestor
                        public = public
@@ -69,7 +70,7 @@ template ERC20FixedSupplyRequest with
                         owner = issuer
                         symbol = assetMinting.assetCode.shortName
                         balance = assetMinting.quantity
-                        address = issuerAddress
+                        address = minterAddress
                         allowances = M.empty
                         someTransferringTo = None
                         ..
