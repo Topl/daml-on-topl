@@ -180,11 +180,7 @@ class SignedMintingRequestProcessor(
     } else if (signedMintingRequest.sendStatus.isInstanceOf[Confirmed]) {
       logger.info("Successfully confirmed.")
       IO(
-        stream.Stream.of(
-          Organization
-            .byKey(new types.Tuple2(signedMintingRequest.operator, signedMintingRequest.someOrgId.get()))
-            .exerciseOrganization_AddSignedAssetMinting(idGenerator.get(), signedMintingRequestContract)
-        )
+        stream.Stream.empty()
       )
     } else {
       IO(

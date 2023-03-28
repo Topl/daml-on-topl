@@ -68,6 +68,7 @@ trait UnsignedPolyTransferRequestProcessorBaseTest extends BaseTest {
   val assetTransferRequest = new UnsignedTransfer(
     "operator",
     "alice",
+    "1",
     ju.List.of("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64"),
     ju.List.of(new types.Tuple2("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64", java.lang.Long.valueOf(1L))),
     """{"txType":"PolyTransfer","timestamp":1665697142778,"signatures":{},"newBoxes":[{"nonce":"8671064749621587799","id":"BYdcFpz9M8ZDHGaWzTToCJWDhjYWCaSqptZJzhL9jz74","evidence":"TjEmqLT7VnfsbSMTUptWXVTEms2sHfP5bXSZa9iue7Tq","type":"PolyBox","value":{"type":"Simple","quantity":"999400"}},{"nonce":"-4209546341112737928","id":"4UxNACCKpt8hDdGa7iN4rwEELiaC168cizmXtq4Yx8sU","evidence":"TjEmqLT7VnfsbSMTUptWXVTEms2sHfP5bXSZa9iue7Tq","type":"PolyBox","value":{"type":"Simple","quantity":"500"}}],"data":null,"from":[["AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64","4767595726154610060"]],"minting":false,"txId":"q8LnJwPMbxVuuEHEVHHLC83KmhJBAiG5PmrihQyGpvnE","boxesToRemove":["FTCgbUwbedqyaT75djdZ7r58xr1z2GNDWrzcWVuXjy4K"],"fee":"100","to":[["AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",{"type":"Simple","quantity":"999400"}],["AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",{"type":"Simple","quantity":"500"}]],"propositionType":"PublicKeyCurve25519"}"""

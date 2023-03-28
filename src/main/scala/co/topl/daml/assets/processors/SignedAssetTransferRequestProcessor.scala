@@ -177,13 +177,7 @@ class SignedAssetTransferRequestProcessor(
       } else if (signedTransferRequest.sendStatus.isInstanceOf[Confirmed]) {
         logger.info("Successfully confirmed.")
 
-        IO(
-          stream.Stream.of(
-            Organization
-              .byKey(new types.Tuple2(signedTransferRequest.operator, signedTransferRequest.someOrgId.get()))
-              .exerciseOrganization_AddSignedAssetTransfer(idGenerator.get(), signedTransferRequestContract)
-          )
-        )
+        IO(stream.Stream.empty())
       } else {
 
         IO(

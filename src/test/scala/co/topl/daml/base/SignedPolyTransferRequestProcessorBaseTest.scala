@@ -53,6 +53,7 @@ trait SignedPolyTransferRequestProcessorBaseTest extends BaseTest {
   val assetTransferRequest = new SignedTransfer(
     "operator",
     "alice",
+    "1",
     ju.List.of("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64"),
     ju.List.of(new types.Tuple2("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64", java.lang.Long.valueOf(1L))),
     "3skAnq3Un9CN9217fRmrgMyVWrBSy6oyZQwUaVW3u2cADA7tURUT2LHvX9WEiXRWGA8eiSGoSeRE6QsMjtCL1u2WdgVx92WPRB2tY1g6gSxPE1FKK2fvChwaA4n4PTxGdmYvyZhoiGLAKDjmrCPM6wWDEvqjetVZATtFxvSYUxKFj48PYmFAexDE52be6tT7178V5cdZsh7B7hvXhh8FuUViVXtiTCkoEGygTH5Qf2SCP",
