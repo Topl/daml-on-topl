@@ -38,7 +38,7 @@ class PolyTransferRequestProcessorTest extends CatsEffectSuite with PolyTransfer
     dummyStandardProcessor
       .prepareTransactionM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "TransferRequest_Accept")
       }
   }
@@ -48,7 +48,7 @@ class PolyTransferRequestProcessorTest extends CatsEffectSuite with PolyTransfer
     dummyFailingWithException
       .prepareTransactionM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "TransferRequest_Reject")
       }
   }

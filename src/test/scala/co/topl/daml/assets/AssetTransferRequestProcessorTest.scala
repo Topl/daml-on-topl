@@ -37,7 +37,7 @@ class AssetTransferRequestProcessorTest extends CatsEffectSuite with AssetTransf
     dummyStandardProcessor
       .processTransferRequestM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "AssetTransferRequest_Accept")
       }
   }
@@ -47,7 +47,7 @@ class AssetTransferRequestProcessorTest extends CatsEffectSuite with AssetTransf
     dummyFailingWithException
       .processTransferRequestM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "AssetTransferRequest_Reject")
       }
   }

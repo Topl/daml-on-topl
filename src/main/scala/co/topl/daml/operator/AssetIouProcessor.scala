@@ -10,6 +10,7 @@ import co.topl.daml.api.model.da.types
 import co.topl.daml.api.model.topl.organization.AssetIou
 import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 
 class AssetIouProcessor(
   damlAppContext: DamlAppContext,
@@ -21,7 +22,7 @@ class AssetIouProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
+  ): IO[(Boolean, stream.Stream[HasCommands])] = processEventAux(
     AssetIou.TEMPLATE_ID,
     e => AssetIou.fromValue(e.getArguments()),
     e => AssetIou.Contract.fromCreatedEvent(e).id,

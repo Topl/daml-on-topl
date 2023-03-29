@@ -36,6 +36,7 @@ import io.circe.Json
 import io.circe.parser.parse
 import org.slf4j.LoggerFactory
 import scodec.bits._
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 
 /**
  * This processor processes the signing of poly transfer requests.
@@ -70,7 +71,7 @@ class UnsignedTransferProcessor(
   def signOperationM(
     unsidgnedTransferRequest:         UnsignedTransfer,
     unsidgnedTransferRequestContract: UnsignedTransfer.ContractId
-  ): IO[stream.Stream[Command]] = (for {
+  ): IO[stream.Stream[HasCommands]] = (for {
     keyfile        <- readFileM(fileName)
     jsonKey        <- IO.fromEither(parse(keyfile))
     address        <- importKeyM(jsonKey, password, keyRing)
@@ -89,7 +90,7 @@ class UnsignedTransferProcessor(
     stream.Stream.of(
       unsidgnedTransferRequestContract
         .exerciseUnsignedTransfer_Sign(signedTxString)
-    ): stream.Stream[Command]
+    ): stream.Stream[HasCommands]
   }).handleError { failure =>
     logger.info("Failed to sign transaction.")
     logger.info("Error: {}", failure)
@@ -103,7 +104,7 @@ class UnsignedTransferProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
+  ): IO[(Boolean, stream.Stream[HasCommands])] = processEventAux(
     UnsignedTransfer.TEMPLATE_ID,
     e => UnsignedTransfer.fromValue(e.getArguments()),
     e => UnsignedTransfer.Contract.fromCreatedEvent(e).id,

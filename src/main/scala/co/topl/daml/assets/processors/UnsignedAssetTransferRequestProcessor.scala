@@ -28,12 +28,12 @@ import co.topl.daml.api.model.topl.asset.UnsignedAssetTransferRequest
 import co.topl.daml.api.model.topl.transfer.UnsignedTransfer
 import co.topl.modifier.transaction.serialization.AssetTransferSerializer
 import co.topl.utils.StringDataTypes
-import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
 import io.circe.DecodingFailure
 import io.circe.parser.parse
 import org.slf4j.LoggerFactory
 import scodec.bits._
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 
 /**
  * This processor processes the signing of transfer requests.
@@ -72,7 +72,7 @@ class UnsignedAssetTransferRequestProcessor(
   def signOperationM(
     unsidgnedTransferRequest:         UnsignedAssetTransferRequest,
     unsidgnedTransferRequestContract: UnsignedAssetTransferRequest.ContractId
-  ): IO[stream.Stream[Command]] = (for {
+  ): IO[stream.Stream[HasCommands]] = (for {
     keyfile        <- readFileM(fileName)
     jsonKey        <- IO.fromEither(parse(keyfile))
     address        <- importKeyM(jsonKey, password, keyRing)
@@ -91,7 +91,7 @@ class UnsignedAssetTransferRequestProcessor(
     stream.Stream.of(
       unsidgnedTransferRequestContract
         .exerciseUnsignedAssetTransfer_Sign(signedTxString)
-    ): stream.Stream[Command]
+    ): stream.Stream[HasCommands]
   }).handleError { f =>
     logger.info("Failed to sign transaction.")
     logger.debug("Error: {}", f)
@@ -105,7 +105,7 @@ class UnsignedAssetTransferRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
+  ): IO[(Boolean, stream.Stream[HasCommands])] = processEventAux(
     UnsignedAssetTransferRequest.TEMPLATE_ID,
     e => UnsignedAssetTransferRequest.fromValue(e.getArguments()),
     e => UnsignedAssetTransferRequest.Contract.fromCreatedEvent(e).id,

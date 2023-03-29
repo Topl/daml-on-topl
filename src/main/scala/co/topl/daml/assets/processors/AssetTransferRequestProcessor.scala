@@ -37,12 +37,12 @@ import co.topl.utils.Int128
 import co.topl.utils.StringDataTypes
 import co.topl.utils.StringDataTypes.Base58Data
 import co.topl.utils.StringDataTypes.Latin1Data
-import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
 import org.slf4j.LoggerFactory
 import scodec.bits.ByteVector
 
 import ToplRpc.Transaction.RawAssetTransfer
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 
 /**
  * This processor processes the transfer requests.
@@ -75,7 +75,7 @@ class AssetTransferRequestProcessor(
   def processTransferRequestM(
     assetTransferRequest:         AssetTransferRequest,
     assetTransferRequestContract: AssetTransferRequest.ContractId
-  ): IO[stream.Stream[Command]] = (for {
+  ): IO[stream.Stream[HasCommands]] = (for {
     address       <- decodeAddressesM(assetTransferRequest.from.asScala.toList)
     changeAddress <- decodeAddressM(assetTransferRequest.changeAddress)
     params        <- getParamsM(address)
@@ -115,7 +115,7 @@ class AssetTransferRequestProcessor(
         messageToSign,
         assetTransfer.newBoxes.toList.reverse.head.nonce
       )
-    ): stream.Stream[Command]
+    ): stream.Stream[HasCommands]
   }).handleError { failure =>
     logger.info("Failed to obtain raw transaction from server.")
     logger.info("Error: {}", failure)
@@ -129,7 +129,7 @@ class AssetTransferRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] =
+  ): IO[(Boolean, stream.Stream[HasCommands])] =
     processEventAux(
       AssetTransferRequest.TEMPLATE_ID,
       e => AssetTransferRequest.fromValue(e.getArguments()),

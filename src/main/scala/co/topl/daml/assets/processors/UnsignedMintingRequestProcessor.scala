@@ -32,6 +32,7 @@ import io.circe.DecodingFailure
 import io.circe.parser.parse
 import org.slf4j.LoggerFactory
 import scodec.bits._
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 
 /**
  * This processor processes the signing of transfer requests.
@@ -70,7 +71,7 @@ class UnsignedMintingRequestProcessor(
   def signOperationM(
     unsidgnedMintingRequest:         UnsignedAssetMinting,
     unsidgnedMintingRequestContract: UnsignedAssetMinting.ContractId
-  ): IO[stream.Stream[Command]] = (for {
+  ): IO[stream.Stream[HasCommands]] = (for {
     keyfile        <- readFileM(fileName)
     jsonKey        <- IO.fromEither(parse(keyfile))
     address        <- importKeyM(jsonKey, password, keyRing)
@@ -85,7 +86,7 @@ class UnsignedMintingRequestProcessor(
     stream.Stream.of(
       unsidgnedMintingRequestContract
         .exerciseUnsignedMinting_Sign(signedTxString)
-    ): stream.Stream[Command]
+    ): stream.Stream[HasCommands]
   }).handleError { failure =>
     logger.info("Failed to sign transaction.")
     logger.debug("Error: {}", failure)
@@ -99,7 +100,7 @@ class UnsignedMintingRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
+  ): IO[(Boolean, stream.Stream[HasCommands])] = processEventAux(
     UnsignedAssetMinting.TEMPLATE_ID,
     e => UnsignedAssetMinting.fromValue(e.getArguments()),
     e => UnsignedAssetMinting.Contract.fromCreatedEvent(e).id,

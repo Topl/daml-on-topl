@@ -17,6 +17,7 @@ import com.google.protobuf.Empty
 import io.reactivex.Single
 import io.reactivex.subjects.SingleSubject
 import org.slf4j.LoggerFactory
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 
 abstract class AbstractProcessor[T, U, V](
   val damlAppContext: DamlAppContext,
@@ -40,8 +41,8 @@ abstract class AbstractProcessor[T, U, V](
     callback:           (T, C) => Boolean,
     event:              CreatedEvent
   )(
-    processor: (T, C) => IO[stream.Stream[Command]]
-  ): IO[(Boolean, stream.Stream[Command])] =
+    processor: (T, C) => IO[stream.Stream[HasCommands]]
+  ): IO[(Boolean, stream.Stream[HasCommands])] =
     if (event.getTemplateId() == templateIdentifier) {
       for {
         contractId   <- IO.apply(extractContractId(event))
@@ -51,12 +52,12 @@ abstract class AbstractProcessor[T, U, V](
       } yield (mustContinue, resultStream)
     } else IO.apply((true, stream.Stream.empty()))
 
-  def processEventsM(tx: Transaction, processEvent: (String, CreatedEvent) => IO[(Boolean, stream.Stream[Command])]) =
+  def processEventsM(tx: Transaction, processEvent: (String, CreatedEvent) => IO[(Boolean, stream.Stream[HasCommands])]) =
     tx.getEvents()
       .asScala
       .filter(_.isInstanceOf[CreatedEvent])
       .map(_.asInstanceOf[CreatedEvent])
-      .foldLeft(IO.apply((true, stream.Stream.empty[Command]()))) { (firstIO, b) =>
+      .foldLeft(IO.apply((true, stream.Stream.empty[HasCommands]()))) { (firstIO, b) =>
         for {
           pair1 <- firstIO
           (bool0, str0) = pair1
@@ -65,7 +66,7 @@ abstract class AbstractProcessor[T, U, V](
         } yield ((bool0 && bool1), stream.Stream.concat(str0, str1))
       }
 
-  def submitToDaml(tx: Transaction, exerciseCommands: java.util.List[Command])(implicit
+  def submitToDaml(tx: Transaction, exerciseCommands: java.util.List[HasCommands])(implicit
     damlAppContext:    DamlAppContext
   ) =
     if (!exerciseCommands.isEmpty()) {
@@ -87,7 +88,7 @@ abstract class AbstractProcessor[T, U, V](
   def processTransactionAux(
     tx: Transaction
   )(
-    processEvent: (String, CreatedEvent) => IO[(Boolean, stream.Stream[Command])]
+    processEvent: (String, CreatedEvent) => IO[(Boolean, stream.Stream[HasCommands])]
   ): IO[Boolean] =
     (for {
       pair <- processEventsM(tx, processEvent)
@@ -102,7 +103,7 @@ abstract class AbstractProcessor[T, U, V](
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])]
+  ): IO[(Boolean, stream.Stream[HasCommands])]
 
   def processTransactionIO(tx: Transaction): IO[Boolean] =
     processTransactionAux(tx)(processEvent).handleError(t => onError(t))

@@ -39,7 +39,7 @@ class SignedAssetMintingRequestProcessorTest extends CatsEffectSuite with Signed
     dummyStandardProcessor
       .handlePendingM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "SignedAssetTransfer_Sent")
       }
   }
@@ -49,7 +49,7 @@ class SignedAssetMintingRequestProcessorTest extends CatsEffectSuite with Signed
     dummyFailingWithException
       .handlePendingM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "SignedAssetTransfer_Fail")
       }
   }

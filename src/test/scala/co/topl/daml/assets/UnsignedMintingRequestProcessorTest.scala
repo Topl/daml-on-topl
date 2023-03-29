@@ -38,7 +38,7 @@ class UnsignedMintingRequestProcessorTest extends CatsEffectSuite with UnsignedA
     dummyStandardProcessor
       .signOperationM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "UnsignedMinting_Sign")
       }
   }
@@ -48,7 +48,7 @@ class UnsignedMintingRequestProcessorTest extends CatsEffectSuite with UnsignedA
     dummyFailingWithException
       .signOperationM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "UnsignedMinting_Archive")
       }
   }

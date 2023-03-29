@@ -46,7 +46,6 @@ import co.topl.rpc.ToplRpc
 import co.topl.rpc.implicits.client._
 import co.topl.utils.NetworkType
 import co.topl.utils.StringDataTypes
-import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
 import io.circe.Decoder
 import io.circe.DecodingFailure
@@ -54,6 +53,7 @@ import io.circe.parser.parse
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
 import scodec.bits._
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 
 /**
  * This processor processes the broadcasting of signed transfer requests.
@@ -86,7 +86,7 @@ class SignedTransferProcessor(
   def handlePendingM(
     signedTransfer:         SignedTransfer,
     signedTransferContract: SignedTransfer.ContractId
-  ): IO[stream.Stream[Command]] = (for {
+  ): IO[stream.Stream[HasCommands]] = (for {
     transactionAsBytes <- decodeTransactionM(signedTransfer.signedTx)
     signedTx           <- parseTxM(transactionAsBytes)
     success            <- broadcastTransactionM(signedTx)
@@ -99,7 +99,7 @@ class SignedTransferProcessor(
     stream.Stream.of(
       signedTransferContract
         .exerciseSignedTransfer_Sent(new Sent(Instant.now(), damlAppContext.appId, success.id.toString()))
-    ): stream.Stream[Command]
+    ): stream.Stream[HasCommands]
   }).timeout(timeoutMillis.millis).handleError { failure =>
     logger.info("Failed to broadcast transaction to server.")
     logger.debug("Error: {}", failure)
@@ -113,7 +113,7 @@ class SignedTransferProcessor(
     signedTransfer:         SignedTransfer,
     signedTransferContract: SignedTransfer.ContractId,
     sentStatus:             Sent
-  ): IO[stream.Stream[Command]] = (for {
+  ): IO[stream.Stream[HasCommands]] = (for {
     confirmationStatusMap <- getTransactionConfirmationStatusM(sentStatus.txId)
   } yield {
     val confirmationStatus = confirmationStatusMap(ModifierId(sentStatus.txId))
@@ -127,7 +127,7 @@ class SignedTransferProcessor(
                 confirmationStatus.depthFromHead
               )
             )
-        ): stream.Stream[Command]
+        ): stream.Stream[HasCommands]
       )
     } else {
       import scala.concurrent.duration._
@@ -143,7 +143,7 @@ class SignedTransferProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
+  ): IO[(Boolean, stream.Stream[HasCommands])] = processEventAux(
     SignedTransfer.TEMPLATE_ID,
     e => SignedTransfer.fromValue(e.getArguments()),
     e => SignedTransfer.Contract.fromCreatedEvent(e).id,

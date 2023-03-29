@@ -40,7 +40,7 @@ class SignedPolyTransferRequestProcessorTest extends CatsEffectSuite with Signed
     dummyStandardProcessor
       .handlePendingM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "SignedTransfer_Sent")
       }
   }
@@ -50,7 +50,7 @@ class SignedPolyTransferRequestProcessorTest extends CatsEffectSuite with Signed
     dummyFailingWithException
       .handlePendingM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "SignedTransfer_Fail")
       }
   }

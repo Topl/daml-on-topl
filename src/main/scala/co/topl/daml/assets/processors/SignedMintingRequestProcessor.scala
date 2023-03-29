@@ -48,7 +48,6 @@ import co.topl.utils.StringDataTypes
 import com.daml.ledger.api.v1.CommandsOuterClass
 import com.daml.ledger.api.v1.TransactionFilterOuterClass
 import com.daml.ledger.api.v1.ValueOuterClass.Identifier
-import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
 import com.daml.ledger.javaapi.data.TransactionFilter
 import io.circe.DecodingFailure
@@ -56,6 +55,7 @@ import io.circe.parser.parse
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
 import scodec.bits._
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 
 /**
  * This processor processes the broadcasting of signed minting requests.
@@ -91,7 +91,7 @@ class SignedMintingRequestProcessor(
   private def handlePendingM(
     signedMintingRequest:         SignedAssetMinting,
     signedMintingRequestContract: SignedAssetMinting.ContractId
-  ): IO[stream.Stream[Command]] =
+  ): IO[stream.Stream[HasCommands]] =
     (for {
       transactionAsBytes <- decodeTransactionM(signedMintingRequest.signedMintTx)
       signedTx           <- deserializeTransactionM(transactionAsBytes)
@@ -107,7 +107,7 @@ class SignedMintingRequestProcessor(
           .exerciseSignedAssetMinting_Sent(
             new Sent(Instant.now(), damlAppContext.appId, broadcast.id.toString())
           )
-      ): stream.Stream[Command]
+      ): stream.Stream[HasCommands]
     }).timeout(timeoutMillis.millis).handleError { failure =>
       logger.info("Failed to broadcast transaction to server.")
       logger.debug("Error: {}", failure)
@@ -121,7 +121,7 @@ class SignedMintingRequestProcessor(
     signedMintingRequest:         SignedAssetMinting,
     signedMintingRequestContract: SignedAssetMinting.ContractId,
     sentStatus:                   Sent
-  ): IO[stream.Stream[Command]] = (for {
+  ): IO[stream.Stream[HasCommands]] = (for {
     confirmationStatusMap <- getTransactionConfirmationStatusM(sentStatus.txId)
   } yield {
     val confirmationStatus = confirmationStatusMap(ModifierId(sentStatus.txId))
@@ -135,7 +135,7 @@ class SignedMintingRequestProcessor(
                 confirmationDepth
               )
             )
-        ): stream.Stream[Command]
+        ): stream.Stream[HasCommands]
       )
     } else {
       import scala.concurrent.duration._
@@ -151,7 +151,7 @@ class SignedMintingRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
+  ): IO[(Boolean, stream.Stream[HasCommands])] = processEventAux(
     SignedAssetMinting.TEMPLATE_ID,
     e => SignedAssetMinting.fromValue(e.getArguments()),
     e => SignedAssetMinting.Contract.fromCreatedEvent(e).id,

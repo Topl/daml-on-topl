@@ -10,6 +10,7 @@ import co.topl.daml.api.model.topl.organization.MembershipAcceptance
 import co.topl.daml.api.model.topl.organization.MembershipOffer
 import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 
 class MembershipOfferProcessor(
   damlAppContext: DamlAppContext,
@@ -21,7 +22,7 @@ class MembershipOfferProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
+  ): IO[(Boolean, stream.Stream[HasCommands])] = processEventAux(
     MembershipOffer.TEMPLATE_ID,
     e => MembershipOffer.fromValue(e.getArguments()),
     e => MembershipOffer.Contract.fromCreatedEvent(e).id,

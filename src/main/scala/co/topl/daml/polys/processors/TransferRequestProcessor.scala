@@ -45,7 +45,6 @@ import co.topl.utils.IdiomaticScalaTransition.implicits.toValidatedOps
 import co.topl.utils.Int128
 import co.topl.utils.StringDataTypes.Base58Data
 import co.topl.utils.StringDataTypes.Latin1Data
-import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.javaapi.data.CreatedEvent
 import com.daml.ledger.javaapi.data.Identifier
 import com.daml.ledger.javaapi.data.Transaction
@@ -56,6 +55,7 @@ import io.reactivex.Single
 import io.reactivex.subjects.SingleSubject
 import org.slf4j.LoggerFactory
 import scodec.bits._
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 
 /**
  * This processor processes the transfer requests.
@@ -86,7 +86,7 @@ class TransferRequestProcessor(
   def prepareTransactionM(
     transferRequest:         TransferRequest,
     transferRequestContract: TransferRequest.ContractId
-  ): IO[stream.Stream[Command]] = (for {
+  ): IO[stream.Stream[HasCommands]] = (for {
     params         <- createParamsM(transferRequest)
     rawTransaction <- createRawTxM(params)
     encodedTx <- IO {
@@ -106,7 +106,7 @@ class TransferRequestProcessor(
         .exerciseTransferRequest_Accept(
           encodedTx
         )
-    ): stream.Stream[Command]
+    ): stream.Stream[HasCommands]
 
   }).timeout(timeoutMillis.millis).handleError { failure =>
     logger.info("Failed to obtain raw transaction from server.\nError: {}", failure)
@@ -119,7 +119,7 @@ class TransferRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] =
+  ): IO[(Boolean, stream.Stream[HasCommands])] =
     (processEventAux(
       TransferRequest.TEMPLATE_ID,
       e => TransferRequest.fromValue(e.getArguments()),

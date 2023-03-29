@@ -41,7 +41,7 @@ class UnsignedPolyTransferRequestProcessorTest
     dummyStandardProcessor
       .signOperationM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "UnsignedTransfer_Sign")
       }
   }
@@ -51,7 +51,7 @@ class UnsignedPolyTransferRequestProcessorTest
     dummyFailingWithException
       .signOperationM(assetTransferRequest, assetTransferRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "UnsignedTransfer_Archive")
       }
   }

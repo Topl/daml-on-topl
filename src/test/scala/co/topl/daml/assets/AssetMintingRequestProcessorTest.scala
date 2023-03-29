@@ -36,7 +36,7 @@ class AssetMintingRequestProcessorTest extends CatsEffectSuite with AssetMinting
     dummyStandardProcessor
       .processMintingRequestM(assetMintingRequest, assetMintingRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "MintingRequest_Accept")
       }
   }
@@ -46,7 +46,7 @@ class AssetMintingRequestProcessorTest extends CatsEffectSuite with AssetMinting
     dummyFailingWithException
       .processMintingRequestM(assetMintingRequest, assetMintingRequestContract)
       .map { x =>
-        val command = x.collect(ju.stream.Collectors.toList()).get(0).asExerciseCommand().get()
+        val command = x.collect(ju.stream.Collectors.toList()).get(0).commands().get(0).asExerciseCommand().get()
         assertEquals(command.getChoice(), "MintingRequest_Reject")
       }
   }

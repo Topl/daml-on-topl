@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory
 import scodec.bits.ByteVector
 
 import ToplRpc.Transaction.RawAssetTransfer
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 
 /**
  * This processor processes the transfer requests.
@@ -76,7 +77,7 @@ class AssetBalanceRequestProcessor(
   def processAssetBalanceRequest(
     assetBalanceRequest:         AssetBalanceRequest,
     assetBalanceRequestContract: AssetBalanceRequest.ContractId
-  ): IO[stream.Stream[Command]] = (for {
+  ): IO[stream.Stream[HasCommands]] = (for {
     address       <- decodeAddressM(assetBalanceRequest.address)
     issuerAddress <- decodeAddressM(assetBalanceRequest.assetCode.issuerAddress)
     params        <- getParamsM(Seq(address))
@@ -104,7 +105,7 @@ class AssetBalanceRequestProcessor(
           .getOrElse(Int128(0))
           .longValue()
       )
-    ): stream.Stream[Command]
+    ): stream.Stream[HasCommands]
   }).timeout(timeoutMillis.millis).handleError { failure =>
     logger.info("Failed to obtain balance from from server.")
     logger.debug("Error: {}", failure)
@@ -117,7 +118,7 @@ class AssetBalanceRequestProcessor(
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] = processEventAux(
+  ): IO[(Boolean, stream.Stream[HasCommands])] = processEventAux(
     AssetBalanceRequest.TEMPLATE_ID,
     e => AssetBalanceRequest.fromValue(e.getArguments()),
     e => AssetBalanceRequest.Contract.fromCreatedEvent(e).id,

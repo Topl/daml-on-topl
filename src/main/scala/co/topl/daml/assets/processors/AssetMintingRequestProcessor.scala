@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory
 import scodec.bits.ByteVector
 
 import ToplRpc.Transaction.RawAssetTransfer
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 
 /**
  * This processor processes the minting requests.
@@ -107,7 +108,7 @@ class AssetMintingRequestProcessor(
             encodedTx,
             assetTransfer.newBoxes.toList.reverse.head.nonce
           )
-      ): stream.Stream[Command]
+      ): stream.Stream[HasCommands]
     }).handleError { failure =>
       logger.info("Failed to build transaction.")
       logger.debug("Error: {}", failure)
@@ -115,13 +116,13 @@ class AssetMintingRequestProcessor(
       stream.Stream.of(
         mintingRequestContract
           .exerciseMintingRequest_Reject()
-      ): stream.Stream[Command]
+      ): stream.Stream[HasCommands]
     }
 
   def processEvent(
     workflowsId: String,
     event:       CreatedEvent
-  ): IO[(Boolean, stream.Stream[Command])] =
+  ): IO[(Boolean, stream.Stream[HasCommands])] =
     processEventAux(
       AssetMintingRequest.TEMPLATE_ID,
       e => AssetMintingRequest.fromValue(e.getArguments()),
