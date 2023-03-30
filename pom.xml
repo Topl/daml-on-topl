@@ -8,7 +8,7 @@
     <groupId>co.topl</groupId>
     <artifactId>daml-bifrost-module</artifactId>
     <packaging>jar</packaging>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
     <name>DAML Bifrost Module</name>
     <description>daml-bifrost-module is a set of DAML Modules for interfacing with the Topl blockchain and the DAML ledger. It includes a reference application. The App is implemented in Java using DAML's Java bindings for interaction with the DAML ledger, and brambl for using bifrost gRPC API. The code, design and documentation of this library is heavily inspired by Hemera, a DAML Library for Ethereum integration.</description>
     <url>https://github.com/Topl/daml-bifrost-module</url>

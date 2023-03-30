@@ -17,6 +17,7 @@ module Tests.Transfer where
         exerciseCmd userInvitationCid UserInvitation_Accept
       submit alice do
         exerciseCmd aliceUserCid User_SendPolys with 
+          requestId = "1"
           from = [ "XXXXX"]
           to = [("YYYYY", 20)]
           changeAddress = "XXXXX"

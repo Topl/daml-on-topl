@@ -7,6 +7,13 @@ isSent (Sent {} ) = True
 isSent (FailedToSend {} ) = False 
 isSent (Confirmed {}) = False 
 
+isConfirmed: SendStatus -> Bool
+isConfirmed New = False
+isConfirmed Pending = False
+isConfirmed (Sent {} ) = False
+isConfirmed (FailedToSend {} ) = False
+isConfirmed (Confirmed {}) = True
+
 data SendStatus = New
                 | Pending
                 | Sent with

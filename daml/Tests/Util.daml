@@ -1,0 +1,28 @@
+module Tests.Util where
+
+    import qualified DA.Text as T
+    import Daml.Script
+    import DA.Optional (fromSomeNote)
+
+    toUserId : Text -> Text
+    toUserId = T.asciiToLower
+
+    getPrimaryParty : Daml.Script.User -> Party
+    getPrimaryParty u = fromSomeNote ("User " <> userIdToText u.userId <> " is missing a primary party.") u.primaryParty 
+
+    createPublic : Script Party
+    createPublic = do
+        publicUser <- getOrCreateUser "Public" None
+        pure $ getPrimaryParty publicUser
+
+    getOrCreateUser : Text -> Optional Party -> Script Daml.Script.User
+    getOrCreateUser alias publicM = do
+        userId <- validateUserId $ toUserId alias
+        try
+            getUser userId
+        catch
+            UserNotFound _ -> do
+            p <- allocateParty alias
+            let u = Daml.Script.User userId (Some p)
+            createUser u $ CanActAs p :: [CanReadAs public | Some public <- [publicM]]
+            pure u

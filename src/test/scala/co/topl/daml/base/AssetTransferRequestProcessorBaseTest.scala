@@ -39,7 +39,7 @@ trait AssetTransferRequestProcessorBaseTest extends BaseTest {
   val assetTransferRequest = new AssetTransferRequest(
     "operator",
     "alice",
-    Optional.of("1"),
+    "1",
     ju.List.of("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64"),
     ju.List.of(new types.Tuple2("AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64", java.lang.Long.valueOf(1L))),
     "AUANVY6RqbJtTnQS1AFTQBjXMFYDknhV8NEixHFLmeZynMxVbp64",
