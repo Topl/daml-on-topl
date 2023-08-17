@@ -1,0 +1,82 @@
+module Tests.Wallet where
+
+  import Daml.Script
+  import Topl.Wallet
+  import DA.List
+  import DA.Optional
+
+  wallet_invitation_test = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    carol <- allocateParty "Carol"
+    aliceVaultCid <- submit alice do
+      createCmd Vault with
+        owner = alice
+        vault = "text"
+        password = "test"
+        currentPartyIndex = 1
+        currentContractIndex = 1
+    bobVaultCid <- submit bob do
+      createCmd Vault with
+        owner = bob
+        vault = "text"
+        password = "test"
+        currentPartyIndex = 1
+        currentContractIndex = 1
+    carolVaultCid <- submit carol do
+      createCmd Vault with
+        owner = carol
+        vault = "text"
+        password = "test"
+        currentPartyIndex = 1
+        currentContractIndex = 1
+    invitations <- submit alice do
+      exerciseCmd aliceVaultCid Vault_InviteParty with
+        invitationUUID = "1"
+        parties = [ bob ]
+    res <- mapA
+      (\invitation -> submit bob do
+        exerciseCmd invitation WalletPartyInvitation_Accept)
+      invitations
+    acceptedInvitations <- submit alice do
+      exerciseCmd (head res) WalletInvitationAccepted_Distribute
+    let bobInvitation = head acceptedInvitations
+    privatePartyToAdd <- submit bob do
+      exerciseCmd bobInvitation WalletInvitationAccepted_MakePrivate
+    submit bob do
+      exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
+    let aliceInvitation = head $ tail acceptedInvitations
+    privatePartyToAdd <- submit alice do
+      exerciseCmd aliceInvitation WalletInvitationAccepted_MakePrivate
+    submit alice do
+      exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
+    someAliceVaultCid <- queryContractKey @Vault alice alice
+    let (aliceVaultCid, aliceVault) = fromSome someAliceVaultCid
+    invitations <- submit alice do
+      exerciseCmd aliceVaultCid Vault_InviteParty with
+        invitationUUID = "2"
+        parties = [ bob, carol ]
+    let bobInvitation = head invitations
+    bobWalletPartyAccepted <- submit bob do
+      exerciseCmd bobInvitation WalletPartyInvitation_Accept
+    let carolInvitation = head $ tail invitations
+    carolWalletPartyAccepted <- submit carol do
+      exerciseCmd carolInvitation WalletPartyInvitation_Accept 
+    acceptedInvitations <- submit alice do
+      exerciseCmd carolWalletPartyAccepted WalletInvitationAccepted_Distribute
+    let carolInvitation = head acceptedInvitations
+    privatePartyToAdd <- submit carol do
+      exerciseCmd carolInvitation WalletInvitationAccepted_MakePrivate
+    submit carol do
+      exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
+    let bobInvitation = head $ tail acceptedInvitations
+    privatePartyToAdd <- submit bob do
+      exerciseCmd bobInvitation WalletInvitationAccepted_MakePrivate
+    submit bob do
+      exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
+    let aliceInvitation = head $ tail $ tail acceptedInvitations
+    privatePartyToAdd <- submit alice do
+      exerciseCmd aliceInvitation WalletInvitationAccepted_MakePrivate
+    submit alice do
+      exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
+    return ()

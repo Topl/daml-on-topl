@@ -1,0 +1,170 @@
+module Topl.Wallet where
+
+  import DA.Optional
+  import DA.List
+  import DA.Assert
+
+  template Vault
+    with 
+      owner: Party
+      vault: Text
+      password: Text
+      currentPartyIndex: Int
+      currentContractIndex: Int
+        where
+          signatory owner
+
+
+          key owner : Party
+          maintainer key
+
+          choice Vault_AcceptInvitation : ContractId WalletParty
+            with
+              invitationAccept: PrivateWalletPartyToAdd
+            controller owner
+            do
+              let newPartyIndex = currentPartyIndex + 1
+              create Vault with 
+                currentPartyIndex = newPartyIndex 
+                ..
+              create WalletParty with
+                index = newPartyIndex
+                parties = invitationAccept.parties
+                ..
+
+ 
+          
+          nonconsuming choice Vault_InviteParty : [ContractId WalletPartyInvitation]
+            with
+              invitationUUID: Text
+              parties: [ Party ]
+            controller owner
+            do
+              let newPartyIndex = currentPartyIndex + 1
+              mapA 
+                (\p -> create WalletPartyInvitation with
+                  invitedParties = parties
+                  party = p
+                  ..)
+                parties  
+ 
+  template WalletInvitationAccepted
+    with
+      owner: Party
+      invitee: Party
+      parties: [ Party ]
+        where
+          signatory owner
+          observer invitee
+
+          choice WalletInvitationAccepted_MakePrivate: ContractId PrivateWalletPartyToAdd
+            controller invitee
+            do
+              create PrivateWalletPartyToAdd with
+                owner = invitee
+                ..
+
+  template PrivateWalletPartyToAdd with
+      owner: Party
+      parties: [Party]
+        where
+          signatory owner
+
+          choice PrivateWalletPartyToAdd_AddParty: ContractId WalletParty
+            controller owner
+            do
+              (theVaultId, theVault) <- fetchByKey @Vault owner
+              exercise theVaultId Vault_AcceptInvitation with
+                invitationAccept = this
+
+
+
+  template WalletInvitationState
+    with
+      owner: Party
+      invitationUUID: Text
+      invitedParties: [ Party ]
+      acceptedParties: [ Party ]
+        where
+          signatory owner
+          observer invitedParties, acceptedParties
+
+          key (owner, invitationUUID): (Party, Text)
+
+          maintainer key._1
+
+          choice WalletInvitationAccepted_Accept : ContractId WalletInvitationState
+            with
+              party: Party
+            controller owner
+            do
+              assertMsg "Party already accepted invitation" (party `notElem` acceptedParties) 
+              create this with 
+                invitedParties = filter (/= party) invitedParties
+                acceptedParties = party :: acceptedParties
+
+
+          choice WalletInvitationAccepted_Distribute: [ ContractId WalletInvitationAccepted ]
+            controller owner
+            do
+              invitedParties === []
+              mapA
+                (\p -> 
+                  create WalletInvitationAccepted with
+                    invitee = p
+                    parties = acceptedParties
+                    ..)
+                acceptedParties
+              
+              -- (theVaultId, theVault) <- fetchByKey @Vault owner
+              -- exercise theVaultId Vault_AcceptInvitation with
+              --   invitationAccept = this
+
+
+  template WalletParty
+    with
+      owner: Party
+      index: Int
+      parties: [ Party ]
+        where
+          signatory owner
+
+  template WalletPartyInvitation
+    with
+      owner: Party
+      invitationUUID: Text
+      invitedParties: [ Party ]
+      party: Party
+        where
+          signatory owner
+
+          observer party
+
+          choice WalletPartyInvitation_Accept : ContractId WalletInvitationState
+
+            controller party
+            do
+              someWalletState <- lookupByKey @WalletInvitationState (owner, invitationUUID)
+              invitationAccepted <- optional 
+                (create WalletInvitationState with
+                  owner = owner
+                  acceptedParties = [ owner ]
+                  ..) 
+                return
+                someWalletState
+              exercise invitationAccepted WalletInvitationAccepted_Accept with
+               ..
+              -- return ()
+              -- create WalletParty with ..
+              -- return ()
+              -- create WalletInvitationState with
+              --   owner = party
+              --   party = owner
+              --   ..
+
+  template WalletContract
+    with
+      owner: Party
+      index: Int
+        where
+          signatory owner
