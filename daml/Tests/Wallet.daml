@@ -2,34 +2,36 @@ module Tests.Wallet where
 
   import Daml.Script
   import Topl.Wallet
+  import Topl.Onboarding
   import DA.List
   import DA.Optional
 
   wallet_simple_invitation_test = script do
+    operator <- allocateParty "Operator"
     alice <- allocateParty "Alice"
     bob <- allocateParty "Bob"
     carol <- allocateParty "Carol"
-    aliceVaultCid <- submit alice do
-      createCmd Vault with
+    request <- submit alice do
+      createCmd WalletCreationRequest with
+        operator = operator
         owner = alice
-        vault = "text"
         password = "test"
-        currentPartyIndex = 1
-        currentContractIndex = 1
-    bobVaultCid <- submit bob do
-      createCmd Vault with
+    aliceVaultCid <- submit operator do
+      exerciseCmd request WalletCreationRequest_Accept with vault = "text"
+    request <- submit bob do
+      createCmd WalletCreationRequest with
+        operator = operator
         owner = bob
-        vault = "text"
         password = "test"
-        currentPartyIndex = 1
-        currentContractIndex = 1
-    carolVaultCid <- submit carol do
-      createCmd Vault with
+    bobVaultCid <- submit operator do
+      exerciseCmd request WalletCreationRequest_Accept with vault = "text"
+    request <- submit carol do
+      createCmd WalletCreationRequest with
+        operator = operator
         owner = carol
-        vault = "text"
         password = "test"
-        currentPartyIndex = 1
-        currentContractIndex = 1
+    carolVaultCid <- submit operator do
+      exerciseCmd request WalletCreationRequest_Accept with vault = "text"
     invitations <- submit alice do
       exerciseCmd aliceVaultCid Vault_InviteParty with
         invitationUUID = "1"
@@ -38,23 +40,23 @@ module Tests.Wallet where
       (\invitation -> submit bob do
         exerciseCmd invitation WalletPartyInvitation_Accept)
       invitations
-    acceptedInvitations <- submit alice do
+    acceptedInvitations <- submit operator do
       exerciseCmd (head res) WalletInvitationAccepted_Distribute
     let bobInvitation = head acceptedInvitations
     privatePartyToAdd <- submit bob do
       exerciseCmd bobInvitation WalletInvitationAccepted_MakePrivate
-    submit bob do
+    submit operator do
       exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
     let aliceInvitation = head $ tail acceptedInvitations
     privatePartyToAdd <- submit alice do
       exerciseCmd aliceInvitation WalletInvitationAccepted_MakePrivate
-    submit alice do
+    submit operator do
       exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
-    return (alice, bob, carol)
+    return (operator, alice, bob, carol)
 
 
   wallet_multiparty_invitation_test = script do
-    (alice, bob, carol) <- wallet_simple_invitation_test
+    (operator, alice, bob, carol) <- wallet_simple_invitation_test
     someAliceVaultCid <- queryContractKey @Vault alice alice
     let (aliceVaultCid, aliceVault) = fromSome someAliceVaultCid
     invitations <- submit alice do
@@ -67,21 +69,21 @@ module Tests.Wallet where
     let carolInvitation = head $ tail invitations
     carolWalletPartyAccepted <- submit carol do
       exerciseCmd carolInvitation WalletPartyInvitation_Accept 
-    acceptedInvitations <- submit alice do
+    acceptedInvitations <- submit operator do
       exerciseCmd carolWalletPartyAccepted WalletInvitationAccepted_Distribute
     let carolInvitation = head acceptedInvitations
     privatePartyToAdd <- submit carol do
       exerciseCmd carolInvitation WalletInvitationAccepted_MakePrivate
-    submit carol do
+    submit operator do
       exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
     let bobInvitation = head $ tail acceptedInvitations
     privatePartyToAdd <- submit bob do
       exerciseCmd bobInvitation WalletInvitationAccepted_MakePrivate
-    submit bob do
+    submit operator do
       exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
     let aliceInvitation = head $ tail $ tail acceptedInvitations
     privatePartyToAdd <- submit alice do
       exerciseCmd aliceInvitation WalletInvitationAccepted_MakePrivate
-    submit alice do
+    submit operator do
       exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
     return ()

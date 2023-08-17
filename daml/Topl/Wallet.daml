@@ -5,12 +5,13 @@ module Topl.Wallet where
   template Vault
     with 
       owner: Party
+      operator: Party
       vault: Text
       password: Text
       currentPartyIndex: Int
       currentContractIndex: Int
         where
-          signatory owner
+          signatory owner, operator
 
 
           key owner : Party
@@ -49,10 +50,11 @@ module Topl.Wallet where
   template WalletInvitationAccepted
     with
       owner: Party
+      operator: Party
       invitee: Party
       parties: [ Party ]
         where
-          signatory owner
+          signatory owner, operator
           observer invitee
 
           choice WalletInvitationAccepted_MakePrivate: ContractId PrivateWalletPartyToAdd
@@ -64,12 +66,13 @@ module Topl.Wallet where
 
   template PrivateWalletPartyToAdd with
       owner: Party
+      operator: Party
       parties: [Party]
         where
-          signatory owner
+          signatory owner, operator
 
           choice PrivateWalletPartyToAdd_AddParty: ContractId WalletParty
-            controller owner
+            controller operator
             do
               (theVaultId, theVault) <- fetchByKey @Vault owner
               exercise theVaultId Vault_AcceptInvitation with
@@ -80,11 +83,12 @@ module Topl.Wallet where
   template WalletInvitationState
     with
       owner: Party
+      operator: Party
       invitationUUID: Text
       invitedParties: [ Party ]
       acceptedParties: [ Party ]
         where
-          signatory owner
+          signatory owner, operator
           observer invitedParties, acceptedParties
 
           key (owner, invitationUUID): (Party, Text)
@@ -103,7 +107,7 @@ module Topl.Wallet where
 
 
           choice WalletInvitationAccepted_Distribute: [ ContractId WalletInvitationAccepted ]
-            controller owner
+            controller operator
             do
               invitedParties === []
               mapA
@@ -113,10 +117,7 @@ module Topl.Wallet where
                     parties = acceptedParties
                     ..)
                 acceptedParties
-              
-              -- (theVaultId, theVault) <- fetchByKey @Vault owner
-              -- exercise theVaultId Vault_AcceptInvitation with
-              --   invitationAccept = this
+
 
 
   template WalletParty
@@ -130,16 +131,16 @@ module Topl.Wallet where
   template WalletPartyInvitation
     with
       owner: Party
+      operator: Party
       invitationUUID: Text
       invitedParties: [ Party ]
       party: Party
         where
-          signatory owner
+          signatory owner, operator
 
           observer party
 
           choice WalletPartyInvitation_Accept : ContractId WalletInvitationState
-
             controller party
             do
               someWalletState <- lookupByKey @WalletInvitationState (owner, invitationUUID)
@@ -152,13 +153,6 @@ module Topl.Wallet where
                 someWalletState
               exercise invitationAccepted WalletInvitationAccepted_Accept with
                ..
-              -- return ()
-              -- create WalletParty with ..
-              -- return ()
-              -- create WalletInvitationState with
-              --   owner = party
-              --   party = owner
-              --   ..
 
   template WalletContract
     with

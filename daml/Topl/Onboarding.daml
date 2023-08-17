@@ -1,0 +1,21 @@
+module Topl.Onboarding where
+
+  import Topl.Wallet
+
+  template WalletCreationRequest with
+    owner : Party
+    operator : Party
+    password: Text
+      where 
+        signatory owner
+
+        observer operator
+
+        choice WalletCreationRequest_Accept : ContractId Vault with
+            vault: Text
+          controller operator
+          do
+            create Vault with
+              currentPartyIndex = 0
+              currentContractIndex = 0
+              ..
