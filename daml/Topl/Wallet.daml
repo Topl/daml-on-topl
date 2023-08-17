@@ -31,7 +31,27 @@ module Topl.Wallet where
                 parties = invitationAccept.parties
                 ..
 
- 
+          choice Vault_AcceptContractProposal : ContractId WalletContract
+            with
+              contractAccept: WalletContractProposal
+            controller owner
+            do
+              let newContractIndex = currentContractIndex + 1
+              create Vault with 
+                currentContractIndex = newContractIndex 
+                ..
+              create WalletContract with
+                index = newContractIndex
+                ..
+
+          choice Vault_CreateWalletContract : ContractId WalletContractProposal
+            with
+              contract: Text
+            controller owner
+            do
+              let newContractIndex = currentContractIndex + 1
+              create WalletContractProposal with
+                ..
           
           nonconsuming choice Vault_InviteParty : [ContractId WalletPartyInvitation]
             with
@@ -153,6 +173,23 @@ module Topl.Wallet where
                 someWalletState
               exercise invitationAccepted WalletInvitationAccepted_Accept with
                ..
+
+  template WalletContractProposal
+    with
+      owner: Party
+      operator: Party
+      contract: Text
+        where
+          signatory owner
+
+          choice WalletContractProposal_Accept : ContractId WalletContract
+            controller operator
+            do
+              (theVaultId, theVault) <- fetchByKey @Vault owner
+              exercise theVaultId Vault_AcceptContractProposal with
+                contractAccept = this
+
+
 
   template WalletContract
     with
