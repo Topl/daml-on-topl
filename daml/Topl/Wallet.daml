@@ -1,7 +1,5 @@
 module Topl.Wallet where
 
-  import DA.Optional
-  import DA.List
   import DA.Assert
 
   template Vault

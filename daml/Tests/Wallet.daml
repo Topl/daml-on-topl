@@ -5,7 +5,7 @@ module Tests.Wallet where
   import DA.List
   import DA.Optional
 
-  wallet_invitation_test = script do
+  wallet_simple_invitation_test = script do
     alice <- allocateParty "Alice"
     bob <- allocateParty "Bob"
     carol <- allocateParty "Carol"
@@ -50,6 +50,11 @@ module Tests.Wallet where
       exerciseCmd aliceInvitation WalletInvitationAccepted_MakePrivate
     submit alice do
       exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
+    return (alice, bob, carol)
+
+
+  wallet_multiparty_invitation_test = script do
+    (alice, bob, carol) <- wallet_simple_invitation_test
     someAliceVaultCid <- queryContractKey @Vault alice alice
     let (aliceVaultCid, aliceVault) = fromSome someAliceVaultCid
     invitations <- submit alice do
