@@ -44,12 +44,12 @@ module Tests.Wallet where
       exerciseCmd (head res) WalletInvitationAccepted_Distribute
     let bobInvitation = head acceptedInvitations
     privatePartyToAdd <- submit bob do
-      exerciseCmd bobInvitation WalletInvitationAccepted_MakePrivate
+      exerciseCmd bobInvitation WalletInvitationAccepted_MakePrivate with identifier = "alice-bob"
     submit operator do
       exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
     let aliceInvitation = head $ tail acceptedInvitations
     privatePartyToAdd <- submit alice do
-      exerciseCmd aliceInvitation WalletInvitationAccepted_MakePrivate
+      exerciseCmd aliceInvitation WalletInvitationAccepted_MakePrivate with identifier = "alice-bob"
     submit operator do
       exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
     return (operator, alice, bob, carol)
@@ -57,7 +57,7 @@ module Tests.Wallet where
 
   wallet_multiparty_invitation_test = script do
     (operator, alice, bob, carol) <- wallet_simple_invitation_test
-    someAliceVaultCid <- queryContractKey @Vault alice alice
+    someAliceVaultCid <- queryContractKey @VaultState alice alice
     let (aliceVaultCid, aliceVault) = fromSome someAliceVaultCid
     invitations <- submit alice do
       exerciseCmd aliceVaultCid Vault_InviteParty with
@@ -73,17 +73,17 @@ module Tests.Wallet where
       exerciseCmd carolWalletPartyAccepted WalletInvitationAccepted_Distribute
     let carolInvitation = head acceptedInvitations
     privatePartyToAdd <- submit carol do
-      exerciseCmd carolInvitation WalletInvitationAccepted_MakePrivate
+      exerciseCmd carolInvitation WalletInvitationAccepted_MakePrivate with identifier = "alice-bob-carol"
     submit operator do
       exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
     let bobInvitation = head $ tail acceptedInvitations
     privatePartyToAdd <- submit bob do
-      exerciseCmd bobInvitation WalletInvitationAccepted_MakePrivate
+      exerciseCmd bobInvitation WalletInvitationAccepted_MakePrivate with identifier = "alice-bob-carol"
     submit operator do
       exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
     let aliceInvitation = head $ tail $ tail acceptedInvitations
     privatePartyToAdd <- submit alice do
-      exerciseCmd aliceInvitation WalletInvitationAccepted_MakePrivate
+      exerciseCmd aliceInvitation WalletInvitationAccepted_MakePrivate  with identifier = "alice-bob-carol"
     submit operator do
       exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
     return ()

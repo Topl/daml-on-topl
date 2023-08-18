@@ -1,0 +1,45 @@
+module Topl.Levels where
+
+  type Address = Text
+
+  data SendAddress = SendAddress
+    with
+      address: Address
+      lock: Text
+        deriving (Show, Eq)
+
+  data Recipient = Recipient
+    with
+      address: Address
+      amount: Int
+        deriving (Show, Eq)
+
+  template LvlTransferRequest
+    with 
+      requestId: Text
+      requestor: Party
+      operator: Party
+      from: [ SendAddress ]
+      to: [ Recipient ]
+      changeAddress: Address
+      contractParticipants: [ Party ]
+        
+        where
+          signatory requestor
+          observer operator, contractParticipants
+
+
+
+  template LvlTransferUnproved
+    with 
+      requestor: Party
+      operator: Party
+        where
+          signatory requestor, operator
+
+  template LvlTransferProved
+    with 
+      requestor: Party
+      operator: Party
+        where
+          signatory requestor, operator
