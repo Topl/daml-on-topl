@@ -12,7 +12,6 @@ module Topl.Onboarding where
         observer operator
 
         choice WalletCreationRequest_Accept : ContractId VaultState with
-            vault: Text
           controller operator
           do
             create VaultState with
