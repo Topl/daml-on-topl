@@ -17,21 +17,21 @@ module Tests.Wallet where
         owner = alice
         password = "test"
     aliceVaultCid <- submit operator do
-      exerciseCmd request WalletCreationRequest_Accept with vault = "text"
+      exerciseCmd request WalletCreationRequest_Accept
     request <- submit bob do
       createCmd WalletCreationRequest with
         operator = operator
         owner = bob
         password = "test"
     bobVaultCid <- submit operator do
-      exerciseCmd request WalletCreationRequest_Accept with vault = "text"
+      exerciseCmd request WalletCreationRequest_Accept
     request <- submit carol do
       createCmd WalletCreationRequest with
         operator = operator
         owner = carol
         password = "test"
     carolVaultCid <- submit operator do
-      exerciseCmd request WalletCreationRequest_Accept with vault = "text"
+      exerciseCmd request WalletCreationRequest_Accept
     invitations <- submit alice do
       exerciseCmd aliceVaultCid Vault_InviteParty with
         invitationUUID = "1"
