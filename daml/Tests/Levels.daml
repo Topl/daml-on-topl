@@ -1,0 +1,78 @@
+module Tests.Levels where
+
+  import Daml.Script
+  import Topl.Levels
+  import Topl.Utils
+
+  send_lvls_one_sign_happy_path_test = script do
+    operator <- allocateParty "Operator"
+    alice <- allocateParty "Alice"
+    transferRequest <- submit alice do
+      createCmd LvlTransferRequest with
+        requestId = "a972d784-e17a-4c24-ba06-d4f2e2ac2d88"
+        requestor = alice
+        operator = operator
+        from = [ SendAddress with address = "someAddress", lock = "someLock" ]
+        to = [ Recipient with
+            address = "someAddress"
+            amount = 100 ]
+        changeAddress = "someChangeAddress"
+        contractParticipants = [ alice ]
+    acceptedTransferRequest <- submit operator do
+      exerciseCmd transferRequest LvlTransferRequest_Accept with
+        unprovedTx = "encodedUnprovedTx"
+    provedTx <- submit alice do
+      exerciseCmd acceptedTransferRequest LvlTransferUnproved_Prove with
+        prover = alice
+        provedTx = "encodedProvedTx"
+    completedProof <- submit operator do
+      exerciseCmd provedTx LvlTransferUnproved_ProofCompleted
+    nowTime <- getTime  
+    sentTx <- submit operator do
+      exerciseCmd completedProof LvlTransferProved_Sent with
+         newSendStatus = Sent with when = nowTime, from = "", txId = "2"   
+    confirmedTx <- submit operator do
+      exerciseCmd sentTx LvlTransferProved_Confirm with
+         txId = "2"
+         depth = 10
+    return (operator, alice)
+
+  send_lvls_two_sign_happy_path_test = script do
+    operator <- allocateParty "Operator"
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    transferRequest <- submit alice do
+      createCmd LvlTransferRequest with
+        requestId = "a972d784-e17a-4c24-ba06-d4f2e2ac2d88"
+        requestor = alice
+        operator = operator
+        from = [ SendAddress with address = "someAddress", lock = "someLock" ]
+        to = [ Recipient with
+            address = "someAddress"
+            amount = 100 ]
+        changeAddress = "someChangeAddress"
+        contractParticipants = [ alice, bob ]
+    acceptedTransferRequest <- submit operator do
+      exerciseCmd transferRequest LvlTransferRequest_Accept with
+        unprovedTx = "encodedUnprovedTx"
+    incompletelyProved <- submit alice do
+      exerciseCmd acceptedTransferRequest LvlTransferUnproved_Prove with
+        prover = alice
+        provedTx = "encodedProvedTx"
+    incompleteProof <- submit operator do
+      exerciseCmd incompletelyProved LvlTransferUnproved_ProofIncomplete
+    provedTx <- submit bob do
+      exerciseCmd incompleteProof LvlTransferUnproved_Prove with
+        prover = bob
+        provedTx = "encodedProvedTx"
+    completedProof <- submit operator do
+      exerciseCmd provedTx LvlTransferUnproved_ProofCompleted
+    nowTime <- getTime  
+    sentTx <- submit operator do
+      exerciseCmd completedProof LvlTransferProved_Sent with
+         newSendStatus = Sent with when = nowTime, from = "", txId = "2"   
+    confirmedTx <- submit operator do
+      exerciseCmd sentTx LvlTransferProved_Confirm with
+         txId = "2"
+         depth = 10
+    return (operator, alice)

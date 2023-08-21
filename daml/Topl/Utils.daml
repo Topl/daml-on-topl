@@ -26,3 +26,8 @@ module Topl.Utils where
                     txId  : Text
                     depth : Int
     deriving (Eq, Show)   
+
+  data ProveStatus = PendingProof
+                    | ToValidate
+                    | Proved
+    deriving (Eq, Show)   

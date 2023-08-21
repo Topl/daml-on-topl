@@ -2,6 +2,7 @@ module Topl.Levels where
 
   import DA.Assert
   import Topl.Utils
+  import DA.Optional
 
   type Address = Text
 
@@ -51,7 +52,7 @@ module Topl.Levels where
           signatory requestor
           observer operator, contractParticipants
 
-          key (operator, requestId) : (Party, Text)
+          key (requestor, requestId) : (Party, Text)
 
           maintainer key._1
 
@@ -60,7 +61,7 @@ module Topl.Levels where
               unprovedTx: Text
             controller operator
             do
-              create LvlTransferUnproved with provedBy = [], ..
+              create LvlTransferUnproved with provedBy = [], proofStatus = PendingProof, someProvedTx = None, ..
 
           choice LvlTransferRequest_Reject: ContractId LvlTransferRejected
             with
@@ -75,9 +76,11 @@ module Topl.Levels where
       requestId: Text
       requestor: Party
       operator: Party
+      proofStatus: ProveStatus
       provedBy: [ Party ]
       contractParticipants: [ Party ]
       unprovedTx: Text
+      someProvedTx   : Optional Text
         where
           signatory requestor, operator
           observer contractParticipants
@@ -86,13 +89,28 @@ module Topl.Levels where
 
           maintainer key._1
 
-          choice LvlTransferUnproved_Accept: ContractId LvlTransferProved
-            with
-              signedTx   : Text
-              sendStatus : SendStatus
+          choice LvlTransferUnproved_ProofCompleted: ContractId LvlTransferProved
             controller operator
             do
-              create LvlTransferProved with ..
+              proofStatus === ToValidate
+              let provedTx = fromSome someProvedTx
+              create LvlTransferProved with sendStatus = Pending, ..
+ 
+          choice LvlTransferUnproved_ProofIncomplete: ContractId LvlTransferUnproved
+            controller operator
+            do
+              create this with proofStatus = PendingProof
+
+          choice LvlTransferUnproved_Prove: ContractId LvlTransferUnproved
+            with
+              prover: Party
+              provedTx   : Text
+            controller prover
+            do
+              assert (prover `elem` contractParticipants)
+              assert (prover `notElem` provedBy)
+
+              create LvlTransferUnproved with proofStatus = ToValidate, someProvedTx = Some provedTx, ..
 
           choice LvlTransferUnproved_Reject: ContractId LvlTransferRejected
             with
@@ -108,10 +126,12 @@ module Topl.Levels where
       requestor: Party
       operator: Party
       unprovedTx: Text
-      signedTx   : Text
+      provedTx   : Text
+      contractParticipants: [ Party ]
       sendStatus : SendStatus
         where
           signatory requestor, operator
+          observer contractParticipants
 
           key (operator, requestId) : (Party, Text)
 
