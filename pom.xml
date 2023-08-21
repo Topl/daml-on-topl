@@ -8,7 +8,7 @@
     <groupId>co.topl</groupId>
     <artifactId>daml-bifrost-module</artifactId>
     <packaging>jar</packaging>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>2.0.0-alpha1-SNAPSHOT</version>
     <name>DAML Bifrost Module</name>
     <description>daml-bifrost-module is a set of DAML Modules for interfacing with the Topl blockchain and the DAML ledger. It includes a reference application. The App is implemented in Java using DAML's Java bindings for interaction with the DAML ledger, and brambl for using bifrost gRPC API. The code, design and documentation of this library is heavily inspired by Hemera, a DAML Library for Ethereum integration.</description>
     <url>https://github.com/Topl/daml-bifrost-module</url>
@@ -289,110 +289,6 @@
                                         <arg>loopback</arg>
                                     </gpgArguments>
                                 </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-
-        <profile>
-            <id>run-operator</id>
-            <activation>
-                <property>
-                    <name>operator</name>
-                </property>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>1.6.0</version>
-                        <configuration>
-                            <mainClass>co.topl.daml.OperatorMain</mainClass>
-                            <arguments>
-                                <argument>${ledgerhost}</argument>
-                                <argument>${ledgerport}</argument>
-                            </arguments>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>run-demo-operator</id>
-                                <goals>
-                                    <goal>java</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>run-asset-operator</id>
-            <activation>
-                <property>
-                    <name>assetoperator</name>
-                </property>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>1.6.0</version>
-                        <configuration>
-                            <mainClass>co.topl.daml.AssetOperatorMain</mainClass>
-                            <arguments>
-                                <argument>${ledgerhost}</argument>
-                                <argument>${ledgerport}</argument>
-                                <argument>${topl.projectid}</argument>
-                                <argument>${topl.apikey}</argument>
-                                <argument>${keyfilename}</argument>
-                                <argument>${keyfilepassword}</argument>
-                            </arguments>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>run-demo-asset-operator</id>
-                                <goals>
-                                    <goal>java</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>run-alice</id>
-            <activation>
-                <property>
-                    <name>alice</name>
-                </property>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>1.6.0</version>
-                        <configuration>
-                            <mainClass>co.topl.daml.AliceMain</mainClass>
-                            <arguments>
-                                <argument>${ledgerhost}</argument>
-                                <argument>${ledgerport}</argument>
-                                <argument>${keyfilename}</argument>
-                                <argument>${keyfilepassword}</argument>
-                            </arguments>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>run-demo-alice</id>
-                                <goals>
-                                    <goal>java</goal>
-                                </goals>
                             </execution>
                         </executions>
                     </plugin>
