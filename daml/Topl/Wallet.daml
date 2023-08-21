@@ -15,6 +15,7 @@ module Topl.Wallet where
   template Vault
     with
       owner: Party
+      password: Text
       vault: Text
         where
           signatory owner

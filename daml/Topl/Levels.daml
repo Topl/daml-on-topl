@@ -1,5 +1,8 @@
 module Topl.Levels where
 
+  import DA.Assert
+  import Topl.Utils
+
   type Address = Text
 
   data SendAddress = SendAddress
@@ -13,6 +16,26 @@ module Topl.Levels where
       address: Address
       amount: Int
         deriving (Show, Eq)
+
+  template LvlTransferRejected
+    with 
+      requestId: Text
+      requestor: Party
+      operator: Party
+      contractParticipants: [ Party ]
+      reason: Text
+        where
+          signatory requestor, operator
+          observer contractParticipants
+
+          key (operator, requestId) : (Party, Text)
+
+          maintainer key._1
+
+          choice LvlTransferRequest_Archive: ()
+            controller operator
+            do
+              return ()
 
   template LvlTransferRequest
     with 
@@ -28,18 +51,98 @@ module Topl.Levels where
           signatory requestor
           observer operator, contractParticipants
 
+          key (operator, requestId) : (Party, Text)
+
+          maintainer key._1
+
+          choice LvlTransferRequest_Accept: ContractId LvlTransferUnproved
+            with
+              unprovedTx: Text
+            controller operator
+            do
+              create LvlTransferUnproved with provedBy = [], ..
+
+          choice LvlTransferRequest_Reject: ContractId LvlTransferRejected
+            with
+              reason: Text
+            controller operator
+            do
+              create LvlTransferRejected with ..
 
 
   template LvlTransferUnproved
     with 
+      requestId: Text
       requestor: Party
       operator: Party
+      provedBy: [ Party ]
+      contractParticipants: [ Party ]
+      unprovedTx: Text
         where
           signatory requestor, operator
+          observer contractParticipants
+
+          key (operator, requestId) : (Party, Text)
+
+          maintainer key._1
+
+          choice LvlTransferUnproved_Accept: ContractId LvlTransferProved
+            with
+              signedTx   : Text
+              sendStatus : SendStatus
+            controller operator
+            do
+              create LvlTransferProved with ..
+
+          choice LvlTransferUnproved_Reject: ContractId LvlTransferRejected
+            with
+              reason: Text
+            controller operator
+            do
+              create LvlTransferRejected with ..
+
 
   template LvlTransferProved
     with 
+      requestId: Text
       requestor: Party
       operator: Party
+      unprovedTx: Text
+      signedTx   : Text
+      sendStatus : SendStatus
         where
           signatory requestor, operator
+
+          key (operator, requestId) : (Party, Text)
+
+          maintainer key._1
+
+          choice LvlTransferProved_Archive : ()
+              controller operator
+              do 
+                  return ()
+
+
+          choice LvlTransferProved_Sent : ContractId LvlTransferProved
+              with    newSendStatus : SendStatus
+              controller operator
+              do 
+                  sendStatus === Pending
+                  create this with sendStatus = newSendStatus
+
+
+          choice LvlTransferProved_Confirm : ContractId LvlTransferProved
+              with
+                  txId : Text
+                  depth : Int
+              controller operator
+                  do
+                      assert (isSent sendStatus)
+                      create this with
+                          sendStatus = Confirmed 
+                              with ..
+          choice LvlTransferProved_Fail : ContractId LvlTransferProved
+                  with    reason : Text
+              controller operator
+              do 
+                  create this with sendStatus = FailedToSend with ..
