@@ -30,9 +30,7 @@ jobs:
                 echo "/home/runner/.daml/bin" >> $GITHUB_PATH
       - name: Generate Java code
         run: |
-                cd daml-bifrost-module
-                daml build
-                daml codegen java
+                cd daml-bifrost-module && daml build && daml codegen java
       - name: Set env
         run: echo "VERSION=$(echo ${{ github.event.release.tag_name }} | cut -c 2-)" >> $GITHUB_ENV
       - if: github.event.release
