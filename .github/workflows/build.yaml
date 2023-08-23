@@ -27,6 +27,6 @@ jobs:
                 daml build
                 daml codegen java
       - name: Run tests and publish locally
-        run: 
-          cd daml-bifrost-module
-          mvn --batch-mode install
+        run: |
+                cd daml-bifrost-module
+                mvn --batch-mode install
