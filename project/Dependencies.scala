@@ -49,7 +49,7 @@ object Dependencies {
       (
         munit ++ munitCatsEffects
       )
-        .map(_ % "it,test")
+        .map(_ % Test)
   }
   // daml-topl-lib
   // daml-on-topl for the name of the repo

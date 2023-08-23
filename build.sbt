@@ -1,5 +1,4 @@
 
-
 inThisBuild(
   List(
     organization := "co.topl",
@@ -9,6 +8,10 @@ inThisBuild(
     testFrameworks += TestFrameworks.MUnit
   )
 )
+
+lazy val cleanSrcGen = taskKey[Unit]("Clean DAML Generated Code")
+
+lazy val generateJavaCode = taskKey[Unit]("Build DAML package")
 
 
 lazy val commonScalacOptions = Seq(
@@ -60,8 +63,32 @@ lazy val damlToplLib = project
     name := "daml-topl-lib",
     commonSettings,
     publishSettings,
-    Compile / unmanagedSourceDirectories += baseDirectory.value / "target" / "generated-sources",
+    cleanSrcGen := {
+          import scala.sys.process._
+          val s: TaskStreams = streams.value
+          val shell: Seq[String] = if (sys.props("os.name").contains("Windows")) Seq("cmd", "/c") else Seq("bash", "-c")
+          val cleanSrc: Seq[String] = shell :+ ("rm -rf " + baseDirectory.value + "/src-gen/")
+          if((cleanSrc !) == 0) {
+            s.log.success("Successfully cleaned src-gen!")
+          } else {
+            throw new IllegalStateException("src-gen clean up failed!")
+          }
+    },
+    generateJavaCode := {
+          import scala.sys.process._
+          val s: TaskStreams = streams.value
+          val shell: Seq[String] = if (sys.props("os.name").contains("Windows")) Seq("cmd", "/c") else Seq("bash", "-c")
+          val buildDamlPackage: Seq[String] = shell :+ ("cd " + baseDirectory.value + " && daml build && daml codegen java")
+          s.log.info("Generating Java DAML code...")
+          if((buildDamlPackage !) == 0) {
+            s.log.success("Generation of Java DAML code successful!")
+          } else {
+            throw new IllegalStateException("Generation of Java DAML code failed!")
+          }
+    },
+    Compile / unmanagedSourceDirectories += baseDirectory.value / "src-gen",
     Test / publishArtifact := true,
+    (Compile / compile) := (Compile / compile).dependsOn(generateJavaCode).value,
     libraryDependencies ++=
       Dependencies.damlToplLib.main ++
       Dependencies.damlToplLib.test

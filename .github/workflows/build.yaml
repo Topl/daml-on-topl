@@ -20,10 +20,5 @@ jobs:
                 cd sdk-2.7.0
                 ./install.sh
                 echo "/home/runner/.daml/bin" >> $GITHUB_PATH
-      - name: Generate Java code
-        run: |
-                cd daml-topl-lib
-                daml build
-                daml codegen java
       - name: Run unit tests
-        run: sbt test
+        run: sbt "cleanSrcGen test"

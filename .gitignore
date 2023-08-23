@@ -7,3 +7,4 @@ target/
 keyfile.json
 ui/
 .bsp/
+src-gen/
