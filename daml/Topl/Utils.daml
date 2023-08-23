@@ -1,36 +1,33 @@
 module Topl.Utils where
 
-isSent: SendStatus -> Bool
-isSent New = False 
-isSent Pending = False 
-isSent (Sent {} ) = True 
-isSent (FailedToSend {} ) = False 
-isSent (Confirmed {}) = False 
+  isSent: SendStatus -> Bool
+  isSent New = False 
+  isSent Pending = False 
+  isSent (Sent {} ) = True 
+  isSent (FailedToSend {} ) = False 
+  isSent (Confirmed {}) = False 
 
-isConfirmed: SendStatus -> Bool
-isConfirmed New = False
-isConfirmed Pending = False
-isConfirmed (Sent {} ) = False
-isConfirmed (FailedToSend {} ) = False
-isConfirmed (Confirmed {}) = True
+  isConfirmed: SendStatus -> Bool
+  isConfirmed New = False
+  isConfirmed Pending = False
+  isConfirmed (Sent {} ) = False
+  isConfirmed (FailedToSend {} ) = False
+  isConfirmed (Confirmed {}) = True
 
-data SendStatus = New
-                | Pending
-                | Sent with
-                    when   : Time
-                    from   : Text
-                    txId   : Text
-                | FailedToSend with
-                    reason : Text
-                | Confirmed with
-                  txId  : Text
-                  depth : Int
-  deriving (Eq, Show)
+  data SendStatus = New
+                  | Pending
+                  | Sent with
+                      when   : Time
+                      from   : Text
+                      txId   : Text
+                  | FailedToSend with
+                      reason : Text
+                  | Confirmed with
+                    txId  : Text
+                    depth : Int
+    deriving (Eq, Show)   
 
-
-data AssetCode =  AssetCode with 
-    version : Int
-    issuerAddress: Text
-    shortName : Text
-  deriving (Eq, Show)
-
+  data ProveStatus = PendingProof
+                    | ToValidate
+                    | Proved
+    deriving (Eq, Show)   

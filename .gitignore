@@ -5,3 +5,4 @@ target/
 .bloop/
 .metals/
 keyfile.json
+ui/

@@ -1,0 +1,89 @@
+module Tests.Wallet where
+
+  import Daml.Script
+  import Topl.Wallet
+  import Topl.Onboarding
+  import DA.List
+  import DA.Optional
+
+  wallet_simple_invitation_test = script do
+    operator <- allocateParty "Operator"
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    carol <- allocateParty "Carol"
+    request <- submit alice do
+      createCmd WalletCreationRequest with
+        operator = operator
+        owner = alice
+        password = "test"
+    aliceVaultCid <- submit operator do
+      exerciseCmd request WalletCreationRequest_Accept
+    request <- submit bob do
+      createCmd WalletCreationRequest with
+        operator = operator
+        owner = bob
+        password = "test"
+    bobVaultCid <- submit operator do
+      exerciseCmd request WalletCreationRequest_Accept
+    request <- submit carol do
+      createCmd WalletCreationRequest with
+        operator = operator
+        owner = carol
+        password = "test"
+    carolVaultCid <- submit operator do
+      exerciseCmd request WalletCreationRequest_Accept
+    invitations <- submit alice do
+      exerciseCmd aliceVaultCid VaultState_InviteParty with
+        invitationUUID = "1"
+        parties = [ bob ]
+    res <- mapA
+      (\invitation -> submit bob do
+        exerciseCmd invitation WalletPartyInvitation_Accept)
+      invitations
+    acceptedInvitations <- submit operator do
+      exerciseCmd (head res) WalletInvitationAccepted_Distribute
+    let bobInvitation = head acceptedInvitations
+    privatePartyToAdd <- submit bob do
+      exerciseCmd bobInvitation WalletInvitationAccepted_MakePrivate with identifier = "alice-bob"
+    submit operator do
+      exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
+    let aliceInvitation = head $ tail acceptedInvitations
+    privatePartyToAdd <- submit alice do
+      exerciseCmd aliceInvitation WalletInvitationAccepted_MakePrivate with identifier = "alice-bob"
+    submit operator do
+      exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
+    return (operator, alice, bob, carol)
+
+
+  wallet_multiparty_invitation_test = script do
+    (operator, alice, bob, carol) <- wallet_simple_invitation_test
+    someAliceVaultCid <- queryContractKey @VaultState alice alice
+    let (aliceVaultCid, aliceVault) = fromSome someAliceVaultCid
+    invitations <- submit alice do
+      exerciseCmd aliceVaultCid VaultState_InviteParty with
+        invitationUUID = "2"
+        parties = [ bob, carol ]
+    let bobInvitation = head invitations
+    bobWalletPartyAccepted <- submit bob do
+      exerciseCmd bobInvitation WalletPartyInvitation_Accept
+    let carolInvitation = head $ tail invitations
+    carolWalletPartyAccepted <- submit carol do
+      exerciseCmd carolInvitation WalletPartyInvitation_Accept 
+    acceptedInvitations <- submit operator do
+      exerciseCmd carolWalletPartyAccepted WalletInvitationAccepted_Distribute
+    let carolInvitation = head acceptedInvitations
+    privatePartyToAdd <- submit carol do
+      exerciseCmd carolInvitation WalletInvitationAccepted_MakePrivate with identifier = "alice-bob-carol"
+    submit operator do
+      exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
+    let bobInvitation = head $ tail acceptedInvitations
+    privatePartyToAdd <- submit bob do
+      exerciseCmd bobInvitation WalletInvitationAccepted_MakePrivate with identifier = "alice-bob-carol"
+    submit operator do
+      exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
+    let aliceInvitation = head $ tail $ tail acceptedInvitations
+    privatePartyToAdd <- submit alice do
+      exerciseCmd aliceInvitation WalletInvitationAccepted_MakePrivate  with identifier = "alice-bob-carol"
+    submit operator do
+      exerciseCmd privatePartyToAdd PrivateWalletPartyToAdd_AddParty
+    return ()
