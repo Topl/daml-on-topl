@@ -22,7 +22,7 @@ jobs:
                 echo "/home/runner/.daml/bin" >> $GITHUB_PATH
       - name: Generate Java code
         run: |
-                cd daml-bifrost-module
+                cd daml-topl-lib
                 daml build
                 daml codegen java
       - name: Run unit tests
