@@ -6,3 +6,4 @@ target/
 .metals/
 keyfile.json
 ui/
+.bsp/
