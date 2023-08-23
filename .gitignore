@@ -8,3 +8,5 @@ keyfile.json
 ui/
 .bsp/
 src-gen/
+dist/
+interfaces/
