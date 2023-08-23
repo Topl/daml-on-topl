@@ -30,25 +30,30 @@ jobs:
                 echo "/home/runner/.daml/bin" >> $GITHUB_PATH
       - name: Generate Java code
         run: |
+                cd daml-bifrost-module
                 daml build
                 daml codegen java
       - name: Set env
         run: echo "VERSION=$(echo ${{ github.event.release.tag_name }} | cut -c 2-)" >> $GITHUB_ENV
       - if: github.event.release
         name: Update version in pom.xml (Release only)
-        run: mvn -B versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
+        run: |
+              cd daml-bifrost-module
+              mvn -B versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
       - if: github.event.release
         name: Upload DAR file to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: .daml/dist/daml-bifrost-module-*.dar
+          file: daml-bifrost-module/.daml/dist/daml-bifrost-module-*.dar
           tag: ${{ github.ref }}
           overwrite: true
           file_glob: true
       - if: github.event.release
         name: Deploy (release only)
-        run: mvn -B deploy -Pci-cd -Dgpg.passphrase=${{ secrets.PGP_PASSPHRASE }}
+        run: |
+              cd daml-bifrost-module
+              mvn -B deploy -Pci-cd -Dgpg.passphrase=${{ secrets.PGP_PASSPHRASE }}
         env:
           MAVEN_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }} 
