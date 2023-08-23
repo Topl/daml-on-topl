@@ -33,7 +33,7 @@ module Topl.Wallet where
           key owner : Party
           maintainer key
 
-          choice Vault_AcceptInvitation : ContractId WalletParty
+          choice VaultState_AcceptInvitation : ContractId WalletParty
             with
               invitationAccept: PrivateWalletPartyToAdd
             controller owner
@@ -48,7 +48,7 @@ module Topl.Wallet where
                 parties = invitationAccept.parties
                 ..
 
-          choice Vault_AcceptContractProposal : ContractId WalletContract
+          choice VaultState_AcceptContractProposal : ContractId WalletContract
             with
               contractAccept: WalletContractProposal
             controller owner
@@ -63,7 +63,7 @@ module Topl.Wallet where
                 identifier = contractAccept.identifier
                 ..
 
-          nonconsuming choice Vault_CreateWalletContract : ContractId WalletContractProposal
+          nonconsuming choice VaultState_CreateWalletContract : ContractId WalletContractProposal
             with
               identifier: Text
               contract: Text
@@ -73,7 +73,7 @@ module Topl.Wallet where
               create WalletContractProposal with
                 ..
           
-          nonconsuming choice Vault_InviteParty : [ContractId WalletPartyInvitation]
+          nonconsuming choice VaultState_InviteParty : [ContractId WalletPartyInvitation]
             with
               invitationUUID: Text
               parties: [ Party ]
@@ -87,7 +87,7 @@ module Topl.Wallet where
                   ..)
                 parties
 
-          nonconsuming choice Vault_InviteToInteraction: [ContractId WalletInteractionInvitation]
+          nonconsuming choice VaultState_InviteToInteraction: [ContractId WalletInteractionInvitation]
             with
               invitationUUID: Text
               partyIdentifier: Text
@@ -141,7 +141,7 @@ module Topl.Wallet where
             controller operator
             do
               (theVaultId, theVault) <- fetchByKey @VaultState owner
-              exercise theVaultId Vault_AcceptInvitation with
+              exercise theVaultId VaultState_AcceptInvitation with
                 invitationAccept = this
 
 
@@ -349,7 +349,7 @@ module Topl.Wallet where
             controller operator
             do
               (theVaultId, theVault) <- fetchByKey @VaultState owner
-              exercise theVaultId Vault_AcceptContractProposal with
+              exercise theVaultId VaultState_AcceptContractProposal with
                 contractAccept = this
 
 

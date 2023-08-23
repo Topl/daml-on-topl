@@ -33,7 +33,7 @@ module Tests.Wallet where
     carolVaultCid <- submit operator do
       exerciseCmd request WalletCreationRequest_Accept
     invitations <- submit alice do
-      exerciseCmd aliceVaultCid Vault_InviteParty with
+      exerciseCmd aliceVaultCid VaultState_InviteParty with
         invitationUUID = "1"
         parties = [ bob ]
     res <- mapA
@@ -60,7 +60,7 @@ module Tests.Wallet where
     someAliceVaultCid <- queryContractKey @VaultState alice alice
     let (aliceVaultCid, aliceVault) = fromSome someAliceVaultCid
     invitations <- submit alice do
-      exerciseCmd aliceVaultCid Vault_InviteParty with
+      exerciseCmd aliceVaultCid VaultState_InviteParty with
         invitationUUID = "2"
         parties = [ bob, carol ]
     let bobInvitation = head invitations

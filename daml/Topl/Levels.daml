@@ -33,7 +33,7 @@ module Topl.Levels where
 
           maintainer key._1
 
-          choice LvlTransferRequest_Archive: ()
+          choice LvlTransferRejected_Archive: ()
             controller operator
             do
               return ()
