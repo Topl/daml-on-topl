@@ -21,4 +21,4 @@ jobs:
                 ./install.sh
                 echo "/home/runner/.daml/bin" >> $GITHUB_PATH
       - name: Run unit tests
-        run: sbt "cleanSrcGen test"
+        run: sbt "cleanSrcGen ; test"
