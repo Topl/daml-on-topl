@@ -23,7 +23,10 @@ jobs:
                 echo "/home/runner/.daml/bin" >> $GITHUB_PATH
       - name: Generate Java code
         run: |
+                cd daml-bifrost-module
                 daml build
                 daml codegen java
       - name: Run tests and publish locally
-        run: mvn --batch-mode install
+        run: 
+          cd daml-bifrost-module
+          mvn --batch-mode install
