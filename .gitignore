@@ -10,3 +10,5 @@ ui/
 src-gen/
 dist/
 interfaces/
+project/metals.sbt
+project/

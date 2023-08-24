@@ -13,6 +13,8 @@ lazy val cleanSrcGen = taskKey[Unit]("Clean DAML Generated Code")
 
 lazy val generateJavaCode = taskKey[Unit]("Build DAML package")
 
+lazy val damlSource = taskKey[Seq[File]]("DAML Source Code Location")
+
 
 lazy val commonScalacOptions = Seq(
   "-deprecation",
@@ -103,12 +105,18 @@ lazy val mavenPublishSettings = List(
 )
 
 
+
 lazy val damlToplLib = project
   .in(file("daml-topl-lib"))
   .settings(
     name := "daml-topl-lib",
     commonSettings,
     publishSettings,
+    damlSource := {
+         sbt.nio.file.FileTreeView.default
+        .list(Seq(Glob(baseDirectory.value) / "daml.yaml",Glob(baseDirectory.value) / "daml" / ** / "*.daml" ))
+        .map(_._1.toFile)
+    },
     cleanSrcGen := {
           import scala.sys.process._
           val s: TaskStreams = streams.value
@@ -125,9 +133,19 @@ lazy val damlToplLib = project
           val s: TaskStreams = streams.value
           val shell: Seq[String] = if (sys.props("os.name").contains("Windows")) Seq("cmd", "/c") else Seq("bash", "-c")
           val buildDamlPackage: Seq[String] = shell :+ ("cd " + baseDirectory.value + " && daml build && daml codegen java")
-          s.log.info("Generating Java DAML code...")
-          if((buildDamlPackage !) == 0) {
-            s.log.success("Generation of Java DAML code successful!")
+          val in = damlSource.value.toSet
+          val cachedFun = FileFunction.cached(s.cacheDirectory / "damlGen") { (in: Set[File]) =>
+            s.log.info("Generating Java DAML code...")
+            if ((buildDamlPackage !) == 0) {
+              s.log.info("Generation of Java code successful.")
+              Set()
+            } else {
+              s.log.error("Generation of Java DAML code failed")
+              in
+            }
+          }
+          if(cachedFun(in).size == 0) {
+            ()
           } else {
             throw new IllegalStateException("Generation of Java DAML code failed!")
           }
