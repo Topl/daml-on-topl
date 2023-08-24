@@ -60,7 +60,7 @@ lazy val publishSettings = Seq(
 lazy val dockerPublishSettings = List(
   dockerExposedPorts ++= Seq(9000, 9001),
   Docker / version := dynverGitDescribeOutput.value.mkVersion(versionFmt, fallbackVersion(dynverCurrentDate.value)),
-  Docker / packageName := "bifrost-daml-broker",
+  Docker / packageName := "daml-topl-broker",
   dockerAliases := dockerAliases.value.flatMap { alias =>
     Seq(
       alias.withRegistryHost(Some("docker.io/toplprotocol")),
