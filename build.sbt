@@ -43,7 +43,7 @@ lazy val commonSettings = Seq(
 )
 
 lazy val publishSettings = Seq(
-  homepage := Some(url("https://github.com/Topl/daml-bifrost-module")),
+  homepage := Some(url("https://github.com/Topl/daml-on-topl")),
   ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org",
   sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
   Test / publishArtifact := false,
