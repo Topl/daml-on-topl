@@ -36,7 +36,7 @@ object Dependencies {
 
   val cats: Seq[ModuleID] = Seq(
     "org.typelevel" %% "cats-core" % catsCoreVersion,
-    "org.typelevel" %% "cats-effect" % "3.4.11"
+    "org.typelevel" %% "cats-effect" % "3.5.1"
   )
 
   lazy val scopt: Seq[ModuleID] = Seq("com.github.scopt" %% "scopt" % "4.0.1")
