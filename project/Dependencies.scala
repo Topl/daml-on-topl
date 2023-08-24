@@ -16,7 +16,7 @@ object Dependencies {
 
   lazy val toplOrg = "co.topl"
 
-  lazy val bramblVersion = "2.0.0-alpha3"
+  lazy val bramblVersion = "2.0.0-alpha4"
 
   val bramblSdk = toplOrg %% "brambl-sdk" % bramblVersion
 
@@ -81,6 +81,4 @@ object Dependencies {
       )
         .map(_ % Test)
   }
-  // daml-topl-lib
-  // daml-on-topl for the name of the repo
 }
