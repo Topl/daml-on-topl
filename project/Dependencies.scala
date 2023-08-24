@@ -31,7 +31,7 @@ object Dependencies {
   )
 
   lazy val munitCatsEffects: Seq[ModuleID] = Seq(
-    "org.typelevel" %% "munit-cats-effect-3" % "1.0.6"
+    "org.typelevel" %% "munit-cats-effect-3" % "1.0.7"
   )
 
   val cats: Seq[ModuleID] = Seq(
