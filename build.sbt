@@ -82,7 +82,7 @@ def fallbackVersion(d: java.util.Date): String = s"HEAD-${sbtdynver.DynVer times
 
 lazy val mavenPublishSettings = List(
   organization := "co.topl",
-  homepage := Some(url("https://github.com/Topl/bifrost-daml-broker")),
+  homepage := Some(url("https://github.com/Topl/daml-on-topl")),
   licenses := List("MPL2.0" -> url("https://www.mozilla.org/en-US/MPL/2.0/")),
   sonatypeCredentialHost := "s01.oss.sonatype.org",
   sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
