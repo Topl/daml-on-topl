@@ -41,7 +41,7 @@ object Dependencies {
 
   lazy val scopt: Seq[ModuleID] = Seq("com.github.scopt" %% "scopt" % "4.0.1")
 
-  val fs2Version = "3.5.0"
+  val fs2Version = "3.8.0"
 
   lazy val fs2: Seq[ModuleID] = Seq("co.fs2" %% "fs2-core" % fs2Version,
               "co.fs2" %% "fs2-io" % fs2Version,
