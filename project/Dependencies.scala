@@ -11,7 +11,7 @@ object Dependencies {
   )
 
   val logback: Seq[ModuleID] = Seq(
-    "ch.qos.logback" % "logback-classic" % "1.2.3"
+    "ch.qos.logback" % "logback-classic" % "1.4.11"
   )
 
   lazy val toplOrg = "co.topl"
