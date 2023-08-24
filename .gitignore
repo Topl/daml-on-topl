@@ -6,3 +6,9 @@ target/
 .metals/
 keyfile.json
 ui/
+.bsp/
+src-gen/
+dist/
+interfaces/
+project/metals.sbt
+project/
