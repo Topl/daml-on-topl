@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies {
 
-  val catsCoreVersion = "2.9.0"
+  val catsCoreVersion = "2.10.0"
 
   lazy val http4sVersion = "0.23.18"
 
