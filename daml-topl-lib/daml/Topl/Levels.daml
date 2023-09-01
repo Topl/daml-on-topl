@@ -43,7 +43,7 @@ module Topl.Levels where
       requestId: Text
       requestor: Party
       operator: Party
-      from: [ SendAddress ]
+      from: SendAddress
       to: [ Recipient ]
       changeAddress: Address
       contractParticipants: [ Party ]

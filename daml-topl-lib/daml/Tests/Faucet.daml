@@ -5,6 +5,8 @@ module Tests.Faucet where
   import Topl.Onboarding
   import DA.List
   import DA.Optional
+  import Topl.Levels
+  import Topl.Utils
 
   faucet_wallet_init = script do
     operator <- allocateParty "Operator"
@@ -54,9 +56,59 @@ module Tests.Faucet where
       exerciseCmd walletInteractionInvitation WalletInteractionInvitation_Accept with
         partyIdentifier = "self"
         contractIdentifier = "default"
+    walletInteractionInvitationState <- submit dapp do
+      exerciseCmd walletInteractionInvitationState InteractionInvitationState_GetInteration with
+        requestor = dapp
+        address = "www"
     submit operator do
       exerciseCmd walletInteractionInvitationState InteractionInvitationState_ToSmartContract with
         address = "www"
         changeAddress = "aaa"
         lock = "someLock"
+    return (operator, dapp)
+
+  send_amount_to_alice = script do
+    (operator, dapp) <- faucet_wallet_init
+    alice <- allocateParty "alice"
+    someDappVaultState <- queryContractKey @VaultState dapp dapp
+    let vaultState = fst $ fromSome someDappVaultState
+    txRequest <- submit dapp do
+      exerciseCmd vaultState VaultState_SendFunds with
+        fromPartyIdentifier = "self"
+        fromContractIdentifier = "default"
+        requestId = "xxx"
+        requestor = dapp
+        to = [ Recipient with address = "aliceAddress", amount = 100 ]
+        contractParticipants = [ dapp ]
+    txRequestData <- queryContractId dapp txRequest
+    unprovedTx <- submit operator do
+      exerciseCmd txRequest LvlTransferRequest_Accept with
+        unprovedTx = "unprovedTx"
+    unprovedTx <- submit dapp do
+      exerciseCmd unprovedTx LvlTransferUnproved_Prove with
+        prover = dapp
+        provedTx = "provedTx"
+    proovedTx <- submit operator do
+      exerciseCmd unprovedTx LvlTransferUnproved_ProofCompleted with
+    t <- getTime
+    proovedTx <- submit operator do
+      exerciseCmd proovedTx LvlTransferProved_Sent with
+        newSendStatus = Sent with
+                              when = t
+                              from = "XXXX"
+                              txId = "YYYYY"
+    proovedTx <- submit operator do
+      exerciseCmd proovedTx LvlTransferProved_Confirm with
+                              txId = "YYYYY"
+                              depth = 1
+    -- now some trigger should capture the 
+    -- confirmed transaction and update the smart contract
+    let fromAddress = (fromSome txRequestData).from.address
+    someSmartContract <- queryContractKey @SmartContract operator (operator, fromAddress)
+    submit operator do
+      exerciseCmd (fst $ fromSome someSmartContract) SmartContract_UpdateState with
+        newState = 2
+        newLock = "newLock"
+        newAddress = "newAddress"
+        newChangeAddress = "newChangeAddress"
     return ()

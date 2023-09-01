@@ -3,6 +3,7 @@ module Topl.Wallet where
   import DA.Assert
   import DA.Optional
   import Topl.Levels
+  import DA.List
 
   data AcceptedInteraction = AcceptedInteraction with
     partyIdentifier: Text
@@ -31,6 +32,29 @@ module Topl.Wallet where
 
           key owner : Party
           maintainer key
+
+          choice VaultState_SendFunds: ContractId LvlTransferRequest
+            with
+              fromPartyIdentifier: Text
+              fromContractIdentifier: Text
+              requestId: Text
+              requestor: Party
+              to: [ Recipient ]
+              contractParticipants: [ Party ]
+            controller requestor
+            do
+              someSmartContractAddress <- lookupByKey @SmartContractAddress (requestor, fromPartyIdentifier, fromContractIdentifier)
+              assertMsg "Smart Contract Address does not exist" (isSome someSmartContractAddress)
+              smartContractAddress <- fetch $ fromSome someSmartContractAddress
+              someSmartContract <- lookupByKey @SmartContract (operator, smartContractAddress.address)
+              assert (isSome someSmartContract)
+              smartContract <- fetch $ fromSome someSmartContract
+              assert (requestor `elem` smartContract.canSend)
+              exercise (fromSome someSmartContract) SmartContract_SendFunds with
+                requestId = requestId
+                requestor = requestor
+                to = to
+                contractParticipants = contractParticipants
 
           choice VaultState_AcceptInvitation : ContractId WalletParty
             with
@@ -73,6 +97,7 @@ module Topl.Wallet where
                 (\p -> create WalletPartyInvitation with
                   invitedParties = parties
                   party = p
+                  ownerCloudWallet = True
                   ..)
                 parties
 
@@ -134,9 +159,9 @@ module Topl.Wallet where
           choice PrivateWalletPartyToAdd_AddParty: ()
             controller operator
             do
-              (theVaultId, theVault) <- fetchByKey @VaultState owner
               if cloudWallet
                 then do
+                  (theVaultId, theVault) <- fetchByKey @VaultState owner
                   exercise theVaultId VaultState_AcceptInvitation with
                     invitationAccept = this
                   return ()
@@ -152,6 +177,7 @@ module Topl.Wallet where
       invitationUUID: Text
       invitedParties: [ Party ]
       acceptedParties: [ Party ]
+      ownerCloudWallet: Bool
       cloudWallet: Bool
         where
           signatory owner, operator
@@ -176,13 +202,54 @@ module Topl.Wallet where
             controller operator
             do
               invitedParties === []
-              mapA
-                (\p -> 
-                  create WalletInvitationAccepted with
-                    invitee = p
+              if owner `notElem` acceptedParties
+                then do
+                  ownInvitation <- create WalletInvitationAccepted with
+                    invitee = owner
                     parties = acceptedParties
-                    ..)
-                acceptedParties
+                    cloudWallet = ownerCloudWallet
+                    ..
+                  invitationList <- mapA
+                    (\p -> 
+                      create WalletInvitationAccepted with
+                        invitee = p
+                        parties = acceptedParties
+                        ..)
+                    acceptedParties
+                  return (ownInvitation :: invitationList)
+                else do
+                  mapA
+                    (\p -> 
+                      create WalletInvitationAccepted with
+                        invitee = p
+                        parties = acceptedParties
+                        ..)
+                    acceptedParties
+
+  template SmartContractAddress
+    with
+      owner: Party
+      operator: Party
+      partyIdentifier: Text
+      contractIdentifier: Text
+      state: Int
+      address: Text
+        where
+          signatory owner, operator
+
+
+          key (owner, partyIdentifier, contractIdentifier): (Party, Text, Text)
+          maintainer key._1
+
+          choice SmartContractAddress_UpdateState: ContractId SmartContractAddress
+            with
+              newState: Int
+              newAddress : Text
+            controller operator
+            do
+              create this with
+                state = newState
+                address = newAddress
 
   template SmartContract
     with
@@ -193,6 +260,7 @@ module Topl.Wallet where
       contractTemplate: Text
       currentState: Int
       canSend: [ Party ]
+      isValid: Bool
       acceptedParties: [ AcceptedInteraction ]
         where
           signatory operator
@@ -205,15 +273,38 @@ module Topl.Wallet where
               requestId : Text
               requestor: Party
               to: [ Recipient ] 
-              amount: Int
               contractParticipants: [ Party ]
             controller requestor
             do
               assert (requestor `elem` canSend)
+              assert isValid
+              create this with isValid = False
               create LvlTransferRequest with
-                from = [ SendAddress with .. ]
+                from = SendAddress with ..
                 ..
+    
 
+          choice SmartContract_UpdateState: ContractId SmartContract
+            with
+              newState: Int
+              newLock: Text
+              newAddress : Text
+              newChangeAddress : Text
+            controller operator
+            do
+              res <- mapA
+                (\p -> do
+                  exerciseByKey @SmartContractAddress (p.party, p.partyIdentifier, p.contractIdentifier) SmartContractAddress_UpdateState with
+                    newState = newState
+                    newAddress = newAddress
+                  )
+                acceptedParties
+              create this with
+                currentState = newState
+                address = newAddress
+                lock = newLock
+                changeAddress = newChangeAddress
+                isValid = True
  
   template InteractionInvitationState
     with
@@ -223,6 +314,7 @@ module Topl.Wallet where
       contractTemplate: Text
       invitedParties: [ Party ]
       canSend: [ Party ]
+      toGetInteraction : [ AcceptedInteraction ]
       acceptedParties: [ AcceptedInteraction ]
         where
           signatory owner, operator
@@ -243,7 +335,29 @@ module Topl.Wallet where
               assertMsg "Party already accepted invitation" (party `notElem` fmap (\x -> x.party) acceptedParties) 
               create this with 
                 invitedParties = filter (/= party) invitedParties
+                toGetInteraction = (AcceptedInteraction with ..) :: toGetInteraction
                 acceptedParties = (AcceptedInteraction with ..) :: acceptedParties
+
+
+          choice InteractionInvitationState_GetInteration: ContractId InteractionInvitationState
+            with
+              requestor: Party
+              address: Text
+            controller requestor
+            do
+              invitedParties === []
+              assertMsg "Party has already gotten interaction" (requestor `elem` fmap (.party) toGetInteraction)
+              let p = head $ filter (\x -> x.party == requestor) toGetInteraction
+              create SmartContractAddress with
+                                owner = requestor
+                                state = 1
+                                partyIdentifier = p.partyIdentifier
+                                contractIdentifier = p.contractIdentifier
+                                address = address
+                                ..
+              create this with 
+                toGetInteraction = filter (\x -> x.party /= requestor) toGetInteraction
+                
 
 
           choice InteractionInvitationState_ToSmartContract: ContractId SmartContract
@@ -254,8 +368,10 @@ module Topl.Wallet where
             controller operator
             do
               invitedParties === []
+              toGetInteraction === []
               create SmartContract with
                 currentState = 1
+                isValid = True
                 ..
 
 
@@ -277,6 +393,7 @@ module Topl.Wallet where
       operator: Party
       invitationUUID: Text
       invitedParties: [ Party ]
+      ownerCloudWallet: Bool
       party: Party
         where
           signatory owner, operator
@@ -335,6 +452,7 @@ module Topl.Wallet where
                 (create InteractionInvitationState with
                   owner = owner
                   acceptedParties = [  ]
+                  toGetInteraction = [ ]
                   ..) 
                 return
                 someWalletState
