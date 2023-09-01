@@ -1,0 +1,62 @@
+module Tests.Faucet where
+
+  import Daml.Script
+  import Topl.Wallet
+  import Topl.Onboarding
+  import DA.List
+  import DA.Optional
+
+  faucet_wallet_init = script do
+    operator <- allocateParty "Operator"
+    dapp <- allocateParty "Dapp"
+    submit dapp do
+      createCmd Vault with owner = dapp, vault = "{ xxx }"
+    walletCreationRequest <- submit dapp do
+      createCmd WalletCreationRequest with 
+        owner = dapp
+        ..
+    dappVaultState <- submit operator do
+      exerciseCmd walletCreationRequest WalletCreationRequest_Accept
+    -- now the dapp needs to create a fellowship with itself
+    invitations <- submit dapp do
+      exerciseCmd dappVaultState VaultState_InviteParty with
+        invitationUUID = "xxx"
+        parties = [dapp]
+    let selfInvitation = head invitations
+    invitationState <- submit dapp do
+      exerciseCmd selfInvitation WalletPartyInvitation_Accept with 
+        cloudWallet = True
+    invitationsAccepted <- submit operator do
+      exerciseCmd invitationState WalletInvitationState_Distribute
+    let invitationAccepted = head invitationsAccepted
+    privateWalletPartyToAdd <- submit dapp do
+      exerciseCmd invitationAccepted WalletInvitationAccepted_MakePrivate with
+        identifier = "self"
+    submit operator do
+      exerciseCmd privateWalletPartyToAdd PrivateWalletPartyToAdd_AddParty
+    -- now we create the contract
+    someDappVaultState <- queryContractKey @VaultState dapp dapp
+    submit dapp do
+      exerciseCmd (fst $ fromSome someDappVaultState) VaultState_CreateWalletContract with
+        identifier = "default"
+        contract = "threshold(sign(0), 1)"
+    -- finally we create an interaction with ourselves
+    someDappVaultState <- queryContractKey @VaultState dapp dapp
+    walletInteractionInvitations <- submit dapp do
+      exerciseCmd (fst $ fromSome someDappVaultState) VaultState_InviteToInteraction with
+        invitationUUID = "yyy"
+        partyIdentifier = "self"
+        contractIdentifier = "default"
+        canSend = [ dapp ]
+        vk = Some "zzz"
+    let walletInteractionInvitation = head walletInteractionInvitations
+    walletInteractionInvitationState <- submit dapp do
+      exerciseCmd walletInteractionInvitation WalletInteractionInvitation_Accept with
+        partyIdentifier = "self"
+        contractIdentifier = "default"
+    submit operator do
+      exerciseCmd walletInteractionInvitationState InteractionInvitationState_ToSmartContract with
+        address = "www"
+        changeAddress = "aaa"
+        lock = "someLock"
+    return ()

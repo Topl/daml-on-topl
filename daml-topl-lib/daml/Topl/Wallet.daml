@@ -7,7 +7,7 @@ module Topl.Wallet where
   data AcceptedInteraction = AcceptedInteraction with
     partyIdentifier: Text
     contractIdentifier: Text
-    vk: Text
+    vk: Optional Text
     party: Party
       deriving (Show, Eq)
     
@@ -15,7 +15,6 @@ module Topl.Wallet where
   template Vault
     with
       owner: Party
-      password: Text
       vault: Text
         where
           signatory owner
@@ -48,9 +47,10 @@ module Topl.Wallet where
                 parties = invitationAccept.parties
                 ..
 
-          choice VaultState_AcceptContractProposal : ContractId WalletContract
+          choice VaultState_CreateWalletContract : ContractId WalletContract
             with
-              contractAccept: WalletContractProposal
+              identifier: Text
+              contract: Text
             controller owner
             do
               let newContractIndex = currentContractIndex + 1
@@ -59,18 +59,8 @@ module Topl.Wallet where
                 ..
               create WalletContract with
                 index = newContractIndex
-                contract = contractAccept.contract
-                identifier = contractAccept.identifier
-                ..
-
-          nonconsuming choice VaultState_CreateWalletContract : ContractId WalletContractProposal
-            with
-              identifier: Text
-              contract: Text
-            controller owner
-            do
-              let newContractIndex = currentContractIndex + 1
-              create WalletContractProposal with
+                contract = contract
+                identifier = identifier
                 ..
           
           nonconsuming choice VaultState_InviteParty : [ContractId WalletPartyInvitation]
@@ -79,7 +69,6 @@ module Topl.Wallet where
               parties: [ Party ]
             controller owner
             do
-              let newPartyIndex = currentPartyIndex + 1
               mapA 
                 (\p -> create WalletPartyInvitation with
                   invitedParties = parties
@@ -92,9 +81,12 @@ module Topl.Wallet where
               invitationUUID: Text
               partyIdentifier: Text
               contractIdentifier: Text
-              vk: Text
+              canSend: [ Party ]
+              vk: Optional Text
             controller owner
             do
+              -- owner can send ==> vk must be set
+              assert (owner `notElem` canSend || isSome vk)
               someWalletParty <- lookupByKey @WalletParty (owner, partyIdentifier)
               assertMsg "Party not found" (isSome someWalletParty)
               walletParty <- fetch $ fromSome someWalletParty
@@ -103,11 +95,11 @@ module Topl.Wallet where
               contract <- fetch $ fromSome someWalletContract
               mapA
                 (\p -> create WalletInteractionInvitation with
-                  invitedParties = walletParty.parties
+                  invitedParties = canSend
                   contractTemplate = contract.contract
                   party = p
                   ..)
-                 walletParty.parties
+                 canSend
  
   template WalletInvitationAccepted
     with
@@ -115,6 +107,7 @@ module Topl.Wallet where
       operator: Party
       invitee: Party
       parties: [ Party ]
+      cloudWallet: Bool
         where
           signatory owner, operator
           observer invitee
@@ -134,15 +127,21 @@ module Topl.Wallet where
       identifier: Text
       operator: Party
       parties: [Party]
+      cloudWallet: Bool
         where
           signatory owner, operator
 
-          choice PrivateWalletPartyToAdd_AddParty: ContractId WalletParty
+          choice PrivateWalletPartyToAdd_AddParty: ()
             controller operator
             do
               (theVaultId, theVault) <- fetchByKey @VaultState owner
-              exercise theVaultId VaultState_AcceptInvitation with
-                invitationAccept = this
+              if cloudWallet
+                then do
+                  exercise theVaultId VaultState_AcceptInvitation with
+                    invitationAccept = this
+                  return ()
+                else do
+                  return ()
 
 
 
@@ -153,6 +152,7 @@ module Topl.Wallet where
       invitationUUID: Text
       invitedParties: [ Party ]
       acceptedParties: [ Party ]
+      cloudWallet: Bool
         where
           signatory owner, operator
           observer invitedParties, acceptedParties
@@ -161,7 +161,7 @@ module Topl.Wallet where
 
           maintainer key._1
 
-          choice WalletInvitationAccepted_Accept : ContractId WalletInvitationState
+          choice WalletInvitationState_Accept : ContractId WalletInvitationState
             with
               party: Party
             controller operator
@@ -172,7 +172,7 @@ module Topl.Wallet where
                 acceptedParties = party :: acceptedParties
 
 
-          choice WalletInvitationAccepted_Distribute: [ ContractId WalletInvitationAccepted ]
+          choice WalletInvitationState_Distribute: [ ContractId WalletInvitationAccepted ]
             controller operator
             do
               invitedParties === []
@@ -192,6 +192,7 @@ module Topl.Wallet where
       lock: Text
       contractTemplate: Text
       currentState: Int
+      canSend: [ Party ]
       acceptedParties: [ AcceptedInteraction ]
         where
           signatory operator
@@ -208,6 +209,7 @@ module Topl.Wallet where
               contractParticipants: [ Party ]
             controller requestor
             do
+              assert (requestor `elem` canSend)
               create LvlTransferRequest with
                 from = [ SendAddress with .. ]
                 ..
@@ -220,6 +222,7 @@ module Topl.Wallet where
       invitationUUID: Text
       contractTemplate: Text
       invitedParties: [ Party ]
+      canSend: [ Party ]
       acceptedParties: [ AcceptedInteraction ]
         where
           signatory owner, operator
@@ -234,7 +237,7 @@ module Topl.Wallet where
               party: Party
               partyIdentifier: Text
               contractIdentifier: Text
-              vk: Text
+              vk: Optional Text
             controller operator
             do
               assertMsg "Party already accepted invitation" (party `notElem` fmap (\x -> x.party) acceptedParties) 
@@ -250,10 +253,10 @@ module Topl.Wallet where
               lock: Text
             controller operator
             do
+              invitedParties === []
               create SmartContract with
                 currentState = 1
                 ..
-
 
 
   template WalletParty
@@ -280,18 +283,20 @@ module Topl.Wallet where
 
           observer party
 
-          choice WalletPartyInvitation_Accept : ContractId WalletInvitationState
+
+          choice WalletPartyInvitation_Accept : ContractId WalletInvitationState with
+              cloudWallet: Bool
             controller party
             do
               someWalletState <- lookupByKey @WalletInvitationState (owner, invitationUUID)
               invitationAccepted <- optional 
                 (create WalletInvitationState with
                   owner = owner
-                  acceptedParties = [ owner ]
+                  acceptedParties = [  ]
                   ..) 
                 return
                 someWalletState
-              exercise invitationAccepted WalletInvitationAccepted_Accept with
+              exercise invitationAccepted WalletInvitationState_Accept with
                ..
 
   template WalletInteractionInvitation
@@ -299,12 +304,16 @@ module Topl.Wallet where
       owner: Party
       operator: Party
       invitationUUID: Text
-      vk : Text
+      vk : Optional Text
       contractTemplate: Text
       invitedParties: [ Party ]
       party: Party
+      canSend: [ Party ]
         where
           signatory owner, operator
+
+          ensure
+            party `elem` canSend
 
           observer party
 
@@ -325,32 +334,12 @@ module Topl.Wallet where
               invitationAccepted <- optional 
                 (create InteractionInvitationState with
                   owner = owner
-                  acceptedParties = [ AcceptedInteraction with 
-                                        partyIdentifier = walletParty.identifier
-                                        contractIdentifier = contract.identifier
-                                        vk = vk
-                                        party = owner ]
+                  acceptedParties = [  ]
                   ..) 
                 return
                 someWalletState
               exercise invitationAccepted InteractionInvitationState_Accept with
                ..
-
-  template WalletContractProposal
-    with
-      owner: Party
-      identifier: Text
-      operator: Party
-      contract: Text
-        where
-          signatory owner
-
-          choice WalletContractProposal_Accept : ContractId WalletContract
-            controller operator
-            do
-              (theVaultId, theVault) <- fetchByKey @VaultState owner
-              exercise theVaultId VaultState_AcceptContractProposal with
-                contractAccept = this
 
 
 

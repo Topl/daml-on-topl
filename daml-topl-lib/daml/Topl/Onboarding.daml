@@ -5,7 +5,6 @@ module Topl.Onboarding where
   template WalletCreationRequest with
     owner : Party
     operator : Party
-    password: Text
       where 
         signatory owner
 

@@ -15,21 +15,18 @@ module Tests.Wallet where
       createCmd WalletCreationRequest with
         operator = operator
         owner = alice
-        password = "test"
     aliceVaultCid <- submit operator do
       exerciseCmd request WalletCreationRequest_Accept
     request <- submit bob do
       createCmd WalletCreationRequest with
         operator = operator
         owner = bob
-        password = "test"
     bobVaultCid <- submit operator do
       exerciseCmd request WalletCreationRequest_Accept
     request <- submit carol do
       createCmd WalletCreationRequest with
         operator = operator
         owner = carol
-        password = "test"
     carolVaultCid <- submit operator do
       exerciseCmd request WalletCreationRequest_Accept
     invitations <- submit alice do
@@ -38,10 +35,10 @@ module Tests.Wallet where
         parties = [ bob ]
     res <- mapA
       (\invitation -> submit bob do
-        exerciseCmd invitation WalletPartyInvitation_Accept)
+        exerciseCmd invitation WalletPartyInvitation_Accept with cloudWallet = True)
       invitations
     acceptedInvitations <- submit operator do
-      exerciseCmd (head res) WalletInvitationAccepted_Distribute
+      exerciseCmd (head res) WalletInvitationState_Distribute
     let bobInvitation = head acceptedInvitations
     privatePartyToAdd <- submit bob do
       exerciseCmd bobInvitation WalletInvitationAccepted_MakePrivate with identifier = "alice-bob"
@@ -65,12 +62,12 @@ module Tests.Wallet where
         parties = [ bob, carol ]
     let bobInvitation = head invitations
     bobWalletPartyAccepted <- submit bob do
-      exerciseCmd bobInvitation WalletPartyInvitation_Accept
+      exerciseCmd bobInvitation WalletPartyInvitation_Accept with cloudWallet = True
     let carolInvitation = head $ tail invitations
     carolWalletPartyAccepted <- submit carol do
-      exerciseCmd carolInvitation WalletPartyInvitation_Accept 
+      exerciseCmd carolInvitation WalletPartyInvitation_Accept  with cloudWallet = True
     acceptedInvitations <- submit operator do
-      exerciseCmd carolWalletPartyAccepted WalletInvitationAccepted_Distribute
+      exerciseCmd carolWalletPartyAccepted WalletInvitationState_Distribute
     let carolInvitation = head acceptedInvitations
     privatePartyToAdd <- submit carol do
       exerciseCmd carolInvitation WalletInvitationAccepted_MakePrivate with identifier = "alice-bob-carol"
