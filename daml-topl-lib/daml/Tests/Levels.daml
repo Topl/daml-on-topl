@@ -12,7 +12,7 @@ module Tests.Levels where
         requestId = "a972d784-e17a-4c24-ba06-d4f2e2ac2d88"
         requestor = alice
         operator = operator
-        from = [ SendAddress with address = "someAddress", lock = "someLock" ]
+        from = SendAddress with address = "someAddress", lock = "someLock"
         to = [ Recipient with
             address = "someAddress"
             amount = 100 ]
@@ -46,7 +46,7 @@ module Tests.Levels where
         requestId = "a972d784-e17a-4c24-ba06-d4f2e2ac2d88"
         requestor = alice
         operator = operator
-        from = [ SendAddress with address = "someAddress", lock = "someLock" ]
+        from = SendAddress with address = "someAddress", lock = "someLock"
         to = [ Recipient with
             address = "someAddress"
             amount = 100 ]
