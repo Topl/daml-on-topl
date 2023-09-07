@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DAML Module for Onboarding.
 - Changelog.
 - Merged `daml-topl-lib` and `daml-topl-broker` into one project.
+- Test simulating a faucet.
 
 ### Changed
 
