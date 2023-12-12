@@ -1,20 +1,20 @@
 package processors
 
-import com.daml.ledger.javaapi.data.Transaction
-import com.daml.ledger.javaapi.data.Command
-import io.reactivex.Single
-import com.google.protobuf.Empty
-import com.daml.ledger.javaapi.data.CreatedEvent
-import scala.collection.JavaConverters._
-import cats.effect.kernel.Sync
-import java.util.stream
-import cats.Monad
 import java.util.UUID
-import io.reactivex.subjects.SingleSubject
-import com.daml.ledger.rxjava.DamlLedgerClient
-import cats.effect.kernel.Resource
+import java.util.stream
+
+import scala.collection.JavaConverters._
+
 import cats.data.Kleisli
+import cats.effect.kernel.Sync
+import com.daml.ledger.javaapi.data.Command
+import com.daml.ledger.javaapi.data.CreatedEvent
 import com.daml.ledger.javaapi.data.Identifier
+import com.daml.ledger.javaapi.data.Transaction
+import com.daml.ledger.rxjava.DamlLedgerClient
+import com.google.protobuf.Empty
+import io.reactivex.Single
+import io.reactivex.subjects.SingleSubject
 
 case class DAMLContext(client: DamlLedgerClient, appId: String, operatorParty: String)
 
@@ -81,7 +81,6 @@ object DAMLAlgebra {
       tx:           Transaction,
       processEvent: (String, CreatedEvent) => DAMLKleisli[F, (Boolean, stream.Stream[Command])]
     ): DAMLKleisli[F, (Boolean, stream.Stream[Command])] = {
-      import cats.implicits._
       tx.getEvents()
         .asScala
         .filter(_.isInstanceOf[CreatedEvent])
@@ -124,7 +123,6 @@ object DAMLAlgebra {
     )(
       processEvent: (String, CreatedEvent) => DAMLKleisli[F, (Boolean, stream.Stream[Command])]
     ): DAMLKleisli[F, Boolean] = {
-      import cats.implicits._
       (for {
         pair <- processEventsM(tx, processEvent)
         (mustContinue, exerciseCommandsStream) = pair

@@ -21,12 +21,12 @@ module Tests.Faucet where
       exerciseCmd walletCreationRequest WalletCreationRequest_Accept
     -- now the dapp needs to create a fellowship with itself
     invitations <- submit dapp do
-      exerciseCmd dappVaultState VaultState_InviteParty with
+      exerciseCmd dappVaultState VaultState_InviteFellowship with
         invitationUUID = "xxx"
-        parties = [dapp]
+        fellows = [dapp]
     let selfInvitation = head invitations
     invitationState <- submit dapp do
-      exerciseCmd selfInvitation WalletPartyInvitation_Accept with 
+      exerciseCmd selfInvitation WalletFellowInvitation_Accept with 
         cloudWallet = True
     invitationsAccepted <- submit operator do
       exerciseCmd invitationState WalletInvitationState_Distribute
@@ -41,30 +41,30 @@ module Tests.Faucet where
     submit dapp do
       exerciseCmd (fst $ fromSome someDappVaultState) VaultState_CreateWalletContract with
         identifier = "default"
-        contract = "threshold(sign(0), 1)"
+        lockTemplate = "threshold(sign(0), 1)"
     -- finally we create an interaction with ourselves
     someDappVaultState <- queryContractKey @VaultState dapp dapp
-    walletInteractionInvitations <- submit dapp do
-      exerciseCmd (fst $ fromSome someDappVaultState) VaultState_InviteToInteraction with
+    walletConversationInvitations <- submit dapp do
+      exerciseCmd (fst $ fromSome someDappVaultState) VaultState_InviteToConversation with
         invitationUUID = "yyy"
-        partyIdentifier = "self"
-        contractIdentifier = "default"
+        fellowshipIdentifier = "self"
+        lockTemplateIdentifier = "default"
         canSend = [ dapp ]
         vk = Some "zzz"
-    let walletInteractionInvitation = head walletInteractionInvitations
-    walletInteractionInvitationState <- submit dapp do
-      exerciseCmd walletInteractionInvitation WalletInteractionInvitation_Accept with
-        partyIdentifier = "self"
-        contractIdentifier = "default"
-    walletInteractionInvitationState <- submit dapp do
-      exerciseCmd walletInteractionInvitationState InteractionInvitationState_GetInteration with
+    let walletConversationInvitation = head walletConversationInvitations
+    walletConversationInvitationState <- submit dapp do
+      exerciseCmd walletConversationInvitation WalletConversationInvitation_Accept with
+        fellowshipIdentifier = "self"
+        lockTemplateIdentifier = "default"
+    walletConversationInvitationState <- submit dapp do
+      exerciseCmd walletConversationInvitationState ConversationInvitationState_GetInteraction with
         requestor = dapp
         address = "www"
     submit operator do
-      exerciseCmd walletInteractionInvitationState InteractionInvitationState_ToSmartContract with
+      exerciseCmd walletConversationInvitationState ConversationInvitationState_ToInteraction with
         address = "www"
         changeAddress = "aaa"
-        lock = "someLock"
+        lockProposition = "someLock"
     return (operator, dapp)
 
   send_amount_to_alice = script do
@@ -78,7 +78,8 @@ module Tests.Faucet where
         fromContractIdentifier = "default"
         requestId = "xxx"
         requestor = dapp
-        to = [ Recipient with address = "aliceAddress", amount = 100 ]
+        fee = 10
+        to = Recipient with address = "aliceAddress", amount = 100
         contractParticipants = [ dapp ]
     txRequestData <- queryContractId dapp txRequest
     unprovedTx <- submit operator do
@@ -104,10 +105,10 @@ module Tests.Faucet where
     -- now some trigger should capture the 
     -- confirmed transaction and update the smart contract
     let fromAddress = (fromSome txRequestData).from.address
-    someSmartContract <- queryContractKey @SmartContract operator (operator, fromAddress)
+    someInteraction <- queryContractKey @Conversation operator (operator, fromAddress)
     submit operator do
-      exerciseCmd (fst $ fromSome someSmartContract) SmartContract_UpdateState with
-        newState = 2
+      exerciseCmd (fst $ fromSome someInteraction) Conversaction_UpdateState with
+        newInteractionIdentifier = 2
         newLock = "newLock"
         newAddress = "newAddress"
         newChangeAddress = "newChangeAddress"

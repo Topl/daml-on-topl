@@ -5,9 +5,9 @@ module Topl.Wallet where
   import Topl.Levels
   import DA.List
 
-  data AcceptedInteraction = AcceptedInteraction with
-    partyIdentifier: Text
-    contractIdentifier: Text
+  data AcceptedConversation = AcceptedConversation with
+    fellowshipIdentifier: Text
+    lockTemplateIdentifier: Text
     vk: Optional Text
     party: Party
       deriving (Show, Eq)
@@ -39,24 +39,22 @@ module Topl.Wallet where
               fromContractIdentifier: Text
               requestId: Text
               requestor: Party
-              to: [ Recipient ]
+              to: Recipient
+              fee: Int
               contractParticipants: [ Party ]
             controller requestor
             do
-              someSmartContractAddress <- lookupByKey @SmartContractAddress (requestor, fromPartyIdentifier, fromContractIdentifier)
-              assertMsg "Smart Contract Address does not exist" (isSome someSmartContractAddress)
-              smartContractAddress <- fetch $ fromSome someSmartContractAddress
-              someSmartContract <- lookupByKey @SmartContract (operator, smartContractAddress.address)
-              assert (isSome someSmartContract)
-              smartContract <- fetch $ fromSome someSmartContract
-              assert (requestor `elem` smartContract.canSend)
-              exercise (fromSome someSmartContract) SmartContract_SendFunds with
-                requestId = requestId
-                requestor = requestor
-                to = to
-                contractParticipants = contractParticipants
+              someInteractionAddress <- lookupByKey @CurrentInteraction (requestor, fromPartyIdentifier, fromContractIdentifier)
+              assertMsg "Smart Contract Address does not exist" (isSome someInteractionAddress)
+              interactionAddress <- fetch $ fromSome someInteractionAddress
+              someInteraction <- lookupByKey @Conversation (operator, interactionAddress.address)
+              assert (isSome someInteraction)
+              interaction <- fetch $ fromSome someInteraction
+              assert (requestor `elem` interaction.canSend)
+              exercise (fromSome someInteraction) Conversation_SendFunds with
+                ..
 
-          choice VaultState_AcceptInvitation : ContractId WalletParty
+          choice VaultState_AcceptInvitation : ContractId WalletFellowship
             with
               invitationAccept: PrivateWalletPartyToAdd
             controller owner
@@ -65,63 +63,63 @@ module Topl.Wallet where
               create VaultState with 
                 currentPartyIndex = newPartyIndex 
                 ..
-              create WalletParty with
+              create WalletFellowship with
                 index = newPartyIndex
                 identifier = invitationAccept.identifier
-                parties = invitationAccept.parties
+                fellows = invitationAccept.fellows
                 ..
 
-          choice VaultState_CreateWalletContract : ContractId WalletContract
+          choice VaultState_CreateWalletContract : ContractId WalletLockTemplate
             with
               identifier: Text
-              contract: Text
+              lockTemplate: Text
             controller owner
             do
               let newContractIndex = currentContractIndex + 1
               create VaultState with 
                 currentContractIndex = newContractIndex 
                 ..
-              create WalletContract with
+              create WalletLockTemplate with
                 index = newContractIndex
-                contract = contract
+                lockTemplate = lockTemplate
                 identifier = identifier
                 ..
           
-          nonconsuming choice VaultState_InviteParty : [ContractId WalletPartyInvitation]
+          nonconsuming choice VaultState_InviteFellowship : [ContractId WalletFellowInvitation]
             with
               invitationUUID: Text
-              parties: [ Party ]
+              fellows: [ Party ]
             controller owner
             do
               mapA 
-                (\p -> create WalletPartyInvitation with
-                  invitedParties = parties
-                  party = p
+                (\p -> create WalletFellowInvitation with
+                  invitedFellows = fellows
+                  fellow = p
                   ownerCloudWallet = True
                   ..)
-                parties
+                fellows
 
-          nonconsuming choice VaultState_InviteToInteraction: [ContractId WalletInteractionInvitation]
+          nonconsuming choice VaultState_InviteToConversation: [ContractId WalletConversationInvitation]
             with
               invitationUUID: Text
-              partyIdentifier: Text
-              contractIdentifier: Text
+              fellowshipIdentifier: Text
+              lockTemplateIdentifier: Text
               canSend: [ Party ]
               vk: Optional Text
             controller owner
             do
               -- owner can send ==> vk must be set
               assert (owner `notElem` canSend || isSome vk)
-              someWalletParty <- lookupByKey @WalletParty (owner, partyIdentifier)
+              someWalletParty <- lookupByKey @WalletFellowship (owner, fellowshipIdentifier)
               assertMsg "Party not found" (isSome someWalletParty)
               walletParty <- fetch $ fromSome someWalletParty
-              someWalletContract <- lookupByKey @WalletContract (owner, contractIdentifier)
+              someWalletContract <- lookupByKey @WalletLockTemplate (owner, lockTemplateIdentifier)
               assertMsg "Contract not found" (isSome someWalletContract)
-              contract <- fetch $ fromSome someWalletContract
+              lockTemplate <- fetch $ fromSome someWalletContract
               mapA
-                (\p -> create WalletInteractionInvitation with
-                  invitedParties = canSend
-                  contractTemplate = contract.contract
+                (\p -> create WalletConversationInvitation with
+                  invitedFellows = canSend
+                  lockTemplate = lockTemplate.lockTemplate
                   party = p
                   ..)
                  canSend
@@ -131,12 +129,13 @@ module Topl.Wallet where
       owner: Party
       operator: Party
       invitee: Party
-      parties: [ Party ]
+      fellows: [ Party ]
       cloudWallet: Bool
         where
           signatory owner, operator
           observer invitee
-
+          -- this is necessary to make sure that other fellows cannot see
+          -- the wallet of this party
           choice WalletInvitationAccepted_MakePrivate: ContractId PrivateWalletPartyToAdd
             with
               identifier: Text
@@ -151,7 +150,7 @@ module Topl.Wallet where
       owner: Party
       identifier: Text
       operator: Party
-      parties: [Party]
+      fellows: [Party]
       cloudWallet: Bool
         where
           signatory owner, operator
@@ -175,13 +174,13 @@ module Topl.Wallet where
       owner: Party
       operator: Party
       invitationUUID: Text
-      invitedParties: [ Party ]
-      acceptedParties: [ Party ]
+      invitedFellows: [ Party ]
+      acceptedFellows: [ Party ]
       ownerCloudWallet: Bool
       cloudWallet: Bool
         where
           signatory owner, operator
-          observer invitedParties, acceptedParties
+          observer invitedFellows, acceptedFellows
 
           key (owner, invitationUUID): (Party, Text)
 
@@ -189,79 +188,79 @@ module Topl.Wallet where
 
           choice WalletInvitationState_Accept : ContractId WalletInvitationState
             with
-              party: Party
+              fellow: Party
             controller operator
             do
-              assertMsg "Party already accepted invitation" (party `notElem` acceptedParties) 
+              assertMsg "Party already accepted invitation" (fellow `notElem` acceptedFellows) 
               create this with 
-                invitedParties = filter (/= party) invitedParties
-                acceptedParties = party :: acceptedParties
+                invitedFellows = filter (/= fellow) invitedFellows
+                acceptedFellows = fellow :: acceptedFellows
 
 
           choice WalletInvitationState_Distribute: [ ContractId WalletInvitationAccepted ]
             controller operator
             do
-              invitedParties === []
-              if owner `notElem` acceptedParties
+              invitedFellows === []
+              if owner `notElem` acceptedFellows
                 then do
                   ownInvitation <- create WalletInvitationAccepted with
                     invitee = owner
-                    parties = acceptedParties
+                    fellows = acceptedFellows
                     cloudWallet = ownerCloudWallet
                     ..
                   invitationList <- mapA
                     (\p -> 
                       create WalletInvitationAccepted with
                         invitee = p
-                        parties = acceptedParties
+                        fellows = acceptedFellows
                         ..)
-                    acceptedParties
+                    acceptedFellows
                   return (ownInvitation :: invitationList)
                 else do
                   mapA
                     (\p -> 
                       create WalletInvitationAccepted with
                         invitee = p
-                        parties = acceptedParties
+                        fellows = acceptedFellows
                         ..)
-                    acceptedParties
+                    acceptedFellows
 
-  template SmartContractAddress
+  template CurrentInteraction
     with
       owner: Party
       operator: Party
-      partyIdentifier: Text
-      contractIdentifier: Text
-      state: Int
+      fellowshipIdentifier: Text
+      lockTemplateIdentifier: Text
+      interactionIdentifier: Int
       address: Text
         where
           signatory owner, operator
 
 
-          key (owner, partyIdentifier, contractIdentifier): (Party, Text, Text)
+          key (owner, fellowshipIdentifier, lockTemplateIdentifier): (Party, Text, Text)
           maintainer key._1
 
-          choice SmartContractAddress_UpdateState: ContractId SmartContractAddress
+          choice InteractionAddress_UpdateState: ContractId CurrentInteraction
             with
-              newState: Int
+              newInteractionIdentifier: Int
               newAddress : Text
             controller operator
             do
               create this with
-                state = newState
+                interactionIdentifier = newInteractionIdentifier
                 address = newAddress
 
-  template SmartContract
+  template Conversation
     with
       operator: Party
       address: Text
       changeAddress: Text
-      lock: Text
-      contractTemplate: Text
-      currentState: Int
+      lockProposition: Text
+      lockTemplate: Text
+      currentInteraction: Int
       canSend: [ Party ]
       isValid: Bool
-      acceptedParties: [ AcceptedInteraction ]
+      acceptedParties: [ AcceptedConversation ]
         where
           signatory operator
           observer fmap (.party) acceptedParties
@@ -269,10 +268,11 @@ module Topl.Wallet where
           key (operator, address): (Party, Text)
           maintainer key._1
 
-          choice SmartContract_SendFunds : ContractId LvlTransferRequest with
+          choice Conversation_SendFunds : ContractId LvlTransferRequest with
               requestId : Text
               requestor: Party
-              to: [ Recipient ] 
+              to: Recipient
+              fee: Int
               contractParticipants: [ Party ]
             controller requestor
             do
@@ -284,9 +284,9 @@ module Topl.Wallet where
                 ..
     
 
-          choice SmartContract_UpdateState: ContractId SmartContract
+          choice Conversaction_UpdateState: ContractId Conversation
             with
-              newState: Int
+              newInteractionIdentifier: Int
               newLock: Text
               newAddress : Text
               newChangeAddress : Text
@@ -294,136 +294,136 @@ module Topl.Wallet where
             do
               res <- mapA
                 (\p -> do
-                  exerciseByKey @SmartContractAddress (p.party, p.partyIdentifier, p.contractIdentifier) SmartContractAddress_UpdateState with
-                    newState = newState
+                  exerciseByKey @CurrentInteraction (p.party, p.fellowshipIdentifier, p.lockTemplateIdentifier) InteractionAddress_UpdateState with
+                    newInteractionIdentifier = newInteractionIdentifier
                     newAddress = newAddress
                   )
                 acceptedParties
               create this with
-                currentState = newState
+                currentInteraction = newInteractionIdentifier
                 address = newAddress
-                lock = newLock
+                lockProposition = newLock
                 changeAddress = newChangeAddress
                 isValid = True
  
-  template InteractionInvitationState
+  template ConversationInvitationState
     with
       owner: Party
       operator: Party
       invitationUUID: Text
-      contractTemplate: Text
-      invitedParties: [ Party ]
+      lockTemplate: Text
+      invitedFellows: [ Party ]
       canSend: [ Party ]
-      toGetInteraction : [ AcceptedInteraction ]
-      acceptedParties: [ AcceptedInteraction ]
+      toGetConversation : [ AcceptedConversation ]
+      acceptedParties: [ AcceptedConversation ]
         where
           signatory owner, operator
-          observer invitedParties, fmap (.party) acceptedParties
+          observer invitedFellows, fmap (.party) acceptedParties
 
           key (owner, invitationUUID): (Party, Text)
 
           maintainer key._1
 
-          choice InteractionInvitationState_Accept : ContractId InteractionInvitationState
+          choice ConversationInvitationState_Accept : ContractId ConversationInvitationState
             with
               party: Party
-              partyIdentifier: Text
-              contractIdentifier: Text
+              fellowshipIdentifier: Text
+              lockTemplateIdentifier: Text
               vk: Optional Text
             controller operator
             do
-              assertMsg "Party already accepted invitation" (party `notElem` fmap (\x -> x.party) acceptedParties) 
+              assertMsg "Fellow already accepted invitation" (party `notElem` fmap (\x -> x.party) acceptedParties) 
               create this with 
-                invitedParties = filter (/= party) invitedParties
-                toGetInteraction = (AcceptedInteraction with ..) :: toGetInteraction
-                acceptedParties = (AcceptedInteraction with ..) :: acceptedParties
+                invitedFellows = filter (/= party) invitedFellows
+                toGetConversation = (AcceptedConversation with ..) :: toGetConversation
+                acceptedParties = (AcceptedConversation with ..) :: acceptedParties
 
 
-          choice InteractionInvitationState_GetInteration: ContractId InteractionInvitationState
+          choice ConversationInvitationState_GetInteraction: ContractId ConversationInvitationState
             with
               requestor: Party
               address: Text
             controller requestor
             do
-              invitedParties === []
-              assertMsg "Party has already gotten interaction" (requestor `elem` fmap (.party) toGetInteraction)
-              let p = head $ filter (\x -> x.party == requestor) toGetInteraction
-              create SmartContractAddress with
+              invitedFellows === []
+              assertMsg "Fellow has already gotten into the conversation" (requestor `elem` fmap (.party) toGetConversation)
+              let p = head $ filter (\x -> x.party == requestor) toGetConversation
+              create CurrentInteraction with
                                 owner = requestor
-                                state = 1
-                                partyIdentifier = p.partyIdentifier
-                                contractIdentifier = p.contractIdentifier
+                                interactionIdentifier = 1
+                                fellowshipIdentifier = p.fellowshipIdentifier
+                                lockTemplateIdentifier = p.lockTemplateIdentifier
                                 address = address
                                 ..
               create this with 
-                toGetInteraction = filter (\x -> x.party /= requestor) toGetInteraction
+                toGetConversation = filter (\x -> x.party /= requestor) toGetConversation
                 
 
 
-          choice InteractionInvitationState_ToSmartContract: ContractId SmartContract
+          choice ConversationInvitationState_ToInteraction: ContractId Conversation
             with
               address: Text
               changeAddress: Text
-              lock: Text
+              lockProposition: Text
             controller operator
             do
-              invitedParties === []
-              toGetInteraction === []
-              create SmartContract with
-                currentState = 1
+              invitedFellows === []
+              toGetConversation === []
+              create Conversation with
+                currentInteraction = 1
                 isValid = True
                 ..
 
 
-  template WalletParty
+  template WalletFellowship
     with
       owner: Party
       identifier: Text
       index: Int
-      parties: [ Party ]
+      fellows: [ Party ]
         where
           signatory owner
 
           key (owner, identifier): (Party, Text)
           maintainer key._1
 
-  template WalletPartyInvitation
+  template WalletFellowInvitation
     with
       owner: Party
       operator: Party
       invitationUUID: Text
-      invitedParties: [ Party ]
+      invitedFellows: [ Party ]
       ownerCloudWallet: Bool
-      party: Party
+      fellow: Party
         where
           signatory owner, operator
 
-          observer party
+          observer fellow
 
 
-          choice WalletPartyInvitation_Accept : ContractId WalletInvitationState with
+          choice WalletFellowInvitation_Accept : ContractId WalletInvitationState with
               cloudWallet: Bool
-            controller party
+            controller fellow
             do
               someWalletState <- lookupByKey @WalletInvitationState (owner, invitationUUID)
               invitationAccepted <- optional 
                 (create WalletInvitationState with
                   owner = owner
-                  acceptedParties = [  ]
+                  acceptedFellows = [  ]
                   ..) 
                 return
                 someWalletState
               exercise invitationAccepted WalletInvitationState_Accept with
                ..
 
-  template WalletInteractionInvitation
+  template WalletConversationInvitation
     with
       owner: Party
       operator: Party
       invitationUUID: Text
       vk : Optional Text
-      contractTemplate: Text
-      invitedParties: [ Party ]
+      lockTemplate: Text
+      invitedFellows: [ Party ]
       party: Party
       canSend: [ Party ]
         where
@@ -434,39 +434,39 @@ module Topl.Wallet where
 
           observer party
 
-          choice WalletInteractionInvitation_Accept : ContractId InteractionInvitationState
+          choice WalletConversationInvitation_Accept : ContractId ConversationInvitationState
             with
-              partyIdentifier: Text
-              contractIdentifier: Text
+              fellowshipIdentifier: Text
+              lockTemplateIdentifier: Text
             controller party
             do
-              someWalletParty <- lookupByKey @WalletParty (party, partyIdentifier)
+              someWalletParty <- lookupByKey @WalletFellowship (party, fellowshipIdentifier)
               assertMsg "Party not found" (isSome someWalletParty)
               walletParty <- fetch $ fromSome someWalletParty
-              someContract <- lookupByKey @WalletContract (owner, contractIdentifier)
-              assertMsg "Contract not found" (isSome someContract)
-              contract <- fetch $ fromSome someContract
-              assertMsg "Contract template is not the same" (contract.contract == contractTemplate)
-              someWalletState <- lookupByKey @InteractionInvitationState (owner, invitationUUID)
+              someLockTemaplate <- lookupByKey @WalletLockTemplate (owner, lockTemplateIdentifier)
+              assertMsg "Lock Template not found" (isSome someLockTemaplate)
+              contract <- fetch $ fromSome someLockTemaplate
+              assertMsg "Contract template is not the same" (contract.lockTemplate == lockTemplate)
+              someWalletState <- lookupByKey @ConversationInvitationState (owner, invitationUUID)
               invitationAccepted <- optional 
-                (create InteractionInvitationState with
+                (create ConversationInvitationState with
                   owner = owner
                   acceptedParties = [  ]
-                  toGetInteraction = [ ]
+                  toGetConversation = [ ]
                   ..) 
                 return
                 someWalletState
-              exercise invitationAccepted InteractionInvitationState_Accept with
+              exercise invitationAccepted ConversationInvitationState_Accept with
                ..
 
 
 
-  template WalletContract
+  template WalletLockTemplate
     with
       owner: Party
       index: Int
       identifier: Text
-      contract: Text
+      lockTemplate: Text
         where
           signatory owner
 

@@ -9,7 +9,7 @@ module Topl.Levels where
   data SendAddress = SendAddress
     with
       address: Address
-      lock: Text
+      lockProposition: Text
         deriving (Show, Eq)
 
   data Recipient = Recipient
@@ -44,7 +44,9 @@ module Topl.Levels where
       requestor: Party
       operator: Party
       from: SendAddress
-      to: [ Recipient ]
+      to: Recipient
+      fee: Int
+      lockProposition: Text
       changeAddress: Address
       contractParticipants: [ Party ]
         

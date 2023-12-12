@@ -5,7 +5,6 @@ import co.topl.brambl.dataApi.WalletKeyApiAlgebra
 import co.topl.brambl.wallet.WalletApi
 import co.topl.crypto.encryption.VaultStore
 import quivr.models.KeyPair
-import cats.Monad
 
 trait WalletManagementUtilsAlgebra[F[_]] {
 
@@ -23,7 +22,6 @@ object WalletManagementUtilsAlgebra {
     dataApi:   WalletKeyApiAlgebra[({ type L[A] = DAMLKleisli[F, A] })#L]
   ) = new WalletManagementUtilsAlgebra[F] {
 
-    import cats.implicits._
 
     type G[A] = DAMLKleisli[F, A]
 

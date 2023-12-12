@@ -7,7 +7,7 @@ object Dependencies {
   lazy val http4sVersion = "0.23.18"
 
   val damlBindings: Seq[ModuleID] = Seq(
-    "com.daml" % "bindings-rxjava" % "2.7.0"
+    "com.daml" % "bindings-rxjava" % "2.7.6"
   )
 
   val logback: Seq[ModuleID] = Seq(
@@ -16,7 +16,7 @@ object Dependencies {
 
   lazy val toplOrg = "co.topl"
 
-  lazy val bramblVersion = "2.0.0-alpha4"
+  lazy val bramblVersion = "2.0.0-beta1"
 
   val bramblSdk = toplOrg %% "brambl-sdk" % bramblVersion
 

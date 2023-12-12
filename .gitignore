@@ -12,3 +12,5 @@ dist/
 interfaces/
 project/metals.sbt
 project/
+log/
+.daml/

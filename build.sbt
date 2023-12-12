@@ -9,11 +9,17 @@ inThisBuild(
   )
 )
 
-lazy val cleanSrcGen = taskKey[Unit]("Clean DAML Generated Code")
+lazy val cleanSrcGenLib = taskKey[Unit]("Clean DAML Generated Code for lib")
 
-lazy val generateJavaCode = taskKey[Unit]("Build DAML package")
+lazy val cleanDarLib = taskKey[Unit]("Clean DAML DAR for lib")
 
-lazy val damlSource = taskKey[Seq[File]]("DAML Source Code Location")
+lazy val generateJavaCode = taskKey[Unit]("Build DAML package and generate code")
+
+lazy val compileDaml = taskKey[Unit]("Compile DAML")
+
+lazy val damlSourceLib = taskKey[Seq[File]]("DAML Source Code Location for lib")
+
+lazy val damlSourceTrigger = taskKey[Seq[File]]("DAML Source Code Location for trigger")
 
 
 lazy val commonScalacOptions = Seq(
@@ -21,8 +27,7 @@ lazy val commonScalacOptions = Seq(
   "-feature",
   "-language:higherKinds",
   "-language:postfixOps",
-  "-unchecked",
-  "-Ywarn-unused:-implicits,-privates",
+  "-Ywarn-unused",
   "-Yrangepos"
 )
 
@@ -59,10 +64,8 @@ lazy val publishSettings = Seq(
     </developers>
 )
 
-lazy val dockerPublishSettings = List(
-  dockerExposedPorts ++= Seq(9000, 9001),
+lazy val commonDockerSettings = List(
   Docker / version := dynverGitDescribeOutput.value.mkVersion(versionFmt, fallbackVersion(dynverCurrentDate.value)),
-  Docker / packageName := "daml-topl-broker",
   dockerAliases := dockerAliases.value.flatMap { alias =>
     Seq(
       alias.withRegistryHost(Some("docker.io/toplprotocol")),
@@ -72,6 +75,17 @@ lazy val dockerPublishSettings = List(
   dockerBaseImage := "adoptopenjdk/openjdk11:jdk-11.0.16.1_1-ubuntu",
   dockerUpdateLatest := true
 )
+
+lazy val dockerPublishSettingsBroker = List(
+  dockerExposedPorts ++= Seq(9000, 9001),
+  Docker / packageName := "daml-topl-broker"
+) ++ commonDockerSettings
+
+lazy val dockerPublishSettingsDapp = List(
+  dockerExposedPorts ++= Seq(9000, 9001),
+  Docker / version := dynverGitDescribeOutput.value.mkVersion(versionFmt, fallbackVersion(dynverCurrentDate.value)),
+  Docker / packageName := "daml-topl-dapp"
+) ++ commonDockerSettings
 
 def versionFmt(out: sbtdynver.GitDescribeOutput): String = {
   val dirtySuffix = out.dirtySuffix.dropPlus.mkString("-", "")
@@ -112,12 +126,12 @@ lazy val damlToplLib = project
     name := "daml-topl-lib",
     commonSettings,
     publishSettings,
-    damlSource := {
+    damlSourceLib := {
          sbt.nio.file.FileTreeView.default
         .list(Seq(Glob(baseDirectory.value) / "daml.yaml",Glob(baseDirectory.value) / "daml" / ** / "*.daml" ))
         .map(_._1.toFile)
     },
-    cleanSrcGen := {
+    cleanSrcGenLib := {
           import scala.sys.process._
           val s: TaskStreams = streams.value
           val shell: Seq[String] = if (sys.props("os.name").contains("Windows")) Seq("cmd", "/c") else Seq("bash", "-c")
@@ -128,12 +142,23 @@ lazy val damlToplLib = project
             throw new IllegalStateException("src-gen clean up failed!")
           }
     },
+    cleanDarLib := {
+          import scala.sys.process._
+          val s: TaskStreams = streams.value
+          val shell: Seq[String] = if (sys.props("os.name").contains("Windows")) Seq("cmd", "/c") else Seq("bash", "-c")
+          val cleanSrc: Seq[String] = shell :+ ("rm -rf " + baseDirectory.value + "/.daml/")
+          if((cleanSrc !) == 0) {
+            s.log.success("Successfully cleaned .daml for lib!")
+          } else {
+            throw new IllegalStateException(".daml clean up failed for lib!")
+          }
+    },
     generateJavaCode := {
           import scala.sys.process._
           val s: TaskStreams = streams.value
           val shell: Seq[String] = if (sys.props("os.name").contains("Windows")) Seq("cmd", "/c") else Seq("bash", "-c")
           val buildDamlPackage: Seq[String] = shell :+ ("cd " + baseDirectory.value + " && daml build && daml codegen java")
-          val in = damlSource.value.toSet
+          val in = damlSourceLib.value.toSet
           val cachedFun = FileFunction.cached(s.cacheDirectory / "damlGen") { (in: Set[File]) =>
             s.log.info("Generating Java DAML code...")
             if ((buildDamlPackage !) == 0) {
@@ -158,25 +183,83 @@ lazy val damlToplLib = project
       Dependencies.damlToplLib.test
   )
 
-  lazy val damlToplBroker = (project in file("daml-topl-broker"))
-  .settings(if (sys.env.get("DOCKER_PUBLISH").getOrElse("false").toBoolean) dockerPublishSettings else mavenPublishSettings)
+
+lazy val damlToplBrokerTrigger = project
+  .in(file("daml-topl-broker-trigger"))
   .settings(
-    name := "daml-topl-broker",
+    name := "daml-topl-broker-trigger",
+    commonSettings,
+    publishSettings,
+    damlSourceTrigger := {
+         sbt.nio.file.FileTreeView.default
+        .list(Seq(Glob(baseDirectory.value) / "daml.yaml",Glob(baseDirectory.value) / "daml" / ** / "*.daml" ))
+        .map(_._1.toFile)
+    },
+    compileDaml := ({
+          import scala.sys.process._
+          val s: TaskStreams = streams.value
+          val shell: Seq[String] = if (sys.props("os.name").contains("Windows")) Seq("cmd", "/c") else Seq("bash", "-c")
+          val buildDamlPackage: Seq[String] = shell :+ ("cd " + baseDirectory.value + " && daml build")
+          val in = damlSourceTrigger.value.toSet
+          val cachedFun = FileFunction.cached(s.cacheDirectory / "damlGen") { (in: Set[File]) =>
+            s.log.info("Build DAML trigger...")
+            if ((buildDamlPackage !) == 0) {
+              s.log.info("DAML trigger built.")
+              Set()
+            } else {
+              s.log.error("DAML trigger build failed")
+              in
+            }
+          }
+          if(cachedFun(in).size == 0) {
+            ()
+          } else {
+            throw new IllegalStateException("DAML trigger build failed!")
+          }
+    }),
+    compileDaml := compileDaml.dependsOn(damlToplLib/Compile/compile).value,
+    Compile / unmanagedSourceDirectories += baseDirectory.value / "src-gen",
+    Test / publishArtifact := true,
+    (Compile / compile) := (Compile / compile).dependsOn(compileDaml).value,
     libraryDependencies ++=
-      Dependencies.damlToplBroker.main ++
-      Dependencies.damlToplBroker.test
-  ).enablePlugins(DockerPlugin, JavaAppPackaging)
+      Dependencies.damlToplLib.main ++
+      Dependencies.damlToplLib.test
+  )
   .dependsOn(damlToplLib)
 
+lazy val damlToplBroker = (project in file("daml-topl-broker"))
+.settings(if (sys.env.get("DOCKER_PUBLISH").getOrElse("false").toBoolean) dockerPublishSettingsBroker else mavenPublishSettings)
+.settings(
+  commonSettings,
+  name := "daml-topl-broker",
+  libraryDependencies ++=
+    Dependencies.damlToplBroker.main ++
+    Dependencies.damlToplBroker.test
+).enablePlugins(DockerPlugin, JavaAppPackaging)
+.dependsOn(damlToplLib)
 
-  lazy val damlOnTopl = project
-  .in(file("."))
-  .settings(
-    moduleName := "daml-on-topl",
-    commonSettings,
-    publish / skip := true
-  )
-  .aggregate(
-    damlToplLib,
-    damlToplBroker
-  )
+lazy val damlToplApp = (project in file("daml-topl-dapp"))
+.settings(if (sys.env.get("DOCKER_PUBLISH").getOrElse("false").toBoolean) dockerPublishSettingsDapp else mavenPublishSettings)
+.settings(
+  commonSettings,
+  name := "daml-topl-dapp",
+  libraryDependencies ++= 
+    Dependencies.damlToplBroker.main ++
+    Dependencies.damlToplBroker.test
+).enablePlugins(DockerPlugin, JavaAppPackaging)
+.dependsOn(damlToplLib)
+
+
+lazy val damlOnTopl = project
+.in(file("."))
+.settings(
+  moduleName := "daml-on-topl",
+  commonSettings,
+  publish / skip := true
+)
+.aggregate(
+  damlToplLib,
+  damlToplBroker,
+  damlToplApp,
+  damlToplBrokerTrigger
+)
