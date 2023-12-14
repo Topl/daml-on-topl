@@ -12,16 +12,21 @@ import co.topl.brambl.servicekit.WalletKeyApi
 import co.topl.brambl.wallet.WalletApi
 import quivr.models.VerificationKey
 import co.topl.brambl.utils.Encoding
+import co.topl.brambl.syntax._
+import co.topl.brambl.builders.TransactionBuilderApi.implicits._
+import co.topl.brambl.constants.NetworkConstants
+import cats.effect.kernel.Async
+import cats.implicits._
 
 trait ProcessorModule {
 
-  def processWalletFellowInvitation(
+  def processWalletFellowInvitation[F[_]: Async](
     paramConfig: CLIParamConfig,
     client:      DamlLedgerClient,
     evt:         com.daml.ledger.javaapi.data.CreatedEvent
   ) =
     if (evt.getTemplateId() == WalletFellowInvitation.TEMPLATE_ID) {
-      IO.blocking(
+      Async[F].blocking(
         client
           .getCommandClient()
           .submitAndWaitForTransaction(
@@ -40,15 +45,15 @@ trait ProcessorModule {
           )
       ).map(_ => evt)
     } else
-      IO(evt)
+      Async[F].delay(evt)
 
-  def processWalletInvitationAccepted(
+  def processWalletInvitationAccepted[F[_]: Async](
     paramConfig: CLIParamConfig,
     client:      DamlLedgerClient,
     evt:         com.daml.ledger.javaapi.data.CreatedEvent
   ) =
     if (evt.getTemplateId() == WalletInvitationAccepted.TEMPLATE_ID) {
-      IO.blocking(
+      Async[F].blocking(
         client
           .getCommandClient()
           .submitAndWaitForTransaction(
@@ -82,15 +87,15 @@ trait ProcessorModule {
           )
       ).map(_ => evt)
     } else
-      IO(evt)
+      Async[F].delay(evt)
 
-  def processWalletConversationInvitation(
+  def processWalletConversationInvitation[F[_]: Async](
     paramConfig: CLIParamConfig,
     client:      DamlLedgerClient,
     evt:         com.daml.ledger.javaapi.data.CreatedEvent
   ) =
     if (evt.getTemplateId() == WalletConversationInvitation.TEMPLATE_ID) {
-      IO.blocking(
+      Async[F].blocking(
         client
           .getCommandClient()
           .submitAndWaitForTransaction(
@@ -109,9 +114,9 @@ trait ProcessorModule {
           )
       ).map(_ => evt)
     } else
-      IO(evt)
+      Async[F].delay(evt)
 
-  def processConversationInvitationState(
+  def processConversationInvitationState[F[_]: Async](
     paramConfig: CLIParamConfig,
     client:      DamlLedgerClient,
     evt:         com.daml.ledger.javaapi.data.CreatedEvent
@@ -120,11 +125,15 @@ trait ProcessorModule {
       evt.getTemplateId() == ConversationInvitationState.TEMPLATE_ID &&
       ConversationInvitationState.valueDecoder.decode(evt.getArguments()).invitedFellows.isEmpty()
     ) {
-      val walletKeyApi = WalletKeyApi.make[IO]()
+      import co.topl.brambl.codecs.LockTemplateCodecs.decodeLockTemplate
+      import io.circe.parser.parse
+      val walletKeyApi = WalletKeyApi.make[F]()
       val walletApi = WalletApi.make(walletKeyApi)
       val conversationInvitationState = ConversationInvitationState.valueDecoder.decode(evt.getArguments())
       import cats.implicits._
       for {
+        json    <- Async[F].fromEither(parse(conversationInvitationState.lockTemplate))
+        decoded <- Async[F].fromEither(decodeLockTemplate[F](json))
         vks <- conversationInvitationState.acceptedParties.asScala.toList
           .map(_.vk.get())
           .map(vk =>
@@ -136,7 +145,11 @@ trait ProcessorModule {
             )
           )
           .sequence
-        _ <- IO.blocking(
+        eitherLock <- decoded.build(vks)
+        lock <- Async[F].fromEither(
+          eitherLock
+        )
+        _ <- Async[F].blocking(
           client
             .getCommandClient()
             .submitAndWaitForTransaction(
@@ -148,7 +161,10 @@ trait ProcessorModule {
                     ConversationInvitationState.Contract
                       .fromCreatedEvent(evt)
                       .id
-                      .exerciseConversationInvitationState_GetInteraction(paramConfig.dappParty, "default")
+                      .exerciseConversationInvitationState_GetInteraction(
+                        paramConfig.dappParty,
+                        lock.lockAddress(paramConfig.network.networkId, NetworkConstants.MAIN_LEDGER_ID).toBase58()
+                      )
                   ).asJava
                 )
                 .withActAs(paramConfig.dappParty)
@@ -157,6 +173,6 @@ trait ProcessorModule {
 
       } yield evt
     } else
-      IO(evt)
+      Async[F].delay(evt)
 
 }

@@ -3,7 +3,7 @@ package processors
 import java.util.UUID
 import java.util.stream
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import cats.data.Kleisli
 import cats.effect.kernel.Sync
@@ -80,7 +80,7 @@ object DAMLAlgebra {
     override def processEventsM(
       tx:           Transaction,
       processEvent: (String, CreatedEvent) => DAMLKleisli[F, (Boolean, stream.Stream[Command])]
-    ): DAMLKleisli[F, (Boolean, stream.Stream[Command])] = {
+    ): DAMLKleisli[F, (Boolean, stream.Stream[Command])] =
       tx.getEvents()
         .asScala
         .filter(_.isInstanceOf[CreatedEvent])
@@ -97,7 +97,6 @@ object DAMLAlgebra {
             (bool1, str1) = pair2
           } yield ((bool0 && bool1), stream.Stream.concat(str0, str1))
         }
-    }
 
     def processEventAux[T, C](
       templateIdentifier: Identifier,
@@ -122,7 +121,7 @@ object DAMLAlgebra {
       tx: Transaction
     )(
       processEvent: (String, CreatedEvent) => DAMLKleisli[F, (Boolean, stream.Stream[Command])]
-    ): DAMLKleisli[F, Boolean] = {
+    ): DAMLKleisli[F, Boolean] =
       (for {
         pair <- processEventsM(tx, processEvent)
         (mustContinue, exerciseCommandsStream) = pair
@@ -132,7 +131,6 @@ object DAMLAlgebra {
         if (!exerciseCommands.isEmpty()) {
           mustContinue;
         } else true)
-    }
 
     def processTransaction(
       tx:           Transaction,

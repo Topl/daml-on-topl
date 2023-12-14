@@ -20,6 +20,9 @@ module Topl.Wallet where
         where
           signatory owner
 
+          key owner : Party
+          maintainer key   
+
   template VaultState
     with 
       owner: Party

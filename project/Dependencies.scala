@@ -14,6 +14,11 @@ object Dependencies {
     "ch.qos.logback" % "logback-classic" % "1.4.11"
   )
 
+  val log4cats: Seq[ModuleID] = Seq(
+    "org.typelevel" %% "log4cats-core"    % "2.6.0",
+    "org.typelevel" %% "log4cats-slf4j"   % "2.6.0",
+  )
+
   lazy val toplOrg = "co.topl"
 
   lazy val bramblVersion = "2.0.0-beta1"
@@ -72,6 +77,7 @@ object Dependencies {
         brambl ++
         scopt ++
         cats ++ 
+        log4cats ++ 
         fs2 ++
         http4s
 

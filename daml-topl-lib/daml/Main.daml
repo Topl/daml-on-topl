@@ -1,0 +1,15 @@
+module Main where
+
+import Daml.Script
+
+initialize : Script [Party]
+initialize = do
+      operator <- allocateParty "operator"
+      operatorId <- validateUserId "operator"
+      dapp <- allocateParty "Dapp"
+      dappId <- validateUserId "dapp"
+      createUser (Daml.Script.User dappId (Some dapp)) [CanActAs dapp]
+      createUser (Daml.Script.User operatorId (Some operator)) [CanActAs operator]
+      debug ("Dapp: " <> (show dapp))
+      debug ("Operator: " <> (show operator))
+      pure []
