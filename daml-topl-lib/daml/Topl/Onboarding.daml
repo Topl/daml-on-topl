@@ -8,6 +8,9 @@ module Topl.Onboarding where
       where 
         signatory owner
 
+        key owner : Party
+        maintainer key
+
         observer operator
 
         choice WalletCreationRequest_Accept : ContractId VaultState with

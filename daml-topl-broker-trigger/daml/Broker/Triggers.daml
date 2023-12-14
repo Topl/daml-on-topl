@@ -1,0 +1,36 @@
+module Broker.Triggers where
+
+  import qualified Daml.Trigger as T
+  import Topl.Onboarding
+  import Topl.Wallet
+
+  startBroker : T.Trigger ()
+  startBroker  = T.Trigger with
+    initialize = pure ()
+    updateState = \_ -> pure ()
+    rule = \operator -> do
+      -- wallet requests
+      walletCreationRequests <- T.query @WalletCreationRequest
+      do mapA
+        (\x -> do
+          T.dedupExercise (fst x) WalletCreationRequest_Accept
+        )
+        walletCreationRequests
+      -- invitation state. distribute when all fellows are invited
+      invitationStates <- T.query @WalletInvitationState
+      do mapA
+        (\x -> do
+          T.dedupExercise (fst x) WalletInvitationState_Distribute
+        )
+        (filter (\y -> null (snd y).invitedFellows) invitationStates)
+      -- private add to party
+      privateWalletPartyToAdd <- T.query @PrivateWalletPartyToAdd
+      do mapA
+        (\x -> do
+          T.dedupExercise (fst x) PrivateWalletPartyToAdd_AddParty
+        )
+        (filter (\y -> (snd y).cloudWallet) privateWalletPartyToAdd)
+      pure ()
+    registeredTemplates = T.AllInDar
+    
+    heartbeat = None      

@@ -12,10 +12,12 @@ module Tests.Levels where
         requestId = "a972d784-e17a-4c24-ba06-d4f2e2ac2d88"
         requestor = alice
         operator = operator
-        from = SendAddress with address = "someAddress", lock = "someLock"
-        to = [ Recipient with
+        lockProposition = "someLock"
+        from = SendAddress with address = "someAddress", lockProposition = "someLock"
+        to = Recipient with
             address = "someAddress"
-            amount = 100 ]
+            amount = 100
+        fee = 10
         changeAddress = "someChangeAddress"
         contractParticipants = [ alice ]
     acceptedTransferRequest <- submit operator do
@@ -46,10 +48,12 @@ module Tests.Levels where
         requestId = "a972d784-e17a-4c24-ba06-d4f2e2ac2d88"
         requestor = alice
         operator = operator
-        from = SendAddress with address = "someAddress", lock = "someLock"
-        to = [ Recipient with
+        lockProposition = "someLock"
+        from = SendAddress with address = "someAddress", lockProposition = "someLock"
+        to = Recipient with
             address = "someAddress"
-            amount = 100 ]
+            amount = 100
+        fee = 10
         changeAddress = "someChangeAddress"
         contractParticipants = [ alice, bob ]
     acceptedTransferRequest <- submit operator do

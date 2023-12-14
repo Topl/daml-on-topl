@@ -1,0 +1,12 @@
+sdk-version: 2.7.6
+name: daml-topl-broker-trigger
+source: daml
+init-script: Main:initialize
+version: 0.1.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+  - daml-trigger
+data-dependencies:
+  - ../daml-topl-lib/.daml/dist/daml-topl-lib-0.2.0.dar

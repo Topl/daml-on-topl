@@ -30,12 +30,12 @@ module Tests.Wallet where
     carolVaultCid <- submit operator do
       exerciseCmd request WalletCreationRequest_Accept
     invitations <- submit alice do
-      exerciseCmd aliceVaultCid VaultState_InviteParty with
+      exerciseCmd aliceVaultCid VaultState_InviteFellowship with
         invitationUUID = "1"
-        parties = [ bob ]
+        fellows = [ bob ]
     res <- mapA
       (\invitation -> submit bob do
-        exerciseCmd invitation WalletPartyInvitation_Accept with cloudWallet = True)
+        exerciseCmd invitation WalletFellowInvitation_Accept with cloudWallet = True)
       invitations
     acceptedInvitations <- submit operator do
       exerciseCmd (head res) WalletInvitationState_Distribute
@@ -57,15 +57,15 @@ module Tests.Wallet where
     someAliceVaultCid <- queryContractKey @VaultState alice alice
     let (aliceVaultCid, aliceVault) = fromSome someAliceVaultCid
     invitations <- submit alice do
-      exerciseCmd aliceVaultCid VaultState_InviteParty with
+      exerciseCmd aliceVaultCid VaultState_InviteFellowship with
         invitationUUID = "2"
-        parties = [ bob, carol ]
+        fellows = [ bob, carol ]
     let bobInvitation = head invitations
     bobWalletPartyAccepted <- submit bob do
-      exerciseCmd bobInvitation WalletPartyInvitation_Accept with cloudWallet = True
+      exerciseCmd bobInvitation WalletFellowInvitation_Accept with cloudWallet = True
     let carolInvitation = head $ tail invitations
     carolWalletPartyAccepted <- submit carol do
-      exerciseCmd carolInvitation WalletPartyInvitation_Accept  with cloudWallet = True
+      exerciseCmd carolInvitation WalletFellowInvitation_Accept  with cloudWallet = True
     acceptedInvitations <- submit operator do
       exerciseCmd carolWalletPartyAccepted WalletInvitationState_Distribute
     let carolInvitation = head acceptedInvitations

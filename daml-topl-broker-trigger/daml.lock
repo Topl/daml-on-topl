@@ -1,0 +1,4 @@
+dependencies:
+- name: daml-topl-lib
+  pkgId: 6c2722ee9c6503985d94cc9c74f2bf9b3f934b5dbacc06bc49d0529f6c96d341
+  version: 0.2.0
