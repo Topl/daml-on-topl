@@ -1,3 +1,5 @@
+package co.topl.dapp
+
 import java.util.Optional
 import java.util.UUID
 
@@ -29,7 +31,7 @@ trait InitializerModule {
   def createWalletLockTemplate[F[_]: Async](
     client:               DamlLedgerClient,
     activeContractClient: ActiveContractsClient,
-    paramConfig:          CLIParamConfig
+    paramConfig:          DappCLIParamConfig
   ) = for {
     activeContracts <- Async[F].delay(
       activeContractClient.getActiveContracts(
@@ -78,7 +80,7 @@ trait InitializerModule {
   def createCurrentInteraction[F[_]: Async: Logger](
     client:               DamlLedgerClient,
     activeContractClient: ActiveContractsClient,
-    paramConfig:          CLIParamConfig
+    paramConfig:          DappCLIParamConfig
   ) = {
     import co.topl.crypto.encryption.VaultStore.Codecs._
     import io.circe.parser.decode
@@ -158,7 +160,7 @@ trait InitializerModule {
   def createVaultState[F[_]: Async](
     client:               DamlLedgerClient,
     activeContractClient: ActiveContractsClient,
-    paramConfig:          CLIParamConfig
+    paramConfig:          DappCLIParamConfig
   ) = for {
     activeContracts <- Async[F].delay(
       activeContractClient.getActiveContracts(VaultState.contractFilter(), Set(paramConfig.dappParty).asJava, false)
@@ -187,7 +189,7 @@ trait InitializerModule {
   def createVault[F[_]: Async](
     client:               DamlLedgerClient,
     activeContractClient: ActiveContractsClient,
-    paramConfig:          CLIParamConfig
+    paramConfig:          DappCLIParamConfig
   ) = {
     // TODO: make sure this is only created once, there is another in another file
     val walletKeyApi = WalletKeyApi.make[F]()
@@ -230,7 +232,7 @@ trait InitializerModule {
   def createWalletFellowship[F[_]: Async: Logger](
     client:               DamlLedgerClient,
     activeContractClient: ActiveContractsClient,
-    paramConfig:          CLIParamConfig
+    paramConfig:          DappCLIParamConfig
   ) = for {
     activeContracts <- Async[F].delay(
       activeContractClient.getActiveContracts(
