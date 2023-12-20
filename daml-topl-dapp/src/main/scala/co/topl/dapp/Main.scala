@@ -61,7 +61,8 @@ object Main extends IOApp with ParameterProcessorModule with InitializerModule w
                     processWalletFellowInvitation(paramConfig, client, evt),
                     processWalletInvitationAccepted(paramConfig, client, evt),
                     processWalletConversationInvitation(paramConfig, client, evt),
-                    processConversationInvitationState(paramConfig, client, evt)
+                    processConversationInvitationState(paramConfig, client, evt),
+                    processSignTransaction(paramConfig, client, evt)
                   ).sequence
                 )
             )

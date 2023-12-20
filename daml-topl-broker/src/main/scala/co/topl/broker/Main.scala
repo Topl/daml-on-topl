@@ -57,7 +57,8 @@ object Main extends IOApp with ParameterProcessorModule with BrokerProcessorModu
                 .collect { case x: com.daml.ledger.javaapi.data.CreatedEvent => x }
                 .traverse(evt =>
                   List(
-                    processConversationInvitationState(paramConfig, client, evt)
+                    processConversationInvitationState(paramConfig, client, evt),
+                    processLvlTransferRequest(paramConfig, client, evt)
                   ).sequence
                 )
             )
@@ -66,18 +67,6 @@ object Main extends IOApp with ParameterProcessorModule with BrokerProcessorModu
         )
         .allocated
       _ <- Async[F].never[Unit]
-      // activeContractClient <- Async[F].delay(client.getActiveContractSetClient())
-      // _                    <- info"Creating vault"
-      // _                    <- createVault(client, activeContractClient, paramConfig)
-      // _                    <- info"Creating vault state"
-      // _                    <- createVaultState(client, activeContractClient, paramConfig)
-      // _                    <- info"Creating wallet fellowship"
-      // _                    <- createWalletFellowship(client, activeContractClient, paramConfig)
-      // _                    <- info"Creating wallet lock template"
-      // _                    <- createWalletLockTemplate(client, activeContractClient, paramConfig)
-      // _                    <- info"Creating current interaction"
-      // _                    <- createCurrentInteraction(client, activeContractClient, paramConfig)
-      // _                    <- Async[F].never[Unit]
     } yield ExitCode.Success
   }
 

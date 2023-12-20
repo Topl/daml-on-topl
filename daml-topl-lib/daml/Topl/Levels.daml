@@ -109,10 +109,14 @@ module Topl.Levels where
               provedTx   : Text
             controller prover
             do
-              assert (prover `elem` contractParticipants)
-              assert (prover `notElem` provedBy)
+              assertMsg "The prover is not part of the contract participants" (prover `elem` contractParticipants)
+              assertMsg "The prover has already proved this transaction" (prover `notElem` provedBy)
 
-              create LvlTransferUnproved with proofStatus = ToValidate, someProvedTx = Some provedTx, ..
+              create LvlTransferUnproved with 
+                proofStatus = ToValidate
+                someProvedTx = Some provedTx
+                provedBy = prover :: provedBy
+                ..
 
           choice LvlTransferUnproved_Reject: ContractId LvlTransferRejected
             with

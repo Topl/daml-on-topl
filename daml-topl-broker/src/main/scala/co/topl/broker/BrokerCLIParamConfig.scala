@@ -8,13 +8,16 @@ case class BrokerCLIParamConfig(
   damlHost:            String = "localhost",
   damlPort:            Int = 6865,
   damlHub:             Boolean = false,
+  bifrostHost:         String = "localhost",
+  bifrostPort:         Int = 9084,
+  bifrostSecurityEnabled:     Boolean = false,
   damlSecurityEnabled: Boolean = false,
   network:             NetworkIdentifiers = InvalidNet,
   damlAccessToken:     Option[String] = None,
   operatorParty:       String = ""
 )
 
-private [broker] trait ParameterProcessorModule {
+private[broker] trait ParameterProcessorModule {
 
   val builder = OParser.builder[BrokerCLIParamConfig]
 
@@ -37,15 +40,24 @@ private [broker] trait ParameterProcessorModule {
       opt[String]("daml-host")
         .action((x, c) => c.copy(damlHost = x))
         .text("The URL of the DAML ledger to connect to. Defaults to localhost."),
+      opt[String]("bifrost-host")
+        .action((x, c) => c.copy(bifrostHost = x))
+        .text("The URL of the Bifrost node to connect to. Defaults to localhost."),
+      opt[Int]("bifrost-port")
+        .action((x, c) => c.copy(bifrostPort = x))
+        .text("The port of the Bifrost node to connect to. Defaults to 9084."),
       opt[Int]("daml-port")
         .action((x, c) => c.copy(damlPort = x))
         .text("The port of the DAML ledger to connect to. Defaults to 6865."),
       opt[Boolean]("is-daml-hub")
         .action((x, c) => c.copy(damlHub = x))
         .text("Whether to use DAML Hub to authenticate. Defaults to false."),
-      opt[Boolean]('s', "daml-security-enabled")
+      opt[Boolean]("daml-security-enabled")
         .action((x, c) => c.copy(damlSecurityEnabled = x))
         .text("whether to use TLS for the connection to the ledger"),
+      opt[Boolean]("bifrost-security-enabled")
+        .action((x, c) => c.copy(bifrostSecurityEnabled = x))
+        .text("whether to use TLS for the connection to the Bifrost node"),
       opt[NetworkIdentifiers]('n', "network")
         .action((x, c) => c.copy(network = x))
         .text(
@@ -63,7 +75,7 @@ private [broker] trait ParameterProcessorModule {
         .required(),
       opt[Option[String]]('t', "daml-access-token")
         .action((x, c) => c.copy(damlAccessToken = x))
-        .text("the access token for the ledger"),
+        .text("the access token for the ledger")
     )
   }
 
