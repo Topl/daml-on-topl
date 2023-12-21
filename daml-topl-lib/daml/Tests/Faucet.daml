@@ -60,6 +60,7 @@ module Tests.Faucet where
       exerciseCmd walletConversationInvitationState ConversationInvitationState_GetInteraction with
         requestor = dapp
         address = "www"
+        vk = "vk"
     submit operator do
       exerciseCmd walletConversationInvitationState ConversationInvitationState_ToInteraction with
         address = "www"

@@ -16,10 +16,12 @@ import fs2.interop.reactivestreams._
 import quivr.models.Preimage
 import quivr.models.Proposition
 import quivr.models.VerificationKey
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.syntax._
 
 object WalletStateAlgebraDAML {
 
-  def make[F[_]: Async](paramConfig: DappCLIParamConfig, client: DamlLedgerClient) = new WalletStateAlgebra[F] {
+  def make[F[_]: Async: Logger](paramConfig: DappCLIParamConfig, client: DamlLedgerClient) = new WalletStateAlgebra[F] {
 
     override def initWalletState(networkId: Int, ledgerId: Int, vk: VerificationKey): F[Unit] = ???
 
@@ -34,6 +36,7 @@ object WalletStateAlgebraDAML {
           )
         )
         currentInteractionList <- fromPublisher(currentInteractions, 1)(Async[F]).compile.toList.map(_.get(0).get)
+        _ <- info"Vk encoded: ${Encoding.encodeToBase58(signatureProposition.verificationKey.toByteArray)}"
         someCurrentInteraction <- Async[F].delay(
           currentInteractionList.activeContracts
             .stream()

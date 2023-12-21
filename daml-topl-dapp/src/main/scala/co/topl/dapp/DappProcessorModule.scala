@@ -271,6 +271,10 @@ trait DappProcessorModule {
         lock <- Async[F].fromEither(
           eitherLock
         )
+        vkIdx = conversationInvitationState.acceptedParties.asScala.toList.zipWithIndex
+          .find(_._1.party == paramConfig.dappParty)
+          .map(_._2)
+          .get
         _ <- Async[F]
           .blocking(
             client
@@ -286,7 +290,8 @@ trait DappProcessorModule {
                         .id
                         .exerciseConversationInvitationState_GetInteraction(
                           paramConfig.dappParty,
-                          lock.lockAddress(paramConfig.network.networkId, NetworkConstants.MAIN_LEDGER_ID).toBase58()
+                          lock.lockAddress(paramConfig.network.networkId, NetworkConstants.MAIN_LEDGER_ID).toBase58(),
+                          Encoding.encodeToBase58(vks(vkIdx).toByteArray)
                         )
                     ).asJava
                   )

@@ -391,6 +391,7 @@ module Topl.Wallet where
             with
               requestor: Party
               address: Text
+              vk: Text
             controller requestor
             do
               invitedFellows === []
@@ -404,7 +405,6 @@ module Topl.Wallet where
               lockTemplate <- fetch $ fromSome someWalletLockTemplate
               currentInteractionSignatureIndexes <- create CurrentInteractionSignatureIndexes with
                 owner = requestor
-                vk = fromSome p.vk
                 fellowshipIdx = walletFelloship.index
                 lockTemplateIdx = lockTemplate.index
                 interactionIdx = 1
