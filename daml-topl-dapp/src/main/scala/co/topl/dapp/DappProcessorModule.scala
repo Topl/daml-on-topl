@@ -147,9 +147,8 @@ trait DappProcessorModule {
       val lvlTransferUnproved = LvlTransferUnproved.valueDecoder.decode(evt.getArguments())
       val lvlTransferUnprovedTx = Encoding.decodeFromBase58(lvlTransferUnproved.unprovedTx).toOption.get
       val ioTransaction = IoTransaction.parseFrom(lvlTransferUnprovedTx)
-      val walletStateAlgebraDAML = WalletStateAlgebraDAML
-        .make[F](
-          paramConfig,
+      val walletStateAlgebraDAML = co.topl.shared.WalletStateAlgebraDAML.make[F](
+          paramConfig.dappParty,
           client
         )
       if (lvlTransferUnproved.provedBy.asScala.find(_ == paramConfig.dappParty).isEmpty) {

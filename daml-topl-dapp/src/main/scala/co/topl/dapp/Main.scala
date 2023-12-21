@@ -6,7 +6,6 @@ import cats.effect.ExitCode
 import cats.effect.IO
 import cats.effect.IOApp
 import cats.effect.kernel.Async
-import cats.effect.std
 import co.topl.shared.SharedDAMLUtils
 import fs2.interop.reactivestreams._
 import org.typelevel.log4cats.Logger

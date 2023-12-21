@@ -1,4 +1,4 @@
-package co.topl.dapp
+package co.topl.shared
 
 import scala.jdk.CollectionConverters._
 
@@ -21,7 +21,7 @@ import org.typelevel.log4cats.syntax._
 
 object WalletStateAlgebraDAML {
 
-  def make[F[_]: Async: Logger](paramConfig: DappCLIParamConfig, client: DamlLedgerClient) = new WalletStateAlgebra[F] {
+  def make[F[_]: Async: Logger](dappParty: String, client: DamlLedgerClient) = new WalletStateAlgebra[F] {
 
     override def initWalletState(networkId: Int, ledgerId: Int, vk: VerificationKey): F[Unit] = ???
 
@@ -31,7 +31,7 @@ object WalletStateAlgebraDAML {
         currentInteractions <- Async[F].delay(
           activeContractClient.getActiveContracts(
             CurrentInteractionSignatureIndexes.contractFilter(),
-            Set(paramConfig.dappParty).asJava,
+            Set(dappParty).asJava,
             false
           )
         )

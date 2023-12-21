@@ -58,7 +58,8 @@ object Main extends IOApp with ParameterProcessorModule with BrokerProcessorModu
                 .traverse(evt =>
                   List(
                     processConversationInvitationState(paramConfig, client, evt),
-                    processLvlTransferRequest(paramConfig, client, evt)
+                    processLvlTransferRequest(paramConfig, client, evt),
+                    processLvlTransferUnproved(paramConfig, client, evt)
                   ).sequence
                 )
             )
