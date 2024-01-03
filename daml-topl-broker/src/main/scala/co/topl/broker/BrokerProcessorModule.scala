@@ -1,5 +1,6 @@
 package co.topl.broker
 
+import java.time.Instant
 import java.util.UUID
 
 import scala.jdk.CollectionConverters._
@@ -23,11 +24,15 @@ import co.topl.brambl.syntax._
 import co.topl.brambl.utils.Encoding
 import co.topl.brambl.wallet.CredentiallerInterpreter
 import co.topl.brambl.wallet.WalletApi
+import co.topl.daml.api.model.topl.levels.LvlTransferProved
 import co.topl.daml.api.model.topl.levels.LvlTransferRequest
 import co.topl.daml.api.model.topl.levels.LvlTransferUnproved
 import co.topl.daml.api.model.topl.utils.ProveStatus
+import co.topl.daml.api.model.topl.utils.sendstatus.Pending
+import co.topl.daml.api.model.topl.utils.sendstatus.Sent
 import co.topl.daml.api.model.topl.wallet.ConversationInvitationState
 import co.topl.shared.WalletStateAlgebraDAML
+import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.CommandsSubmission
 import com.daml.ledger.rxjava.DamlLedgerClient
 import org.typelevel.log4cats.Logger
@@ -161,15 +166,15 @@ trait BrokerProcessorModule extends RpcChannelResource {
     evt:         com.daml.ledger.javaapi.data.CreatedEvent
   ) =
     if (evt.getTemplateId() == LvlTransferUnproved.TEMPLATE_ID) {
-      val lvlTransferProved =
+      val lvlTransferUnproved =
         LvlTransferUnproved.valueDecoder().decode(evt.getArguments())
       import cats.implicits._
 
       if (
-        lvlTransferProved.someProvedTx.isPresent() &&
-        lvlTransferProved.proofStatus == ProveStatus.TOVALIDATE
+        lvlTransferUnproved.someProvedTx.isPresent() &&
+        lvlTransferUnproved.proofStatus == ProveStatus.TOVALIDATE
       ) {
-        val provedTx = lvlTransferProved.someProvedTx.get()
+        val provedTx = lvlTransferUnproved.someProvedTx.get()
         val ioTx = IoTransaction.parseFrom(Encoding.decodeFromBase58(provedTx).toOption.get)
         for {
           _      <- info"Validating Transaction LvlTransferUnproved"
@@ -214,6 +219,86 @@ trait BrokerProcessorModule extends RpcChannelResource {
                 )
             )
             .unlessA(errors.isEmpty)
+        } yield evt
+      } else
+        Async[F].delay(evt)
+    } else
+      Async[F].delay(evt)
+
+  def processLvlTransferProved[F[_]: Async: Logger](
+    paramConfig: BrokerCLIParamConfig,
+    client:      DamlLedgerClient,
+    evt:         com.daml.ledger.javaapi.data.CreatedEvent
+  ) =
+    if (evt.getTemplateId() == LvlTransferProved.TEMPLATE_ID) {
+      val lvlTransferProved =
+        LvlTransferProved.valueDecoder().decode(evt.getArguments())
+      import cats.implicits._
+
+      if (lvlTransferProved.sendStatus.isInstanceOf[Sent]) {
+        for {
+          _ <- info"Confirming Transaction LvlTransferProved"
+          _ <- Async[F]
+            .blocking(
+              client
+                .getCommandClient()
+                .submitAndWaitForTransaction(
+                  CommandsSubmission
+                    .create(
+                      "damlhub",
+                      UUID.randomUUID().toString,
+                      List(
+                        LvlTransferProved.Contract
+                          .fromCreatedEvent(evt)
+                          .id
+                          .exerciseLvlTransferProved_Confirm(
+                            lvlTransferProved.requestId,
+                            1
+                          )
+                      ).asJava
+                    )
+                    .withActAs(paramConfig.operatorParty)
+                )
+            )
+        } yield evt
+      } else if (lvlTransferProved.sendStatus == new Pending(data.Unit.getInstance())) {
+        val ioTx = IoTransaction.parseFrom(Encoding.decodeFromBase58(lvlTransferProved.provedTx).toOption.get)
+        for {
+          _ <- info"Sending Transaction LvlTransferProved"
+          _ <- BifrostQueryAlgebra
+            .make[F](
+              channelResource(
+                paramConfig.bifrostHost,
+                paramConfig.bifrostPort,
+                paramConfig.bifrostSecurityEnabled
+              )
+            )
+            .broadcastTransaction(ioTx)
+          _ <- Async[F]
+            .blocking(
+              client
+                .getCommandClient()
+                .submitAndWaitForTransaction(
+                  CommandsSubmission
+                    .create(
+                      "damlhub",
+                      UUID.randomUUID().toString,
+                      List(
+                        LvlTransferProved.Contract
+                          .fromCreatedEvent(evt)
+                          .id
+                          .exerciseLvlTransferProved_Sent(
+                            new Sent(
+                              Instant.now(),
+                              lvlTransferProved.requestor,
+                              lvlTransferProved.requestId
+                            )
+                          )
+                      ).asJava
+                    )
+                    .withActAs(paramConfig.operatorParty)
+                )
+            )
         } yield evt
       } else
         Async[F].delay(evt)
