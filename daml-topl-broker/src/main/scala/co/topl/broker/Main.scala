@@ -59,7 +59,8 @@ object Main extends IOApp with ParameterProcessorModule with BrokerProcessorModu
                   List(
                     processConversationInvitationState(paramConfig, client, evt),
                     processLvlTransferRequest(paramConfig, client, evt),
-                    processLvlTransferUnproved(paramConfig, client, evt)
+                    processLvlTransferUnproved(paramConfig, client, evt),
+                    processLvlTransferProved(paramConfig, client, evt)
                   ).sequence
                 )
             )

@@ -36,7 +36,6 @@ object WalletStateAlgebraDAML {
           )
         )
         currentInteractionList <- fromPublisher(currentInteractions, 1)(Async[F]).compile.toList.map(_.get(0).get)
-        _ <- info"Vk encoded: ${Encoding.encodeToBase58(signatureProposition.verificationKey.toByteArray)}"
         someCurrentInteraction <- Async[F].delay(
           currentInteractionList.activeContracts
             .stream()
