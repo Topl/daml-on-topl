@@ -236,7 +236,7 @@ lazy val damlToplBroker = (project in file("daml-topl-broker"))
     Dependencies.damlToplBroker.main ++
     Dependencies.damlToplBroker.test
 ).enablePlugins(DockerPlugin, JavaAppPackaging)
-.dependsOn(damlToplLib)
+.dependsOn(damlToplLib, damlToplShared)
 
 lazy val damlToplApp = (project in file("daml-topl-dapp"))
 .settings(if (sys.env.get("DOCKER_PUBLISH").getOrElse("false").toBoolean) dockerPublishSettingsDapp else mavenPublishSettings)
@@ -247,6 +247,17 @@ lazy val damlToplApp = (project in file("daml-topl-dapp"))
     Dependencies.damlToplBroker.main ++
     Dependencies.damlToplBroker.test
 ).enablePlugins(DockerPlugin, JavaAppPackaging)
+.dependsOn(damlToplLib, damlToplShared)
+
+lazy val damlToplShared = (project in file("daml-topl-shared"))
+.settings(mavenPublishSettings)
+.settings(
+  commonSettings,
+  name := "daml-topl-shared",
+  libraryDependencies ++= 
+    Dependencies.damlToplBroker.main ++
+    Dependencies.damlToplBroker.test
+).enablePlugins(JavaAppPackaging)
 .dependsOn(damlToplLib)
 
 

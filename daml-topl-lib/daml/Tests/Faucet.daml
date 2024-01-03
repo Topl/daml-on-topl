@@ -60,6 +60,7 @@ module Tests.Faucet where
       exerciseCmd walletConversationInvitationState ConversationInvitationState_GetInteraction with
         requestor = dapp
         address = "www"
+        vk = "vk"
     submit operator do
       exerciseCmd walletConversationInvitationState ConversationInvitationState_ToInteraction with
         address = "www"
@@ -108,7 +109,7 @@ module Tests.Faucet where
     someInteraction <- queryContractKey @Conversation operator (operator, fromAddress)
     submit operator do
       exerciseCmd (fst $ fromSome someInteraction) Conversaction_UpdateState with
-        newInteractionIdentifier = 2
+        newVk = "newVk"
         newLock = "newLock"
         newAddress = "newAddress"
         newChangeAddress = "newChangeAddress"

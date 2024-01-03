@@ -19,4 +19,5 @@ module Topl.Onboarding where
             create VaultState with
               currentPartyIndex = 0
               currentContractIndex = 0
+              isTransacting = False
               ..

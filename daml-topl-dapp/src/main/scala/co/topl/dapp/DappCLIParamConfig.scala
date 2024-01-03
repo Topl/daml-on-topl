@@ -1,10 +1,15 @@
+package co.topl.dapp
+
+import co.topl.shared.InvalidNet
+import co.topl.shared.NetworkIdentifiers
 import scopt.OParser
 
-case class CLIParamConfig(
+case class DappCLIParamConfig(
   damlHost:            String = "localhost",
   damlPort:            Int = 6865,
   damlHub:             Boolean = false,
   damlSecurityEnabled: Boolean = false,
+  network:             NetworkIdentifiers = InvalidNet,
   damlAccessToken:     Option[String] = None,
   dappParty:           String = "",
   operatorParty:       String = "",
@@ -13,7 +18,18 @@ case class CLIParamConfig(
 
 trait ParameterProcessorModule {
 
-  val builder = OParser.builder[CLIParamConfig]
+  val builder = OParser.builder[DappCLIParamConfig]
+
+  implicit val networkRead: scopt.Read[NetworkIdentifiers] =
+    scopt.Read
+      .reads(NetworkIdentifiers.fromString(_))
+      .map(_ match {
+        case Some(value) => value
+        case None =>
+          throw new IllegalArgumentException(
+            "Invalid network. Possible values: mainnet, testnet, private"
+          )
+      })
 
   val parser = {
     import builder._
@@ -38,14 +54,23 @@ trait ParameterProcessorModule {
         .validate(x =>
           if (x.isEmpty) failure("dapp-party must not be empty")
           else success
-        ),
+        )
+        .required(),
+      opt[NetworkIdentifiers]('n', "network")
+        .action((x, c) => c.copy(network = x))
+        .text(
+          "Network name: Possible values: mainnet, testnet, private. (mandatory)"
+        )
+        .validate(x => if (x == InvalidNet) failure("Invalid network") else success)
+        .required(),
       opt[String]("operator-party")
         .action((x, c) => c.copy(operatorParty = x))
         .text("the operator party")
         .validate(x =>
           if (x.isEmpty) failure("operator-party must not be empty")
           else success
-        ),
+        )
+        .required(),
       opt[Option[String]]('t', "daml-access-token")
         .action((x, c) => c.copy(damlAccessToken = x))
         .text("the access token for the ledger"),
@@ -56,6 +81,7 @@ trait ParameterProcessorModule {
           if (x.isEmpty) failure("password must not be empty")
           else success
         )
+        .required()
     )
   }
 

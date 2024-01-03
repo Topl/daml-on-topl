@@ -20,18 +20,29 @@ module Topl.Wallet where
         where
           signatory owner
 
+          key owner : Party
+          maintainer key   
+
   template VaultState
     with 
       owner: Party
       operator: Party
       currentPartyIndex: Int
       currentContractIndex: Int
+      isTransacting: Bool
         where
           signatory owner, operator
 
 
           key owner : Party
           maintainer key
+
+          choice VaultState_ResetIsTrasacting: ContractId VaultState
+            controller operator
+            do
+              create this with isTransacting = False
+            
+
 
           choice VaultState_SendFunds: ContractId LvlTransferRequest
             with
@@ -44,6 +55,7 @@ module Topl.Wallet where
               contractParticipants: [ Party ]
             controller requestor
             do
+              assertMsg "Vault is currently transacting" (not isTransacting)
               someInteractionAddress <- lookupByKey @CurrentInteraction (requestor, fromPartyIdentifier, fromContractIdentifier)
               assertMsg "Smart Contract Address does not exist" (isSome someInteractionAddress)
               interactionAddress <- fetch $ fromSome someInteractionAddress
@@ -51,6 +63,7 @@ module Topl.Wallet where
               assert (isSome someInteraction)
               interaction <- fetch $ fromSome someInteraction
               assert (requestor `elem` interaction.canSend)
+              create this with isTransacting = True
               exercise (fromSome someInteraction) Conversation_SendFunds with
                 ..
 
@@ -131,6 +144,7 @@ module Topl.Wallet where
       invitee: Party
       fellows: [ Party ]
       cloudWallet: Bool
+
         where
           signatory owner, operator
           observer invitee
@@ -232,7 +246,9 @@ module Topl.Wallet where
       fellowshipIdentifier: Text
       lockTemplateIdentifier: Text
       interactionIdentifier: Int
+      currentInteractionSignatureIndexes: ContractId CurrentInteractionSignatureIndexes
       address: Text
+
         where
           signatory owner, operator
 
@@ -242,13 +258,39 @@ module Topl.Wallet where
 
           choice InteractionAddress_UpdateState: ContractId CurrentInteraction
             with
-              newInteractionIdentifier: Int
+              newVk : Text
               newAddress : Text
             controller operator
             do
+              exercise currentInteractionSignatureIndexes CurrentInteractionSignatureIndexes_UpdateState with
+                ..
               create this with
-                interactionIdentifier = newInteractionIdentifier
+                interactionIdentifier = interactionIdentifier + 1
                 address = newAddress
+
+  template CurrentInteractionSignatureIndexes
+    with
+      owner: Party
+      operator: Party
+      fellowshipIdx: Int
+      lockTemplateIdx: Int
+      interactionIdx: Int
+      vk: Text
+        where
+          signatory owner, operator
+
+
+          key (owner, vk): (Party, Text)
+          maintainer key._1
+
+          choice CurrentInteractionSignatureIndexes_UpdateState: ContractId CurrentInteractionSignatureIndexes
+            with
+              newVk : Text
+            controller operator
+            do
+              create this with
+                interactionIdx = interactionIdx + 1
+                vk = newVk
 
   template Conversation
     with
@@ -284,10 +326,17 @@ module Topl.Wallet where
                 ..
     
 
+          choice Conversation_Reenable : ContractId Conversation
+              controller operator
+            do
+              isValid === False
+              create this with isValid = True
+    
+
           choice Conversaction_UpdateState: ContractId Conversation
             with
-              newInteractionIdentifier: Int
               newLock: Text
+              newVk: Text
               newAddress : Text
               newChangeAddress : Text
             controller operator
@@ -295,12 +344,11 @@ module Topl.Wallet where
               res <- mapA
                 (\p -> do
                   exerciseByKey @CurrentInteraction (p.party, p.fellowshipIdentifier, p.lockTemplateIdentifier) InteractionAddress_UpdateState with
-                    newInteractionIdentifier = newInteractionIdentifier
-                    newAddress = newAddress
+                    ..
                   )
                 acceptedParties
               create this with
-                currentInteraction = newInteractionIdentifier
+                currentInteraction = currentInteraction + 1
                 address = newAddress
                 lockProposition = newLock
                 changeAddress = newChangeAddress
@@ -343,11 +391,24 @@ module Topl.Wallet where
             with
               requestor: Party
               address: Text
+              vk: Text
             controller requestor
             do
               invitedFellows === []
               assertMsg "Fellow has already gotten into the conversation" (requestor `elem` fmap (.party) toGetConversation)
               let p = head $ filter (\x -> x.party == requestor) toGetConversation
+              someWalletFellowship <- lookupByKey @WalletFellowship (requestor, p.fellowshipIdentifier)
+              assertMsg "Fellowship not found" (isSome someWalletFellowship)
+              walletFelloship <- fetch $ fromSome someWalletFellowship
+              someWalletLockTemplate <- lookupByKey @WalletLockTemplate (requestor, p.lockTemplateIdentifier)
+              assertMsg "Lock Template not found" (isSome someWalletLockTemplate)
+              lockTemplate <- fetch $ fromSome someWalletLockTemplate
+              currentInteractionSignatureIndexes <- create CurrentInteractionSignatureIndexes with
+                owner = requestor
+                fellowshipIdx = walletFelloship.index
+                lockTemplateIdx = lockTemplate.index
+                interactionIdx = 1
+                ..
               create CurrentInteraction with
                                 owner = requestor
                                 interactionIdentifier = 1
