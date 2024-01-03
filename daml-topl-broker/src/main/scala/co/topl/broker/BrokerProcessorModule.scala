@@ -38,6 +38,7 @@ import com.daml.ledger.rxjava.DamlLedgerClient
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.syntax._
 import quivr.models.VerificationKey
+import co.topl.daml.api.model.topl.utils.sendstatus.Confirmed
 
 trait BrokerProcessorModule extends RpcChannelResource {
 
@@ -235,7 +236,30 @@ trait BrokerProcessorModule extends RpcChannelResource {
         LvlTransferProved.valueDecoder().decode(evt.getArguments())
       import cats.implicits._
 
-      if (lvlTransferProved.sendStatus.isInstanceOf[Sent]) {
+      if (lvlTransferProved.sendStatus.isInstanceOf[Confirmed]) {
+        for {
+          _ <- info"Archiving Transaction LvlTransferProved"
+          _ <- Async[F]
+            .blocking(
+              client
+                .getCommandClient()
+                .submitAndWaitForTransaction(
+                  CommandsSubmission
+                    .create(
+                      "damlhub",
+                      UUID.randomUUID().toString,
+                      List(
+                        LvlTransferProved.Contract
+                          .fromCreatedEvent(evt)
+                          .id
+                          .exerciseLvlTransferProved_Archive()
+                      ).asJava
+                    )
+                    .withActAs(paramConfig.operatorParty)
+                )
+            )
+        } yield evt
+      } else if (lvlTransferProved.sendStatus.isInstanceOf[Sent]) {
         for {
           _ <- info"Confirming Transaction LvlTransferProved"
           _ <- Async[F]
@@ -265,7 +289,7 @@ trait BrokerProcessorModule extends RpcChannelResource {
         val ioTx = IoTransaction.parseFrom(Encoding.decodeFromBase58(lvlTransferProved.provedTx).toOption.get)
         for {
           _ <- info"Sending Transaction LvlTransferProved"
-          _ <- BifrostQueryAlgebra
+          txId <- BifrostQueryAlgebra
             .make[F](
               channelResource(
                 paramConfig.bifrostHost,
@@ -291,7 +315,7 @@ trait BrokerProcessorModule extends RpcChannelResource {
                             new Sent(
                               Instant.now(),
                               lvlTransferProved.requestor,
-                              lvlTransferProved.requestId
+                              Encoding.encodeToBase58(txId.value.toByteArray())
                             )
                           )
                       ).asJava
