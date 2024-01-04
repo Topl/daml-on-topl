@@ -72,6 +72,7 @@ object LvlTransferRequestModule {
       val transferRequest =
         LvlTransferRequest.valueDecoder().decode(evt.getArguments())
       import cats.implicits._
+      info"Starting Processing LvlTransferRequest" >>
       createLvlTransferRequestCommandsSubmission(paramConfig, evt, transferRequest).map(_.some)
     } else
       Async[F].delay(None)
