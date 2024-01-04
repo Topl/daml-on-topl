@@ -8,16 +8,15 @@ import cats.effect.kernel.Sync
 import cats.implicits._
 import co.topl.brambl.builders.TransactionBuilderApi.implicits._
 import co.topl.brambl.constants.NetworkConstants
-import co.topl.brambl.dataApi.RpcChannelResource
 import co.topl.brambl.syntax._
 import co.topl.brambl.utils.Encoding
 import co.topl.brambl.wallet.WalletApi
 import co.topl.daml.api.model.topl.wallet.ConversationInvitationState
 import com.daml.ledger.javaapi.data.CommandsSubmission
-import quivr.models.VerificationKey
 import org.typelevel.log4cats.Logger
+import quivr.models.VerificationKey
 
-trait ConversationModule extends RpcChannelResource {
+object ConversationModule {
 
   def createConversationModuleCommandSumission[F[_]: Sync](
     paramConfig:                 BrokerCLIParamConfig,

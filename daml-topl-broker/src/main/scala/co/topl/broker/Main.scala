@@ -1,33 +1,25 @@
 package co.topl.broker
 
-import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 
 import cats.effect.ExitCode
 import cats.effect.IO
 import cats.effect.IOApp
 import cats.effect.kernel.Async
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants
+import co.topl.brambl.dataApi.GenusQueryAlgebra
 import co.topl.brambl.servicekit.WalletKeyApi
 import co.topl.brambl.wallet.WalletApi
 import co.topl.shared.SharedDAMLUtils
+import com.daml.ledger.javaapi.data.CommandsSubmission
+import com.daml.ledger.rxjava.DamlLedgerClient
 import fs2.interop.reactivestreams._
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jFactory
 import scopt.OParser
-import co.topl.brambl.constants.NetworkConstants
-import co.topl.brambl.builders.TransactionBuilderApi
-import co.topl.brambl.dataApi.GenusQueryAlgebra
-import cats.effect.kernel.Sync
-import com.daml.ledger.javaapi.data.CommandsSubmission
-import com.daml.ledger.rxjava.DamlLedgerClient
 
-object Main
-    extends IOApp
-    with ParameterProcessorModule
-    with ConversationModule
-    with LvlTransferUnprovedModule
-    with LvlTransferRequestModule
-    with TransferProvedModule {
+object Main extends IOApp with ParameterProcessorModule with LvlTransferUnprovedModule with TransferProvedModule {
 
   override def run(args: List[String]): IO[ExitCode] =
     OParser.runParser(parser, args, BrokerCLIParamConfig()) match {
@@ -58,7 +50,6 @@ object Main
   def runWithParams[F[_]: Async: Logger](paramConfig: BrokerCLIParamConfig): F[ExitCode] = {
     import cats.implicits._
     import org.typelevel.log4cats.syntax._
-    import scala.concurrent.ExecutionContext.Implicits.global
 
     val walletKeyApi = WalletKeyApi.make[F]()
     implicit val walletApi = WalletApi.make(walletKeyApi)
@@ -101,8 +92,8 @@ object Main
                 .collect { case x: com.daml.ledger.javaapi.data.CreatedEvent => x }
                 .traverse(evt =>
                   List(
-                    processConversationInvitationState(paramConfig, evt)
-                    // processLvlTransferRequest(paramConfig, client, evt),
+                    ConversationModule.processConversationInvitationState(paramConfig, evt),
+                    LvlTransferRequestModule.processLvlTransferRequest(paramConfig, evt)
                     // processLvlTransferUnproved(paramConfig, client, evt),
                     // processLvlTransferProved(paramConfig, client, evt)
                   ).map(_.flatMap(x => runRequest(x, client))).sequence
