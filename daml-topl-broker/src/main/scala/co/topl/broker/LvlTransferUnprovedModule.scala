@@ -11,7 +11,6 @@ import co.topl.brambl.dataApi.RpcChannelResource
 import co.topl.brambl.models.Datum
 import co.topl.brambl.models.Event
 import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.brambl.servicekit.WalletKeyApi
 import co.topl.brambl.syntax._
 import co.topl.brambl.utils.Encoding
 import co.topl.brambl.wallet.CredentiallerInterpreter
@@ -24,13 +23,13 @@ import com.daml.ledger.rxjava.DamlLedgerClient
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.syntax._
 
-trait LvlTransferUnprovedModule extends RpcChannelResource {
+object LvlTransferUnprovedModule extends RpcChannelResource {
 
   def checkSignatures[F[_]: Async: Logger](
-    paramConfig: BrokerCLIParamConfig,
-    client:      DamlLedgerClient,
-    tx:          IoTransaction
-  ) = {
+    paramConfig:        BrokerCLIParamConfig,
+    client:             DamlLedgerClient,
+    tx:                 IoTransaction
+  )(implicit walletApi: WalletApi[F]) = {
     import cats.implicits._
 
     import co.topl.crypto.signing.ExtendedEd25519
@@ -38,8 +37,6 @@ trait LvlTransferUnprovedModule extends RpcChannelResource {
     val mockKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(
       Array.fill(96)(0: Byte)
     )
-    val walletKeyApi = WalletKeyApi.make[F]() // FIXME: pass as param
-    val walletApi = WalletApi.make(walletKeyApi) // FIXME: pass as param
     val walletStateAlgebraDAML = WalletStateAlgebraDAML
       .make[F](
         paramConfig.operatorParty,
@@ -81,10 +78,10 @@ trait LvlTransferUnprovedModule extends RpcChannelResource {
   }
 
   def processLvlTransferUnproved[F[_]: Async: Logger](
-    paramConfig: BrokerCLIParamConfig,
-    client:      DamlLedgerClient,
-    evt:         com.daml.ledger.javaapi.data.CreatedEvent
-  ) =
+    paramConfig:        BrokerCLIParamConfig,
+    client:             DamlLedgerClient,
+    evt:                com.daml.ledger.javaapi.data.CreatedEvent
+  )(implicit walletApi: WalletApi[F]): F[Option[CommandsSubmission]] =
     if (evt.getTemplateId() == LvlTransferUnproved.TEMPLATE_ID) {
       val lvlTransferUnproved =
         LvlTransferUnproved.valueDecoder().decode(evt.getArguments())
@@ -99,49 +96,37 @@ trait LvlTransferUnprovedModule extends RpcChannelResource {
         for {
           _      <- info"Validating Transaction LvlTransferUnproved"
           errors <- checkSignatures(paramConfig, client, ioTx)
-          _ <- Async[F]
-            .blocking(
-              client
-                .getCommandClient()
-                .submitAndWaitForTransaction(
-                  CommandsSubmission
-                    .create(
-                      "damlhub",
-                      UUID.randomUUID().toString,
-                      List(
-                        LvlTransferUnproved.Contract
-                          .fromCreatedEvent(evt)
-                          .id
-                          .exerciseLvlTransferUnproved_ProofCompleted()
-                      ).asJava
-                    )
-                    .withActAs(paramConfig.operatorParty)
-                )
-            )
-            .whenA(errors.isEmpty)
-          _ <- Async[F]
-            .blocking(
-              client
-                .getCommandClient()
-                .submitAndWaitForTransaction(
-                  CommandsSubmission
-                    .create(
-                      "damlhub",
-                      UUID.randomUUID().toString,
-                      List(
-                        LvlTransferUnproved.Contract
-                          .fromCreatedEvent(evt)
-                          .id
-                          .exerciseLvlTransferUnproved_ProofIncomplete()
-                      ).asJava
-                    )
-                    .withActAs(paramConfig.operatorParty)
-                )
-            )
-            .unlessA(errors.isEmpty)
-        } yield evt
+        } yield
+          if (errors.isEmpty)
+            CommandsSubmission
+              .create(
+                "damlhub",
+                UUID.randomUUID().toString,
+                List(
+                  LvlTransferUnproved.Contract
+                    .fromCreatedEvent(evt)
+                    .id
+                    .exerciseLvlTransferUnproved_ProofCompleted()
+                ).asJava
+              )
+              .withActAs(paramConfig.operatorParty)
+              .some
+          else
+            CommandsSubmission
+              .create(
+                "damlhub",
+                UUID.randomUUID().toString,
+                List(
+                  LvlTransferUnproved.Contract
+                    .fromCreatedEvent(evt)
+                    .id
+                    .exerciseLvlTransferUnproved_ProofIncomplete()
+                ).asJava
+              )
+              .withActAs(paramConfig.operatorParty)
+              .some
       } else
-        Async[F].delay(evt)
+        Async[F].delay(None)
     } else
-      Async[F].delay(evt)
+      Async[F].delay(None)
 }

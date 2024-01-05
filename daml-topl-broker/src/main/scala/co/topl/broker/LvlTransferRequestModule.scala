@@ -67,7 +67,7 @@ object LvlTransferRequestModule {
   )(implicit
     utxoAlgebra:           GenusQueryAlgebra[F],
     transactionBuilderApi: TransactionBuilderApi[F]
-  ) =
+  ): F[Option[CommandsSubmission]] =
     if (evt.getTemplateId() == LvlTransferRequest.TEMPLATE_ID) {
       val transferRequest =
         LvlTransferRequest.valueDecoder().decode(evt.getArguments())

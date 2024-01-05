@@ -9,6 +9,7 @@ import cats.effect.kernel.Async
 import co.topl.brambl.builders.TransactionBuilderApi
 import co.topl.brambl.constants.NetworkConstants
 import co.topl.brambl.dataApi.GenusQueryAlgebra
+import co.topl.brambl.dataApi.RpcChannelResource
 import co.topl.brambl.servicekit.WalletKeyApi
 import co.topl.brambl.wallet.WalletApi
 import co.topl.shared.SharedDAMLUtils
@@ -19,7 +20,7 @@ import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jFactory
 import scopt.OParser
 
-object Main extends IOApp with ParameterProcessorModule with LvlTransferUnprovedModule with TransferProvedModule {
+object Main extends IOApp with ParameterProcessorModule with RpcChannelResource {
 
   override def run(args: List[String]): IO[ExitCode] =
     OParser.runParser(parser, args, BrokerCLIParamConfig()) match {
@@ -57,12 +58,13 @@ object Main extends IOApp with ParameterProcessorModule with LvlTransferUnproved
       paramConfig.network.networkId,
       NetworkConstants.MAIN_LEDGER_ID
     )
+    implicit val channelRes = channelResource(
+      paramConfig.bifrostHost,
+      paramConfig.bifrostPort,
+      paramConfig.bifrostSecurityEnabled
+    )
     implicit val utxoAlgebra = GenusQueryAlgebra.make[F](
-      channelResource(
-        paramConfig.bifrostHost,
-        paramConfig.bifrostPort,
-        paramConfig.bifrostSecurityEnabled
-      )
+      channelRes
     )
     for {
       someAccessToken <-
@@ -93,9 +95,9 @@ object Main extends IOApp with ParameterProcessorModule with LvlTransferUnproved
                 .traverse(evt =>
                   List(
                     ConversationModule.processConversationInvitationState(paramConfig, evt),
-                    LvlTransferRequestModule.processLvlTransferRequest(paramConfig, evt)
-                    // processLvlTransferUnproved(paramConfig, client, evt),
-                    // processLvlTransferProved(paramConfig, client, evt)
+                    LvlTransferRequestModule.processLvlTransferRequest(paramConfig, evt),
+                    LvlTransferUnprovedModule.processLvlTransferUnproved(paramConfig, client, evt),
+                    TransferProvedModule.processLvlTransferProved(paramConfig, evt)
                   ).map(_.flatMap(x => runRequest(x, client))).sequence
                 )
             )
