@@ -129,7 +129,6 @@ class LvlTransferRequestSpec extends CatsEffectSuite with DummyObjects {
         .map(x => Some(Encoding.encodeToBase58(x))),
       Some(
         "DAas2fmY1dfpVkTYSJXp3U1CD7yTMEonum2xG9BJmNtQ"
-        // Encoding.encodeToBase58(transactionId01.value.toByteArray())
       )
     )
   }
