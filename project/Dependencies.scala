@@ -32,11 +32,11 @@ object Dependencies {
   val brambl: Seq[ModuleID] = Seq(bramblSdk, bramblCrypto, bramblServiceKit)
 
   lazy val munit: Seq[ModuleID] = Seq(
-    "org.scalameta" %% "munit" % "1.0.0-M8"
+    "org.scalameta" %% "munit" % "1.0.0-M10"
   )
 
   lazy val munitCatsEffects: Seq[ModuleID] = Seq(
-    "org.typelevel" %% "munit-cats-effect-3" % "1.0.7"
+    "org.typelevel" %% "munit-cats-effect" % "2.0.0-M4"
   )
 
   val cats: Seq[ModuleID] = Seq(
